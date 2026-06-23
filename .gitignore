@@ -1,0 +1,18 @@
+# Entornos virtuales
+venv/
+env/
+
+# Variables de entorno y secretos
+.env
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Archivos de la base de datos local (si usas SQLite de prueba)
+*.db
+*.sqlite3
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
