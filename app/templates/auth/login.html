@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row g-0 min-vh-100 align-items-stretch">
+    
+    <div class="col-lg-4 bg-primary text-white d-none d-lg-flex flex-column justify-content-between p-5" style="background: linear-gradient(135deg, #0d6efd 0%, #0a46a6 100%) !important;">
+        <div class="text-center my-auto">
+            <i class="bi bi-balance-scale display-1 mb-3"></i>
+            <h2 class="fw-bold text-uppercase tracking-wide mb-1">Oficina de Abogados</h2>
+            <h3 class="h4 fw-light mb-4">Rosado Méndez y Asoc. </h3>
+            <p class="small text-white-50 mb-4">Soluciones Jurídicas en General </p>
+            
+            <hr class="border-white opacity-25 my-4">
+            
+            <div class="text-start px-3">
+                <h5 class="fw-bold text-uppercase mb-3 small tracking-wider"><i class="bi bi-briefcase-fill me-2"></i>Servicios Jurídicos: [cite: 256, 257]</h5>
+                <ul class="list-unstyled lh-lg">
+                    <li><i class="bi bi-chevron-right me-1 small"></i> <strong>Derecho Migratorio:</strong> Visas, residencias, ciudadanía [cite: 258]</li>
+                    <li><i class="bi bi-chevron-right me-1 small"></i> Civil [cite: 258]</li>
+                    <li><i class="bi bi-chevron-right me-1 small"></i> Comercial [cite: 259]</li>
+                    <li><i class="bi bi-chevron-right me-1 small"></i> Inmobiliario [cite: 260]</li>
+                    <li><i class="bi bi-chevron-right me-1 small"></i> Laboral [cite: 261]</li>
+                    <li><i class="bi bi-chevron-right me-1 small"></i> Penal [cite: 262]</li>
+                    <li><i class="bi bi-chevron-right me-1 small"></i> Tributario [cite: 263]</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="text-center text-white-50 small mt-auto">
+            <i class="bi bi-telephone-fill me-2"></i> 829-299-3186 
+        </div>
+    </div>
+    
+    <div class="col-lg-8 d-flex align-items-center justify-content-center bg-light p-4 p-md-5">
+        <div class="card shadow-lg border-0 p-4 p-md-5" style="max-width: 450px; width: 100%; border-radius: 16px;">
+            
+            <div class="text-center mb-4">
+                <h1 class="h3 fw-bold text-dark">Inicio de Sesión [cite: 249]</h1>
+                <p class="text-muted small">Ingrese sus credenciales de acceso institucional</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show small py-2" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem 1rem;"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login') }}" novalidate>
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    <label for="email" class="form-label text-secondary small fw-semibold">{{ form.email.label }} [cite: 251]</label>
+                    <div class="input-group">
+                        {{ form.email(class="form-box form-control", placeholder="usuario@rosadomendez.com", id="email") }}
+                        <span class="input-group-text bg-white text-muted"><i class="bi bi-at"></i></span>
+                    </div>
+                    {% if form.email.errors %}
+                        {% for error in form.email.errors %}
+                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label text-secondary small fw-semibold">{{ form.password.label }} [cite: 253]</label>
+                    <div class="input-group">
+                        {{ form.password(class="form-control", placeholder="••••••••", id="password") }}
+                        <span class="input-group-text bg-white text-muted"><i class="bi bi-lock-fill"></i></span>
+                    </div>
+                    {% if form.password.errors %}
+                        {% for error in form.password.errors %}
+                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <div class="mb-4 d-flex justify-content-between align-items-center small">
+                    <div class="form-check">
+                        {{ form.recordarme(class="form-check-input", id="recordarme") }}
+                        <label class="form-check-label text-muted" for="recordarme">
+                            Keep me logged in
+                        </label>
+                    </div>
+                    <a href="#" class="text-decoration-none fw-medium text-primary">¿Olvidaste tu contraseña? [cite: 266]</a>
+                </div>
+
+                <div class="d-grid">
+                    {{ form.submit(class="btn btn-primary btn-lg fw-bold shadow-sm py-2", style="border-radius: 8px;") }} [cite: 265]
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
