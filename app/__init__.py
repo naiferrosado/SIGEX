@@ -1,7 +1,8 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_login import LoginManager  #Importar el gestor de sesiones
+from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
 
 # IMPORTACIÓN DIRECTA DE CONFIGURACIÓN
 from config import Config
@@ -9,7 +10,8 @@ from config import Config
 # Inicializamos las extensiones globales
 db = SQLAlchemy()
 migrate = Migrate()
-login_manager = LoginManager()  # <-- 2. Creamos la instancia
+login_manager = LoginManager()
+csrf = CSRFProtect()
 
 # Configuraciones de seguridad para Flask-Login
 login_manager.login_view = 'login'  # Le dice a Flask a qué ruta mandar a los intrusos
@@ -26,6 +28,7 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    csrf.init_app(app)
 
     # Le enseñamos a Flask-Login cómo buscar usuarios en PostgreSQL
     from app.models import Usuario
