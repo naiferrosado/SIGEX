@@ -2,8 +2,8 @@ from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, current_user, logout_user, login_required
 from app import db
 from app.models import Usuario, Cliente, Expediente, Documento, AlertaPlazoAudiencia, FacturaHonorario
-from app.forms import LoginForm, ClienteForm
-from werkzeug.security import check_password_hash
+from app.forms import LoginForm, ClienteForm, UsuarioForm
+from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
@@ -179,3 +179,103 @@ def register_routes(app):
     def logout():
         logout_user()
         return redirect(url_for('login'))
+    
+# --- HELPER PARA USUARIOS ---
+    def _serialize_usuarios(usuarios):
+        return [{
+            'id': u.id,
+            'nombre': u.nombre,
+            'email': u.email,
+            'rol': u.rol,
+            'activo': bool(u.activo),
+            'requiere_cambio': bool(u.requiere_cambio_password)
+        } for u in usuarios]
+
+    # --- RUTAS DE USUARIOS ---
+    @app.route('/usuarios')
+    @login_required
+    def usuarios():
+        # Por seguridad, puedes agregar: if current_user.rol != 'Administrador': return redirect(url_for('dashboard'))
+        form = UsuarioForm()
+        usuarios_db = Usuario.query.order_by(Usuario.nombre.asc()).all()
+        usuarios_data = _serialize_usuarios(usuarios_db)
+        return render_template('usuarios/usuarios.html', form=form, usuario=current_user, usuarios=usuarios_db, usuarios_data=usuarios_data, current_date=datetime.now())
+
+    @app.route('/usuarios/agregar', methods=['POST'])
+    @login_required
+    def agregar_usuario():
+        form = UsuarioForm()
+        
+        if form.validate_on_submit():
+            # Validación manual de clave para usuarios nuevos
+            if not form.password.data:
+                flash('La contraseña es obligatoria para usuarios nuevos.', 'danger')
+                return redirect(url_for('usuarios'))
+
+            if Usuario.query.filter_by(email=form.email.data).first():
+                flash('Ya existe un usuario con ese correo electrónico.', 'warning')
+                return redirect(url_for('usuarios'))
+
+            nuevo_usuario = Usuario(
+                nombre=form.nombre.data.strip(),
+                email=form.email.data.strip(),
+                rol=form.rol.data,
+                password_hash=generate_password_hash(form.password.data),
+                activo=True,
+                requiere_cambio_password=True # Fuerza al usuario a cambiarla al entrar
+            )
+            db.session.add(nuevo_usuario)
+            db.session.commit()
+            flash('Usuario creado exitosamente.', 'success')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f'Error en {getattr(form, field).label.text}: {error}', 'danger')
+
+        return redirect(url_for('usuarios'))
+
+    @app.route('/usuarios/<int:usuario_id>/editar', methods=['POST'])
+    @login_required
+    def editar_usuario(usuario_id):
+        usuario = Usuario.query.get_or_404(usuario_id)
+        form = UsuarioForm()
+
+        if form.validate_on_submit():
+            duplicado = Usuario.query.filter_by(email=form.email.data).first()
+            if duplicado and duplicado.id != usuario.id:
+                flash('Ese correo ya está en uso por otro usuario.', 'warning')
+                return redirect(url_for('usuarios'))
+
+            usuario.nombre = form.nombre.data.strip()
+            usuario.email = form.email.data.strip()
+            usuario.rol = form.rol.data
+            
+            # Solo actualizamos la contraseña si el admin escribió una nueva
+            if form.password.data:
+                usuario.password_hash = generate_password_hash(form.password.data)
+                usuario.requiere_cambio_password = True # Si el admin se la cambia, debe volver a actualizarla
+
+            db.session.commit()
+            flash('Usuario actualizado correctamente.', 'success')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f'Error al editar: {error}', 'danger')
+
+        return redirect(url_for('usuarios'))
+
+    @app.route('/usuarios/<int:usuario_id>/desactivar', methods=['POST'])
+    @login_required
+    def desactivar_usuario(usuario_id):
+        # Evitar que el administrador se desactive a sí mismo
+        if usuario_id == current_user.id:
+            flash('No puedes desactivar tu propia cuenta.', 'danger')
+            return redirect(url_for('usuarios'))
+
+        usuario = Usuario.query.get_or_404(usuario_id)
+        usuario.activo = not usuario.activo
+        db.session.commit()
+        
+        estado = "reactivado" if usuario.activo else "suspendido"
+        flash(f'Acceso de usuario {estado}.', 'success')
+        return redirect(url_for('usuarios'))

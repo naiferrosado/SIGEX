@@ -41,3 +41,24 @@ class ClienteForm(FlaskForm):
     direccion = TextAreaField('Dirección Física', validators=[Optional(), Length(max=500)])
     consentimiento = BooleanField('Autorización Ley 172-13')
     submit = SubmitField('Guardar Cliente')
+
+
+# --- FORMULARIO DE SEGURIDAD PARA USUARIOS ---
+class UsuarioForm(FlaskForm):
+    nombre = StringField('Nombre Completo', validators=[
+        DataRequired(message="El nombre es obligatorio.")
+    ])
+    email = StringField('Correo Electrónico', validators=[
+        DataRequired(message="El correo es obligatorio."),
+        Email(message="Ingrese un formato de correo válido.")
+    ])
+    rol = SelectField('Rol en el Sistema', choices=[
+        ('Administrador', 'Administrador'),
+        ('Socio', 'Socio'),
+        ('Asociado', 'Asociado'),
+        ('Paralegal', 'Paralegal'),
+        ('Cliente', 'Cliente')
+    ])
+    # Opcional en el form. La ruta de "agregar" validará si está vacío.
+    password = PasswordField('Contraseña', validators=[Optional(), Length(min=6, message="La clave debe tener al menos 6 caracteres.")])
+    submit = SubmitField('Guardar Usuario')
