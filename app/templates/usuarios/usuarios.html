@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">Usuarios del Sistema</h2>
+            <p class="text-muted small mb-0">Gestión de accesos, roles y credenciales del personal.</p>
+        </div>
+        <button class="btn btn-primary shadow-sm fw-semibold d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modalAgregarUsuario">
+            <i class="bi bi-person-plus-fill fs-5"></i> Nuevo usuario
+        </button>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
+                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        
+        <div class="col-xl-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                
+                <div class="card-header bg-white border-bottom p-3 d-flex gap-2 align-items-center flex-wrap rounded-top-4">
+                    <div class="input-group input-group-sm flex-grow-1" style="max-width: 350px;">
+                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control bg-light border-start-0" id="searchInput" placeholder="Buscar por nombre o correo...">
+                    </div>
+                    <select class="form-select form-select-sm bg-light w-auto" id="statusFilter">
+                        <option value="Todos">Todos los estados</option>
+                        <option value="Activo">Activos</option>
+                        <option value="Inactivo">Suspendidos</option>
+                    </select>
+                    <select class="form-select form-select-sm bg-light w-auto" id="roleFilter">
+                        <option value="Todos">Todos los roles</option>
+                        <option value="Administrador">Administrador</option>
+                        <option value="Socio">Socio</option>
+                        <option value="Asociado">Asociado</option>
+                        <option value="Paralegal">Paralegal</option>
+                        <option value="Cliente">Cliente</option>
+                    </select>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-muted fw-semibold">
+                            <tr>
+                                <th class="ps-4 py-3">Usuario</th>
+                                <th class="py-3">Rol</th>
+                                <th class="py-3">Correo electrónico</th>
+                                <th class="py-3">Estado</th>
+                                <th class="py-3 pe-4 text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usuariosTableBody">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center rounded-bottom-4 text-muted small">
+                    <span id="paginationInfo">Mostrando registros...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4 position-sticky shadow-sm" style="top: 20px;" id="detailsPanel">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h6 class="mb-0 fw-bold" style="color: #071c4d;"><i class="bi bi-shield-lock-fill me-2 text-primary"></i>Detalle de Acceso</h6>
+                </div>
+                
+                <div class="card-body p-4 text-center">
+                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold text-secondary shadow-sm" style="width: 65px; height: 65px; font-size: 1.5rem;" id="detAvatar">
+                        ?
+                    </div>
+                    <h5 class="fw-bold mb-1 text-dark" id="detName">Seleccione un usuario</h5>
+                    <p class="text-muted small mb-2" id="detRoleSub">Ningún rol</p>
+                    <div class="mb-3" id="detStatusBadgeContainer">
+                        <span class="badge bg-secondary">Inactivo</span>
+                    </div>
+
+                    <div class="text-start small mt-4">
+                        <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Información del Sistema</div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Correo (Login):</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detCorreo">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rol asignado:</span><span class="fw-semibold text-dark" id="detRol">—</span></div>
+                        <div class="d-flex justify-content-between py-2"><span class="text-muted">Clave temporal:</span><span class="fw-semibold" id="detClave">—</span></div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex gap-2">
+                    <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold disabled" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Modificar</button>
+                    <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;" onsubmit="return confirm('¿Confirma cambiar el estado de acceso de este usuario?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-slash-circle me-1"></i> Suspender</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="modalAgregarUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-person-plus-fill text-primary me-2"></i>Crear Usuario</h5>
+                    <p class="text-muted small mb-0">Las credenciales generadas deberán ser cambiadas en el primer inicio de sesión.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form method="POST" action="{{ url_for('agregar_usuario') }}">
+                {{ form.hidden_tag() }}
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">{{ form.nombre.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.nombre(class="form-control form-control-sm", placeholder="Ej. Carlos Mendoza") }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">{{ form.email.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.email(class="form-control form-control-sm", placeholder="carlos@rosadomendez.com") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">{{ form.rol.label.text }}</label>
+                        {{ form.rol(class="form-select form-select-sm") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Contraseña Inicial <span class="text-danger">*</span></label>
+                        {{ form.password(class="form-control form-control-sm", placeholder="Mínimo 6 caracteres") }}
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    {{ form.submit(class="btn btn-sm btn-primary fw-semibold") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-pencil-square text-primary me-2"></i>Modificar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formEditarAction">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Nombre Completo</label>
+                        <input type="text" class="form-control form-control-sm" name="nombre" id="editNombre" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Correo Electrónico (Login)</label>
+                        <input type="email" class="form-control form-control-sm" name="email" id="editCorreo" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Rol del Sistema</label>
+                        <select class="form-select form-select-sm" name="rol" id="editRol">
+                            <option value="Administrador">Administrador</option>
+                            <option value="Socio">Socio</option>
+                            <option value="Asociado">Asociado</option>
+                            <option value="Paralegal">Paralegal</option>
+                            <option value="Cliente">Cliente</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nueva Contraseña</label>
+                        <input type="password" class="form-control form-control-sm" name="password" placeholder="Opcional. Deje en blanco para no cambiar.">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="data-container" data-registros='{{ usuarios_data | tojson | safe }}' hidden></div>
+
+<script>
+    const registros = JSON.parse(document.getElementById('data-container').dataset.registros || '[]');
+    let seleccionadoId = null;
+
+    function renderTable() {
+        const tbody = document.getElementById('usuariosTableBody');
+        const searchVal = document.getElementById('searchInput').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const roleFilter = document.getElementById('roleFilter').value;
+
+        const filtrados = registros.filter(r => {
+            const matchesSearch = r.nombre.toLowerCase().includes(searchVal) || r.email.toLowerCase().includes(searchVal);
+            const matchesStatus = statusFilter === 'Todos' || (statusFilter === 'Activo' && r.activo) || (statusFilter === 'Inactivo' && !r.activo);
+            const matchesRole = roleFilter === 'Todos' || r.rol === roleFilter;
+            
+            return matchesSearch && matchesStatus && matchesRole;
+        });
+
+        document.getElementById('paginationInfo').innerText = `Mostrando ${filtrados.length} de ${registros.length} usuarios`;
+        tbody.innerHTML = '';
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron usuarios.</td></tr>';
+            return;
+        }
+
+        filtrados.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            if (r.id === seleccionadoId) tr.classList.add('table-primary');
+
+            const badge = r.activo 
+                ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Activo</span>' 
+                : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Suspendido</span>';
+            
+            const iniciales = r.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+            
+            let colorRol = 'text-muted';
+            if(r.rol === 'Administrador') colorRol = 'text-danger fw-bold';
+            if(r.rol === 'Socio') colorRol = 'text-primary fw-semibold';
+
+            tr.innerHTML = `
+                <td class="ps-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.75rem;">${iniciales}</div>
+                        <span class="fw-semibold text-dark">${r.nombre}</span>
+                    </div>
+                </td>
+                <td class="${colorRol}">${r.rol}</td>
+                <td class="text-muted">${r.email}</td>
+                <td>${badge}</td>
+                <td class="pe-4 text-end">
+                    <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
+                </td>
+            `;
+
+            tr.onclick = () => {
+                seleccionadoId = r.id;
+                renderTable(); 
+                
+                document.getElementById('detAvatar').innerText = iniciales;
+                document.getElementById('detAvatar').className = `rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold fs-2 text-white ${r.activo ? 'bg-dark' : 'bg-secondary'}`;
+                document.getElementById('detName').innerText = r.nombre;
+                document.getElementById('detRoleSub').innerText = r.rol;
+                document.getElementById('detStatusBadgeContainer').innerHTML = badge;
+                
+                document.getElementById('detCorreo').innerText = r.email;
+                document.getElementById('detRol').innerText = r.rol;
+                
+                const claveReq = document.getElementById('detClave');
+                if (r.requiere_cambio) {
+                    claveReq.innerText = "Debe cambiarla al ingresar";
+                    claveReq.className = "fw-semibold text-warning";
+                } else {
+                    claveReq.innerText = "Segura (Cambiada por usuario)";
+                    claveReq.className = "fw-semibold text-success";
+                }
+
+                // Modal de Edición
+                const btnEdit = document.getElementById('btnEditarPanel');
+                btnEdit.classList.remove('disabled');
+                btnEdit.onclick = () => {
+                    document.getElementById('editNombre').value = r.nombre;
+                    document.getElementById('editCorreo').value = r.email;
+                    document.getElementById('editRol').value = r.rol;
+                    document.getElementById('formEditarAction').action = `/usuarios/${r.id}/editar`;
+                    new bootstrap.Modal(document.getElementById('modalEditarUsuario')).show();
+                };
+
+                // Botón Desactivar
+                const btnDesactivar = document.getElementById('btnDesactivarPanel');
+                btnDesactivar.classList.remove('disabled');
+                if (!r.activo) {
+                    btnDesactivar.innerHTML = '<i class="bi bi-toggle-on me-1"></i> Reactivar';
+                    btnDesactivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                } else {
+                    btnDesactivar.innerHTML = '<i class="bi bi-slash-circle me-1"></i> Suspender';
+                    btnDesactivar.className = 'btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold';
+                }
+                document.getElementById('formDesactivarPanel').action = `/usuarios/${r.id}/desactivar`;
+            };
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', renderTable);
+    document.getElementById('statusFilter').addEventListener('change', renderTable);
+    document.getElementById('roleFilter').addEventListener('change', renderTable);
+
+    window.onload = () => {
+        renderTable();
+        if (registros.length > 0) {
+            setTimeout(() => { document.querySelector('#usuariosTableBody tr').click(); }, 50);
+        }
+    };
+</script>
+{% endblock %}
