@@ -40,18 +40,22 @@ class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     rnc_cedula = db.Column(db.String(11), unique=True, nullable=False)
     nombre = db.Column(db.String(255), nullable=False)
+    
+    # --- NUEVOS CAMPOS ---
+    tipo_cliente = db.Column(db.String(50), nullable=False, default='Persona física')
+    fecha_nacimiento = db.Column(db.Date, nullable=True)
+    direccion = db.Column(db.Text, nullable=True)
+    # ---------------------
+    
     telefono = db.Column(db.String(20), nullable=True)
     email_contacto = db.Column(db.String(150), nullable=False)
     consentimiento_datos = db.Column(db.Boolean, nullable=False, default=False)
     fecha_consentimiento = db.Column(db.DateTime(timezone=True), nullable=True)
     
-    # Enlace opcional para el portal de clientes (ON DELETE SET NULL)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True)
 
-    # Relaciones
     expedientes = db.relationship('Expediente', backref='titular', lazy=True)
     facturas = db.relationship('FacturaHonorario', backref='cliente', lazy=True)
-
 # 2. GESTIÓN DE EXPEDIENTES Y ALERTAS
 
 class Expediente(db.Model):
