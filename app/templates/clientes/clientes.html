@@ -1,593 +1,393 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="dashboard-shell">
-    <aside class="sidebar">
-        <div class="logo-section">
-            <span style="font-size: 22px; font-weight: 700;">SIGEX</span>
-            <h3>Oficina de Abogados<br>Rosado Méndez & Asoc.</h3>
+<!-- INYECTAr EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">Clientes</h2>
+            <p class="text-muted small mb-0">Administra y consulta la información de los clientes del bufete.</p>
         </div>
+        <button class="btn btn-primary shadow-sm fw-semibold d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modalAgregarCliente">
+            <i class="bi bi-person-plus-fill fs-5"></i> Nuevo cliente
+        </button>
+    </div>
 
-        <div class="user-profile">
-            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Admin">
-            <div class="user-info">
-                <h4>{{ usuario.nombre }}</h4>
-                <p>Rol: {{ usuario.rol }}</p>
-                <div class="status-online">En línea</div>
-            </div>
-        </div>
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
+                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-        <ul class="menu-items">
-            <li><a href="{{ url_for('dashboard') }}" class="menu-item">Dashboard</a></li>
-            <li><a href="{{ url_for('clientes') }}" class="menu-item active">Clientes</a></li>
-            <li><a href="#" class="menu-item">Expedientes</a></li>
-            <li><a href="#" class="menu-item">Documentos</a></li>
-        </ul>
-
-        <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar sesión</a>
-    </aside>
-
-    <main class="main-content">
-        <header class="header">
-            <div>
-                <h1>Clientes</h1>
-                <p>Administra y consulta la información de tus clientes.</p>
-            </div>
-            <button class="btn-new-client" type="button" onclick="openModal()">
-                Nuevo cliente
-            </button>
-        </header>
-
-        <section class="workspace">
-            <div class="main-panel">
-                <div class="toolbar">
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="Buscar cliente por nombre, cédula o correo...">
+    <div class="row g-4">
+        
+        <!-- COLUMNA IZQUIERDA: Tabla -->
+        <div class="col-xl-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                
+                <div class="card-header bg-white border-bottom p-3 d-flex gap-2 align-items-center flex-wrap rounded-top-4">
+                    <div class="input-group input-group-sm flex-grow-1" style="max-width: 350px;">
+                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control bg-light border-start-0" id="searchInput" placeholder="Buscar por nombre, cédula o correo...">
                     </div>
-                    <select class="filter-select" id="statusFilter">
-                        <option value="Todos">Todos</option>
-                        <option value="Activo">Activo</option>
-                        <option value="Inactivo">Inactivo</option>
+                    <select class="form-select form-select-sm bg-light w-auto" id="statusFilter">
+                        <option value="Todos">Todos los estados</option>
+                        <option value="Activo">Activos</option>
+                        <option value="Inactivo">Inactivos</option>
                     </select>
-                    <select class="filter-select" id="typeFilter">
-                        <option value="Todos">Todos</option>
+                    <select class="form-select form-select-sm bg-light w-auto" id="typeFilter">
+                        <option value="Todos">Todos los tipos</option>
                         <option value="Persona física">Persona física</option>
                         <option value="Persona jurídica">Persona jurídica</option>
                     </select>
-                    <button class="btn-more-filters" onclick="alert('Filtros avanzados')">
-                        Más filtros
-                    </button>
                 </div>
 
-                <div class="table-container">
-                    <table>
-                        <thead>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-muted fw-semibold">
                             <tr>
-                                <th>Cliente</th>
-                                <th>Cédula / RNC</th>
-                                <th>Teléfono</th>
-                                <th>Correo electrónico</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
+                                <th class="ps-4 py-3">Cliente</th>
+                                <th class="py-3">Cédula / RNC</th>
+                                <th class="py-3">Teléfono</th>
+                                <th class="py-3">Correo electrónico</th>
+                                <th class="py-3">Estado</th>
+                                <th class="py-3 pe-4 text-end">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="clientsTableBody"></tbody>
+                        <tbody id="clientsTableBody">
+                            <!-- Inyección por JS -->
+                        </tbody>
                     </table>
                 </div>
 
-                <div class="pagination-bar">
-                    <span id="paginationInfo">Mostrando clientes</span>
-                    <div class="pagination-pages">
-                        <span class="page-num active">1</span>
-                        <span class="page-num">2</span>
-                        <span class="page-num">3</span>
-                        <span class="page-num">...</span>
-                        <span class="page-num">6</span>
-                    </div>
-                    <div>
-                        <select class="filter-select" style="padding:5px 10px; min-width:auto;">
-                            <option>10 por página</option>
-                        </select>
+                <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center rounded-bottom-4 text-muted small">
+                    <span id="paginationInfo">Mostrando registros...</span>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-light border disabled">1</button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="details-panel" id="detailsPanel">
-                <div class="details-header">
-                    <h2>Detalle del cliente</h2>
-                    <span class="close-details" onclick="alert('El panel es estático por diseño.')" style="font-size: 14px;">Cerrar</span>
+        <!-- COLUMNA DERECHA: Panel de Detalles -->
+        <div class="col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4 position-sticky shadow-sm" style="top: 20px;" id="detailsPanel">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h6 class="mb-0 fw-bold" style="color: #071c4d;"><i class="bi bi-eye-fill me-2 text-primary"></i>Detalle del cliente</h6>
                 </div>
+                
+                <div class="card-body p-4 text-center">
+                    <div class="bg-light rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold text-secondary shadow-sm" style="width: 55px; height: 55px; font-size: 1.25rem;" id="detAvatar">
+                        ?
+                    </div>
+                    <h5 class="fw-bold mb-1 text-dark" id="detName">Seleccione un registro</h5>
+                    <div class="mb-3" id="detStatusBadgeContainer">
+                        <span class="badge bg-secondary">Ninguno</span>
+                    </div>
+                    
+                    <ul class="nav nav-tabs justify-content-center mb-3 small" role="tablist">
+                        <li class="nav-item"><a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general">General</a></li>
+                        <li class="nav-item"><a class="nav-link py-1 px-2 text-muted disabled" href="#">Expedientes</a></li>
+                    </ul>
 
-                <div class="client-profile-summary">
-                    <div class="large-avatar" id="detAvatar" style="background:#e8f0fe; color:#0046d5;">CL</div>
-                    <div>
-                        <h3 id="detName" style="font-size:13px; font-weight:700;">Seleccione un cliente</h3>
-                        <span class="status-badge" id="detStatusBadge">Sin seleccionar</span>
-                        <p id="detTypeSub" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Esperando selección</p>
+                    <div class="tab-content text-start small">
+                        <div class="tab-pane fade show active" id="tab-general">
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Datos Personales</div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Cédula / RNC:</span><span class="fw-semibold text-dark" id="detCedula">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Nacimiento:</span><span class="fw-semibold text-dark" id="detNacimiento">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Teléfono:</span><span class="fw-semibold text-dark" id="detTelefono">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Correo:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detCorreo">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Dirección:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detDireccion" title="">—</span></div>
+                            
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Información Adicional</div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de cliente:</span><span class="fw-semibold text-dark" id="detType">—</span></div>
+                            <div class="d-flex justify-content-between py-2"><span class="text-muted">Ley 172-13:</span><span class="fw-semibold text-success" id="detConsentimiento">—</span></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="tabs-container">
-                    <span class="tab-item active">Información general</span>
-                    <span class="tab-item">Expedientes (2)</span>
-                    <span class="tab-item">Documentos</span>
-                    <span class="tab-item">Notas</span>
-                </div>
-
-                <div class="details-content">
-                    <div class="info-group-title">Datos personales</div>
-                    <div class="info-row"><div class="info-label">Cédula</div><div class="info-value" id="detCedula">Sin datos</div></div>
-                    <div class="info-row"><div class="info-label">Nacimiento</div><div class="info-value" id="detNacimiento">Sin datos</div></div>
-                    <div class="info-row"><div class="info-label">Teléfono</div><div class="info-value" id="detTelefono">Sin datos</div></div>
-                    <div class="info-row"><div class="info-label">Correo</div><div class="info-value" id="detCorreo">Sin datos</div></div>
-                    <div class="info-row"><div class="info-label">Dirección</div><div class="info-value" id="detDireccion">Sin datos</div></div>
-
-                    <div class="info-group-title">Información adicional</div>
-                    <div class="info-row"><div class="info-label">Tipo de cliente</div><div class="info-value" id="detType">Sin datos</div></div>
-                    <div class="info-row"><div class="info-label">Registro</div><div class="info-value" id="detRegistro">Sin datos</div></div>
-                    <div class="info-row"><div class="info-label">Registrado por</div><div class="info-value" id="detRegistradoPor">Sin datos</div></div>
-                </div>
-
-                <div class="details-footer">
-                    <button class="btn-panel-action btn-edit" type="button" onclick="openEditModal()">Editar cliente</button>
-                    <form method="post" action="" id="desactivarForm" style="flex:1;">
-                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button class="btn-panel-action btn-disable" type="submit" onclick="return confirm('¿Desea desactivar este cliente?')">Desactivar cliente</button>
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex gap-2">
+                    <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold disabled" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Editar</button>
+                    <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;" onsubmit="return confirm('¿Está seguro de que desea cambiar el estado de este cliente?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-toggle-off me-1"></i> Desactivar</button>
                     </form>
                 </div>
             </div>
-        </section>
-    </main>
-</div>
-
-<div id="modalCliente" class="modal-backdrop">
-    <div class="modal-card">
-        <div class="modal-header">
-            <div>
-                <h3>Agregar nuevo cliente</h3>
-                <p>Complete la información para registrar un nuevo cliente.</p>
-            </div>
-            <button class="icon-btn" type="button" onclick="closeModal()">Cerrar</button>
         </div>
+    </div>
+</main>
 
-        <form class="modal-form" method="post" action="{{ url_for('agregar_cliente') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="modal-main">
-                <div class="stepper">
-                    <div class="step active"><span class="step-circle">1</span><div><strong>Información personal</strong><small>Datos básicos del cliente</small></div></div>
-                    <div class="step"><span class="step-circle">2</span><div><strong>Contacto</strong><small>Correo y teléfono</small></div></div>
-                    <div class="step"><span class="step-circle">3</span><div><strong>Consentimiento</strong><small>Protección de datos</small></div></div>
+<!-- MODAL AGREGAR CLIENTE -->
+<div class="modal fade" id="modalAgregarCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-person-plus-fill text-primary me-2"></i>Agregar nuevo cliente</h5>
+                    <p class="text-muted small mb-0">Cumpla con los campos mandatorios del formulario.</p>
                 </div>
-
-                <div class="form-section">
-                    <div class="section-title">Información personal</div>
-                    <div class="form-grid">
-                        <div class="field-group">
-                            <label>Tipo de cliente</label>
-                            <select name="tipo_cliente" id="tipoCliente" onchange="syncSummary()">
-                                <option value="Persona física">Persona física</option>
-                                <option value="Persona jurídica">Persona jurídica</option>
-                            </select>
-                        </div>
-                        <div class="field-group">
-                            <label>Nombre</label>
-                            <input type="text" name="nombre" id="nombreCliente" placeholder="Ej. Juan" oninput="syncSummary()" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Apellido</label>
-                            <input type="text" name="apellido" id="apellidoCliente" placeholder="Ej. Pérez" oninput="syncSummary()" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Cédula / RNC</label>
-                            <input type="text" name="rnc_cedula" id="cedulaCliente" placeholder="Ej. 40212345678" oninput="syncSummary()" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Fecha de nacimiento</label>
-                            <input type="text" name="fecha_nacimiento" id="fechaNacimientoCliente" placeholder="Ej. 15/03/1985" oninput="syncSummary()">
-                        </div>
-                        <div class="field-group">
-                            <label>Dirección</label>
-                            <input type="text" name="direccion" id="direccionCliente" placeholder="Ej. Calle 27 de Febrero #123" oninput="syncSummary()">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-section">
-                    <div class="section-title">Información de contacto</div>
-                    <div class="form-grid">
-                        <div class="field-group">
-                            <label>Teléfono</label>
-                            <input type="text" name="telefono" id="telefonoCliente" placeholder="Ej. 809-000-0000" oninput="syncSummary()">
-                        </div>
-                        <div class="field-group">
-                            <label>Correo electrónico</label>
-                            <input type="email" name="email_contacto" id="correoCliente" placeholder="correo@ejemplo.com" oninput="syncSummary()" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Observaciones</label>
-                            <textarea name="observaciones" rows="3" placeholder="Detalles adicionales"></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="checkbox-row">
-                    <input type="checkbox" name="consentimiento" id="consentimientoCliente" checked>
-                    <label for="consentimientoCliente">El cliente ha firmado la autorización para el tratamiento de sus datos personales.</label>
-                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            
+            <form method="POST" action="{{ url_for('agregar_cliente') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12"><h6 class="fw-bold text-primary mb-1 small text-uppercase tracking-wider">Información Básica</h6></div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">{{ form.nombre.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.nombre(class="form-control form-control-sm", placeholder="Ej. Juan") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">{{ form.apellido.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.apellido(class="form-control form-control-sm", placeholder="Ej. Pérez") }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">{{ form.rnc_cedula.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.rnc_cedula(class="form-control form-control-sm", placeholder="00112345678") }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">{{ form.fecha_nacimiento.label.text }}</label>
+                        {{ form.fecha_nacimiento(class="form-control form-control-sm", type="date") }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">{{ form.tipo_cliente.label.text }}</label>
+                        {{ form.tipo_cliente(class="form-select form-select-sm") }}
+                    </div>
 
-            <aside class="modal-summary">
-                <div class="summary-card">
-                    <div class="summary-avatar" id="summaryAvatar">JP</div>
-                    <h4 id="summaryName">Juan Pérez</h4>
-                    <p id="summaryType">Persona física</p>
-                    <div class="summary-list">
-                        <div><span>Cédula / RNC</span><strong id="summaryCedula">—</strong></div>
-                        <div><span>Teléfono</span><strong id="summaryTelefono">—</strong></div>
-                        <div><span>Correo</span><strong id="summaryCorreo">—</strong></div>
-                        <div><span>Dirección</span><strong id="summaryDireccion">—</strong></div>
+                    <div class="col-12 mt-4"><h6 class="fw-bold text-primary mb-1 small text-uppercase tracking-wider">Medios de Contacto</h6></div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">{{ form.telefono.label.text }}</label>
+                        {{ form.telefono(class="form-control form-control-sm", placeholder="8095551234") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">{{ form.email_contacto.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.email_contacto(class="form-control form-control-sm", placeholder="correo@ejemplo.com") }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">{{ form.direccion.label.text }}</label>
+                        {{ form.direccion(class="form-control form-control-sm", rows="2", placeholder="Calle, Sector, Ciudad...") }}
+                    </div>
+                    
+                    <div class="col-12 mt-3">
+                        <div class="form-check bg-light p-3 border rounded-3">
+                            {{ form.consentimiento(class="form-check-input ms-0 me-2", id="chkConsentimientoAdd") }}
+                            <label class="form-check-label small text-dark fw-medium" for="chkConsentimientoAdd">
+                                El cliente ha firmado la autorización del tratamiento de datos personales en cumplimiento con la <strong>Ley 172-13</strong>.
+                            </label>
+                        </div>
                     </div>
                 </div>
-            </aside>
-
-            <div class="modal-actions">
-                <button class="btn-secondary" type="button" onclick="closeModal()">Cancelar</button>
-                <button class="btn-primary" type="submit">Guardar cliente</button>
-            </div>
-        </form>
+                
+                <div class="modal-footer bg-white border-top border-light p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    {{ form.submit(class="btn btn-sm btn-primary fw-semibold") }}
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
-<div id="modalEditarCliente" class="modal-backdrop">
-    <div class="modal-card">
-        <div class="modal-header">
-            <div>
-                <h3>Editar cliente</h3>
-                <p>Actualice los datos del cliente seleccionado.</p>
+<!-- MODAL EDITAR CLIENTE -->
+<div class="modal fade" id="modalEditarCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-pencil-square text-primary me-2"></i>Modificar Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <button class="icon-btn" type="button" onclick="closeEditModal()">Cerrar</button>
-        </div>
-
-        <form class="modal-form" method="post" action="" id="formEditarCliente">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="modal-main">
-                <div class="form-section">
-                    <div class="section-title">Información personal</div>
-                    <div class="form-grid">
-                        <div class="field-group">
-                            <label>Nombre</label>
-                            <input type="text" name="nombre" id="editNombreCliente" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Apellido</label>
-                            <input type="text" name="apellido" id="editApellidoCliente" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Cédula / RNC</label>
-                            <input type="text" name="rnc_cedula" id="editCedulaCliente" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Teléfono</label>
-                            <input type="text" name="telefono" id="editTelefonoCliente">
-                        </div>
-                        <div class="field-group">
-                            <label>Correo electrónico</label>
-                            <input type="email" name="email_contacto" id="editCorreoCliente" required>
-                        </div>
-                        <div class="field-group">
-                            <label>Consentimiento</label>
-                            <select name="consentimiento" id="editConsentimientoCliente">
-                                <option value="on">Sí</option>
-                                <option value="">No</option>
-                            </select>
-                        </div>
+            <form method="POST" action="" id="formEditarClienteAction">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nombre(s)</label>
+                        <input type="text" class="form-control form-control-sm" name="nombre" id="editNombre" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Apellido(s)</label>
+                        <input type="text" class="form-control form-control-sm" name="apellido" id="editApellido" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Cédula / RNC</label>
+                        <input type="text" class="form-control form-control-sm" name="rnc_cedula" id="editCedula" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control form-control-sm" name="fecha_nacimiento" id="editNacimiento">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Tipo de Cliente</label>
+                        <select class="form-select form-select-sm" name="tipo_cliente" id="editTipo">
+                            <option value="Persona física">Persona física</option>
+                            <option value="Persona jurídica">Persona jurídica</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Teléfono</label>
+                        <input type="text" class="form-control form-control-sm" name="telefono" id="editTelefono">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Correo de Contacto</label>
+                        <input type="email" class="form-control form-control-sm" name="email_contacto" id="editCorreo" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Dirección</label>
+                        <textarea class="form-control form-control-sm" name="direccion" id="editDireccion" rows="2"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Autorización Legal (Ley 172-13)</label>
+                        <select class="form-select form-select-sm" name="consentimiento" id="editConsentimiento">
+                            <option value="on">Concedido (Activo)</option>
+                            <option value="">Revocado (Inactivo)</option>
+                        </select>
                     </div>
                 </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-secondary" type="button" onclick="closeEditModal()">Cancelar</button>
-                <button class="btn-primary" type="submit">Guardar cambios</button>
-            </div>
-        </form>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
-
-<style>
-    :root {
-        --blue-primary: #0046d5;
-        --blue-dark: #071c4d;
-        --blue-sidebar: #0a1931;
-        --bg-light: #f4f6fa;
-        --text-dark: #1e1e2d;
-        --text-muted: #7e8299;
-        --success-bg: #e8fff3;
-        --success-text: #50cd89;
-        --danger-bg: #fff0f3;
-        --danger-text: #f1416c;
-        --border-color: #eff2f5;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: var(--bg-light); color: var(--text-dark); }
-    .dashboard-shell { display: flex; min-height: 100vh; background: var(--bg-light); }
-    .sidebar { width: 240px; background: var(--blue-sidebar); color: #fff; display: flex; flex-direction: column; }
-    .logo-section { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); background: #fff; color: var(--blue-dark); }
-    .logo-section i { color: var(--blue-dark); }
-    .logo-section h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
-    .user-profile { padding: 20px; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.15); }
-    .user-profile img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-    .user-info h4 { font-size: 13px; font-weight: 600; }
-    .user-info p { font-size: 11px; color: #a2a5b5; }
-    .status-online { font-size: 10px; color: var(--success-text); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
-    .menu-items { list-style: none; padding: 15px 10px; flex-grow: 1; }
-    .menu-item { display: flex; align-items: center; padding: 10px 15px; color: #a2a5b5; text-decoration: none; border-radius: 6px; font-size: 13px; margin-bottom: 4px; }
-    .menu-item i { width: 20px; margin-right: 10px; font-size: 14px; }
-    .menu-item.active, .menu-item:hover { background: var(--blue-primary); color: #fff; }
-    .logout-btn { padding: 20px; border-top: 1px solid rgba(255,255,255,0.05); color: #a2a5b5; text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 10px; }
-    .main-content { flex-grow: 1; padding: 25px; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .header h1 { font-size: 22px; font-weight: 700; color: var(--blue-dark); }
-    .header p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-    .btn-new-client { background: var(--blue-primary); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; text-decoration: none; }
-    .workspace { display: flex; gap: 20px; }
-    .main-panel { flex: 1; background: #fff; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; }
-    .toolbar { padding: 16px 20px; display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); align-items: center; flex-wrap: wrap; }
-    .search-box { position: relative; flex: 1; min-width: 250px; }
-    .search-box input { width: 100%; padding: 10px 12px 10px 38px; border: 1px solid #e4e6ef; border-radius: 8px; background: #f9fbfe; }
-    .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8d93a6; }
-    .filter-select { padding: 10px 14px; border: 1px solid #e4e6ef; border-radius: 8px; background: #f9fbfe; color: #464e5f; font-size: 12px; }
-    .btn-more-filters, .btn-secondary { background: #f4f6fa; border: 1px solid #e4e6ef; color: #464e5f; padding: 10px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .btn-primary { background: var(--blue-primary); color: #fff; border: none; padding: 10px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .table-container { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th { background: #fafafa; padding: 12px 16px; font-size: 12px; color: #464e5f; text-align: left; border-bottom: 1px solid var(--border-color); }
-    td { padding: 12px 16px; font-size: 12px; border-bottom: 1px solid var(--border-color); }
-    tr:hover { background: #f8f9ff; cursor: pointer; }
-    .client-cell { display: flex; align-items: center; gap: 10px; }
-    .avatar { width: 34px; height: 34px; border-radius: 8px; background: #e8f0fe; color: var(--blue-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; }
-    .badge-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-    .status-badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-    .status-activo { background: var(--success-bg); color: var(--success-text); }
-    .status-inactivo { background: var(--danger-bg); color: var(--danger-text); }
-    .action-btns { display: flex; gap: 8px; }
-    .icon-btn { border: none; background: #f4f6fa; color: var(--blue-primary); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; }
-    .details-panel { width: 360px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
-    .details-header { padding: 16px 18px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: start; }
-    .details-header h2 { font-size: 16px; font-weight: 700; color: var(--blue-dark); }
-    .close-details { cursor: pointer; color: var(--text-muted); }
-    .client-profile-summary { padding: 20px; display: flex; align-items: center; gap: 15px; }
-    .large-avatar { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-    .tabs-container { display: flex; border-bottom: 1px solid var(--border-color); padding: 0 20px; gap: 10px; }
-    .tab-item { padding: 10px 0; font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
-    .tab-item.active { color: var(--blue-primary); border-bottom-color: var(--blue-primary); }
-    .details-content { padding: 20px; flex-grow: 1; }
-    .info-group-title { font-size: 11px; font-weight: 700; color: #181c32; text-transform: uppercase; margin-bottom: 15px; margin-top: 15px; }
-    .info-group-title:first-child { margin-top: 0; }
-    .info-row { display: flex; font-size: 11px; margin-bottom: 12px; align-items: flex-start; }
-    .info-label { width: 120px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-    .info-value { color: #3f4254; font-weight: 500; line-height: 1.4; }
-    .details-footer { padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: #fafafa; }
-    .btn-panel-action { flex: 1; padding: 9px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
-    .btn-edit { background: #fff; border: 1px solid #e4e6ef; color: var(--blue-primary); }
-    .btn-disable { background: #fff; border: 1px solid var(--danger-text); color: var(--danger-text); }
-    .pagination-bar { padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); background: #fff; }
-    .pagination-pages { display: flex; gap: 5px; }
-    .page-num { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
-    .page-num.active { background: var(--blue-primary); color: #fff; font-weight: 600; }
-    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(7, 28, 77, 0.45); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-    .modal-card { width: min(1120px, 96vw); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 16px 40px rgba(0,0,0,0.2); }
-    .modal-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px; }
-    .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--blue-dark); }
-    .modal-header p { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-    .modal-form { display: grid; grid-template-columns: 1.9fr 0.8fr; gap: 20px; align-items: start; }
-    .modal-main { display: flex; flex-direction: column; gap: 16px; }
-    .stepper { display: flex; gap: 16px; padding: 14px 16px; border-radius: 12px; background: #f8faff; border: 1px solid #e8eefc; }
-    .step { display: flex; align-items: center; gap: 10px; flex: 1; }
-    .step-circle { width: 28px; height: 28px; border-radius: 50%; background: #e4ebff; color: var(--blue-primary); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
-    .step.active .step-circle { background: var(--blue-primary); color: #fff; }
-    .step strong { display: block; font-size: 12px; color: #1e1e2d; }
-    .step small { display: block; font-size: 10px; color: var(--text-muted); }
-    .form-section { border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; }
-    .section-title { font-size: 13px; font-weight: 700; color: var(--blue-dark); margin-bottom: 12px; }
-    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .field-group { display: flex; flex-direction: column; gap: 6px; }
-    .field-group label { font-size: 12px; color: #3f4254; font-weight: 600; }
-    .field-group input, .field-group select, .field-group textarea { border: 1px solid #e4e6ef; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
-    .checkbox-row { display: flex; gap: 10px; align-items: start; padding: 12px 0 0; font-size: 12px; color: #464e5f; }
-    .checkbox-row input { margin-top: 2px; }
-    .modal-summary { background: #f8faff; border: 1px solid #e8eefc; border-radius: 12px; padding: 16px; }
-    .summary-card { display: flex; flex-direction: column; gap: 10px; }
-    .summary-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--blue-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
-    .summary-card h4 { font-size: 14px; color: var(--blue-dark); }
-    .summary-card p { font-size: 12px; color: var(--text-muted); }
-    .summary-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-    .summary-list div { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-    .summary-list span { color: var(--text-muted); }
-    .summary-list strong { color: #3f4254; font-weight: 600; }
-    .modal-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
-    @media (max-width: 1100px) { .workspace { flex-direction: column; } .details-panel { width: 100%; } .modal-form { grid-template-columns: 1fr; } }
-    @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } .stepper { flex-direction: column; } }
-</style>
 
 <div id="clientes-data" data-clientes='{{ clientes_data | tojson | safe }}' hidden></div>
 
 <script>
     const clientes = JSON.parse(document.getElementById('clientes-data').dataset.clientes || '[]');
-    let clienteSeleccionadoId = null;
-
-    function getInitials(nombre) {
-        if (!nombre) return 'CL';
-        return nombre.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
-    }
-
-    function getStatusClass(status) {
-        return status === 'Activo' ? 'status-activo' : 'status-inactivo';
-    }
-
-    function clearDetails() {
-        document.getElementById('detAvatar').innerText = 'CL';
-        document.getElementById('detAvatar').style.background = '#f4f6fa';
-        document.getElementById('detAvatar').style.color = '#7e8299';
-        document.getElementById('detName').innerText = 'Sin clientes registrados';
-        document.getElementById('detTypeSub').innerText = 'Esperando selección';
-        const badge = document.getElementById('detStatusBadge');
-        badge.innerText = 'Sin estado';
-        badge.className = 'status-badge';
-        document.getElementById('detCedula').innerText = 'Sin datos';
-        document.getElementById('detNacimiento').innerText = 'Sin datos';
-        document.getElementById('detTelefono').innerText = 'Sin datos';
-        document.getElementById('detCorreo').innerText = 'Sin datos';
-        document.getElementById('detDireccion').innerText = 'Sin datos';
-        document.getElementById('detType').innerText = 'Sin datos';
-        document.getElementById('detRegistro').innerText = 'Sin datos';
-        document.getElementById('detRegistradoPor').innerText = 'Sin datos';
-    }
+    let seleccionadoId = null;
 
     function renderTable() {
-        const tableBody = document.getElementById('clientsTableBody');
+        const tbody = document.getElementById('clientsTableBody');
         const searchVal = document.getElementById('searchInput').value.toLowerCase();
-        const statusVal = document.getElementById('statusFilter').value;
-        const typeVal = document.getElementById('typeFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const typeFilter = document.getElementById('typeFilter').value;
 
-        const filtered = clientes.filter(c => {
-            const nombre = (c.nombre || '').toLowerCase();
-            const cedula = (c.rnc_cedula || '').toLowerCase();
-            const email = (c.email_contacto || '').toLowerCase();
-            const matchesSearch = nombre.includes(searchVal) || cedula.includes(searchVal) || email.includes(searchVal);
-            const matchesStatus = statusVal === 'Todos' || (statusVal === 'Activo' && c.consentimiento_datos) || (statusVal === 'Inactivo' && !c.consentimiento_datos);
-            const matchesType = typeVal === 'Todos' || (typeVal === 'Persona física' && !c.nombre.includes('SRL')) || (typeVal === 'Persona jurídica' && c.nombre.includes('SRL'));
+        const filtrados = clientes.filter(c => {
+            const matchesSearch = c.nombre.toLowerCase().includes(searchVal) || c.rnc_cedula.includes(searchVal) || c.email_contacto.toLowerCase().includes(searchVal);
+            const matchesStatus = statusFilter === 'Todos' || (statusFilter === 'Activo' && c.consentimiento_datos) || (statusFilter === 'Inactivo' && !c.consentimiento_datos);
+            // Ahora filtra usando el dato real de la base de datos
+            const matchesType = typeFilter === 'Todos' || c.tipo_cliente === typeFilter;
+            
             return matchesSearch && matchesStatus && matchesType;
         });
 
-        document.getElementById('paginationInfo').innerText = `Mostrando ${filtered.length} cliente${filtered.length !== 1 ? 's' : ''}`;
-        tableBody.innerHTML = '';
+        document.getElementById('paginationInfo').innerText = `Mostrando ${filtrados.length} de ${clientes.length} clientes encontrados`;
+        tbody.innerHTML = '';
 
-        if (!filtered.length) {
-            tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay clientes registrados aún.</td></tr>';
-            clearDetails();
+        if (filtrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron registros que coincidan con los filtros.</td></tr>';
             return;
         }
 
-        filtered.forEach(c => {
+        filtrados.forEach(c => {
             const tr = document.createElement('tr');
-            if (c.id === clienteSeleccionadoId) tr.classList.add('selected-row');
-            tr.onclick = () => selectClient(c.id);
-            const statusText = c.consentimiento_datos ? 'Activo' : 'Inactivo';
-            const initials = getInitials(c.nombre);
+            tr.style.cursor = 'pointer';
+            if (c.id === seleccionadoId) tr.classList.add('table-primary');
+
+            const badge = c.consentimiento_datos 
+                ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Activo</span>' 
+                : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Inactivo</span>';
+            
+            const iniciales = c.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
             tr.innerHTML = `
-                <td>
-                    <div class="client-cell">
-                        <div class="avatar" style="background:${c.consentimiento_datos ? '#e8f0fe' : '#fff0f3'}; color:${c.consentimiento_datos ? '#0046d5' : '#f1416c'};">${initials}</div>
-                        <div>
-                            <div style="font-weight:600; color:#181c32;">${c.nombre}</div>
-                            <span class="badge-sub">${c.rnc_cedula || 'Sin cédula'}</span>
-                        </div>
+                <td class="ps-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.75rem;">${iniciales}</div>
+                        <span class="fw-semibold text-dark">${c.nombre}</span>
                     </div>
                 </td>
-                <td>${c.rnc_cedula || 'Sin datos'}</td>
-                <td>${c.telefono || 'Sin datos'}</td>
-                <td>${c.email_contacto || 'Sin datos'}</td>
-                <td><span class="status-badge ${getStatusClass(statusText)}">${statusText}</span></td>
-                <td><div class="action-btns"><button class="icon-btn" title="Ver">Ver</button></div></td>
+                <td>${c.rnc_cedula}</td>
+                <td>${c.telefono || '<span class="text-muted">—</span>'}</td>
+                <td class="text-muted">${c.email_contacto}</td>
+                <td>${badge}</td>
+                <td class="pe-4 text-end">
+                    <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
+                </td>
             `;
-            tableBody.appendChild(tr);
+
+            // Lógica al hacer clic en la fila
+            tr.onclick = () => {
+                seleccionadoId = c.id;
+                renderTable(); 
+                
+                document.getElementById('detAvatar').innerText = iniciales;
+                document.getElementById('detAvatar').className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold fs-2 text-white ${c.consentimiento_datos ? 'bg-primary' : 'bg-danger'}`;
+                document.getElementById('detName').innerText = c.nombre;
+                document.getElementById('detStatusBadgeContainer').innerHTML = badge;
+                
+                // Llenar panel visual
+                document.getElementById('detCedula').innerText = c.rnc_cedula;
+                document.getElementById('detTelefono').innerText = c.telefono || 'No provisto';
+                document.getElementById('detCorreo').innerText = c.email_contacto;
+                document.getElementById('detNacimiento').innerText = c.fecha_nacimiento || 'No provisto';
+                document.getElementById('detDireccion').innerText = c.direccion || 'No provista';
+                document.getElementById('detDireccion').title = c.direccion || '';
+                document.getElementById('detType').innerText = c.tipo_cliente || 'No provisto';
+                
+                document.getElementById('detConsentimiento').innerText = c.consentimiento_datos ? 'Concedido y Vigente' : 'Revocado / Ausente';
+                document.getElementById('detConsentimiento').className = c.consentimiento_datos ? 'fw-semibold text-success' : 'fw-semibold text-danger';
+
+                // Habilitar y llenar Modal de Edición
+                const btnEdit = document.getElementById('btnEditarPanel');
+                btnEdit.classList.remove('disabled');
+                btnEdit.onclick = () => {
+                    const partes = c.nombre.split(' ');
+                    document.getElementById('editNombre').value = partes[0] || '';
+                    document.getElementById('editApellido').value = partes.slice(1).join(' ') || '';
+                    document.getElementById('editCedula').value = c.rnc_cedula;
+                    document.getElementById('editTelefono').value = c.telefono || '';
+                    document.getElementById('editCorreo').value = c.email_contacto;
+                    document.getElementById('editNacimiento').value = c.fecha_nacimiento || '';
+                    document.getElementById('editDireccion').value = c.direccion || '';
+                    document.getElementById('editTipo').value = c.tipo_cliente || 'Persona física';
+                    document.getElementById('editConsentimiento').value = c.consentimiento_datos ? 'on' : '';
+                    
+                    document.getElementById('formEditarClienteAction').action = `/clientes/${c.id}/editar`;
+                    const modal = new bootstrap.Modal(document.getElementById('modalEditarCliente'));
+                    modal.show();
+                };
+
+                // Habilitar botón de desactivación
+                const btnDesactivar = document.getElementById('btnDesactivarPanel');
+                btnDesactivar.classList.remove('disabled');
+                if (!c.consentimiento_datos) {
+                    btnDesactivar.innerHTML = '<i class="bi bi-toggle-on me-1"></i> Activar';
+                    btnDesactivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                } else {
+                    btnDesactivar.innerHTML = '<i class="bi bi-toggle-off me-1"></i> Desactivar';
+                    btnDesactivar.className = 'btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold';
+                }
+                document.getElementById('formDesactivarPanel').action = `/clientes/${c.id}/desactivar`;
+            };
+
+            tbody.appendChild(tr);
         });
-    }
-
-    function selectClient(id) {
-        clienteSeleccionadoId = id;
-        const client = clientes.find(c => c.id === id);
-        if (!client) return;
-        renderTable();
-        const initials = getInitials(client.nombre);
-        document.getElementById('detAvatar').innerText = initials;
-        document.getElementById('detAvatar').style.background = client.consentimiento_datos ? '#e8f0fe' : '#fff0f3';
-        document.getElementById('detAvatar').style.color = client.consentimiento_datos ? '#0046d5' : '#f1416c';
-        document.getElementById('detName').innerText = client.nombre;
-        document.getElementById('detTypeSub').innerText = client.rnc_cedula || 'Sin cédula';
-        const badge = document.getElementById('detStatusBadge');
-        const statusText = client.consentimiento_datos ? 'Activo' : 'Inactivo';
-        badge.innerText = statusText;
-        badge.className = `status-badge ${getStatusClass(statusText)}`;
-        document.getElementById('detCedula').innerText = client.rnc_cedula || 'Sin datos';
-        document.getElementById('detNacimiento').innerText = 'Sin datos';
-        document.getElementById('detTelefono').innerText = client.telefono || 'Sin datos';
-        document.getElementById('detCorreo').innerText = client.email_contacto || 'Sin datos';
-        document.getElementById('detDireccion').innerText = 'Sin datos';
-        document.getElementById('detType').innerText = 'Cliente del sistema';
-        document.getElementById('detRegistro').innerText = 'Registrado en base de datos';
-        document.getElementById('detRegistradoPor').innerText = 'Sistema';
-    }
-
-    function syncSummary() {
-        const tipo = document.getElementById('tipoCliente').value;
-        const nombre = document.getElementById('nombreCliente').value.trim();
-        const apellido = document.getElementById('apellidoCliente').value.trim();
-        const cedula = document.getElementById('cedulaCliente').value.trim();
-        const telefono = document.getElementById('telefonoCliente').value.trim();
-        const correo = document.getElementById('correoCliente').value.trim();
-        const direccion = document.getElementById('direccionCliente').value.trim();
-        const initials = `${nombre.charAt(0) || ''}${apellido.charAt(0) || ''}`.toUpperCase() || 'CL';
-
-        document.getElementById('summaryAvatar').innerText = initials;
-        document.getElementById('summaryName').innerText = `${nombre} ${apellido}`.trim() || 'Nombre del cliente';
-        document.getElementById('summaryType').innerText = tipo;
-        document.getElementById('summaryCedula').innerText = cedula || 'Sin datos';
-        document.getElementById('summaryTelefono').innerText = telefono || 'Sin datos';
-        document.getElementById('summaryCorreo').innerText = correo || 'Sin datos';
-        document.getElementById('summaryDireccion').innerText = direccion || 'Sin datos';
-    }
-
-    function openModal() {
-        document.getElementById('modalCliente').style.display = 'flex';
-        syncSummary();
-    }
-
-    function closeModal() {
-        document.getElementById('modalCliente').style.display = 'none';
-    }
-
-    function openEditModal() {
-        const client = clientes.find(c => c.id === clienteSeleccionadoId);
-        if (!client) {
-            alert('Seleccione un cliente primero.');
-            return;
-        }
-        const nombreCompleto = (client.nombre || '').trim();
-        const partes = nombreCompleto.split(' ');
-        const nombre = partes[0] || '';
-        const apellido = partes.slice(1).join(' ') || '';
-        document.getElementById('editNombreCliente').value = nombre;
-        document.getElementById('editApellidoCliente').value = apellido;
-        document.getElementById('editCedulaCliente').value = client.rnc_cedula || '';
-        document.getElementById('editTelefonoCliente').value = client.telefono || '';
-        document.getElementById('editCorreoCliente').value = client.email_contacto || '';
-        document.getElementById('editConsentimientoCliente').value = client.consentimiento_datos ? 'on' : '';
-        document.getElementById('formEditarCliente').action = `/clientes/${client.id}/editar`;
-        document.getElementById('desactivarForm').action = `/clientes/${client.id}/desactivar`;
-        document.getElementById('modalEditarCliente').style.display = 'flex';
-    }
-
-    function closeEditModal() {
-        document.getElementById('modalEditarCliente').style.display = 'none';
     }
 
     document.getElementById('searchInput').addEventListener('input', renderTable);
     document.getElementById('statusFilter').addEventListener('change', renderTable);
     document.getElementById('typeFilter').addEventListener('change', renderTable);
-    document.getElementById('modalCliente').addEventListener('click', function (event) {
-        if (event.target === this) closeModal();
-    });
-    document.getElementById('modalEditarCliente').addEventListener('click', function (event) {
-        if (event.target === this) closeEditModal();
-    });
 
     window.onload = () => {
         renderTable();
-        syncSummary();
-        if (clientes.length) {
-            selectClient(clientes[0].id);
-        } else {
-            clearDetails();
+        if (clientes.length > 0) {
+            setTimeout(() => { document.querySelector('#clientsTableBody tr').click(); }, 50);
         }
     };
 </script>
