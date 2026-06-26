@@ -1,259 +1,151 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="dashboard-shell">
-    <aside class="sidebar">
-        <div class="logo-section">
-            <i class="bi bi-scale fs-1"></i>
-            <h3>Oficina de Abogados<br>Rosado Méndez & Asoc.</h3>
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto">
+    
+    <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">¡Bienvenido, {{ current_user.nombre.split()[0] }}! 👋</h2>
+            <p class="text-muted small mb-0">Resumen general del sistema y actividades administrativas.</p>
         </div>
+        <div class="d-flex gap-3 align-items-center">
+            <div class="bg-white border rounded px-3 py-2 small text-secondary shadow-sm">
+                <i class="bi bi-calendar3 me-2"></i>{{ current_date.strftime('%d de %B de %Y') }}
+            </div>
+            <button class="btn btn-primary btn-sm shadow-sm px-3 py-2 fw-semibold">
+                Acciones rápidas <i class="bi bi-chevron-down ms-1"></i>
+            </button>
+        </div>
+    </header>
 
-        <div class="user-profile">
-            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Admin">
-            <div class="user-info">
-                <h4>{{ usuario.nombre }}</h4>
-                <p>Rol: {{ usuario.rol }}</p>
-                <div class="status-online">
-                    <i class="bi bi-circle-fill"></i> En línea
+    <div class="row g-3 mb-4">
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-people-fill text-primary bg-primary bg-opacity-10 p-1 rounded me-1"></i> Clientes</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.clientes }}</h3>
                 </div>
             </div>
         </div>
-
-        <ul class="menu-items">
-            <li><a href="#" class="menu-item active"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-people-fill"></i> Usuarios</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-shield-lock-fill"></i> Roles y Permisos</a></li>
-            <li><a href="{{ url_for('clientes') }}" class="menu-item"><i class="bi bi-person-badge-fill"></i> Clientes</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-folder2-open"></i> Expedientes</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-file-earmark-text-fill"></i> Documentos</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-calendar2-week-fill"></i> Agenda y Plazos</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-receipt-cutoff"></i> Facturación</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-bar-chart-line-fill"></i> Reportes</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-clock-history"></i> Auditoría</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-gear-fill"></i> Configuración</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-shield-shaded"></i> Respaldo y Seguridad</a></li>
-            <li><a href="#" class="menu-item"><i class="bi bi-journal-text"></i> Bitácora del Sistema</a></li>
-        </ul>
-
-        <a href="{{ url_for('logout') }}" class="logout-btn">
-            <i class="bi bi-box-arrow-right"></i> Cerrar sesión
-        </a>
-    </aside>
-
-    <main class="main-content">
-        <header class="header">
-            <div class="header-title">
-                <h1>¡Bienvenido, {{ usuario.nombre }}! 👋</h1>
-                <p>Resumen general del sistema y actividades administrativas.</p>
-            </div>
-            <div class="header-actions">
-                <div class="date-picker">
-                    <i class="bi bi-calendar3"></i>
-                    {{ current_date.strftime('%d de %B de %Y') }}
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-folder2-open text-success bg-success bg-opacity-10 p-1 rounded me-1"></i> Expedientes</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.expedientes }}</h3>
                 </div>
-                <div class="notification-bell">
-                    <i class="bi bi-bell"></i>
-                    <span class="notification-badge">6</span>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-file-earmark-lock2 text-info bg-info bg-opacity-10 p-1 rounded me-1"></i> Documentos</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.documentos }}</h3>
                 </div>
-                <button class="btn-action">
-                    Acciones rápidas <i class="bi bi-chevron-down"></i>
-                </button>
             </div>
-        </header>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-bell-fill text-warning bg-warning bg-opacity-10 p-1 rounded me-1"></i> Alertas</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.alertas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-cash-coin text-success bg-success bg-opacity-10 p-1 rounded me-1"></i> Facturas</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.facturas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-shield-check text-danger bg-danger bg-opacity-10 p-1 rounded me-1"></i> Usuarios</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.usuarios }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        <section class="top-cards-grid">
-            <div class="card-stat">
-                <div class="card-stat-header"><i class="bi bi-people-fill icon-blue"></i> Clientes registrados</div>
-                <div class="card-stat-number">{{ estadisticas.clientes }}</div>
-                <div class="card-stat-sub"><i class="bi bi-database"></i> Total en base de datos</div>
-            </div>
-            <div class="card-stat">
-                <div class="card-stat-header"><i class="bi bi-folder2-open icon-green"></i> Expedientes totales</div>
-                <div class="card-stat-number">{{ estadisticas.expedientes }}</div>
-                <div class="card-stat-sub"><i class="bi bi-database"></i> Total en base de datos</div>
-            </div>
-            <div class="card-stat">
-                <div class="card-stat-header"><i class="bi bi-file-earmark-lock2 icon-purple"></i> Documentos</div>
-                <div class="card-stat-number">{{ estadisticas.documentos }}</div>
-                <div class="card-stat-sub"><i class="bi bi-database"></i> Total en base de datos</div>
-            </div>
-            <div class="card-stat">
-                <div class="card-stat-header"><i class="bi bi-bell-fill icon-blue"></i> Alertas activas</div>
-                <div class="card-stat-number">{{ estadisticas.alertas }}</div>
-                <div class="card-stat-sub"><i class="bi bi-database"></i> Total en base de datos</div>
-            </div>
-            <div class="card-stat">
-                <div class="card-stat-header"><i class="bi bi-cash-coin icon-green"></i> Facturas</div>
-                <div class="card-stat-number">{{ estadisticas.facturas }}</div>
-                <div class="card-stat-sub"><i class="bi bi-database"></i> Total en base de datos</div>
-            </div>
-            <div class="card-stat">
-                <div class="card-stat-header"><i class="bi bi-shield-check icon-orange"></i> Usuarios del sistema</div>
-                <div class="card-stat-number">{{ estadisticas.usuarios }}</div>
-                <div class="card-stat-sub"><i class="bi bi-database"></i> Total en base de datos</div>
-            </div>
-        </section>
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4 d-flex flex-wrap gap-2 align-items-center">
+            <h6 class="fw-bold mb-0 me-3" style="color: #071c4d;">Accesos directos:</h6>
+            <a href="#" class="btn btn-light btn-sm fw-semibold text-secondary border"><i class="bi bi-plus-circle me-1"></i> Nuevo expediente</a>
+            <a href="{{ url_for('clientes') }}" class="btn btn-light btn-sm fw-semibold text-secondary border"><i class="bi bi-person-add me-1"></i> Gestionar clientes</a>
+            <a href="#" class="btn btn-light btn-sm fw-semibold text-secondary border"><i class="bi bi-file-earmark-arrow-up me-1"></i> Subir documento</a>
+        </div>
+    </div>
 
-        <section class="quick-access">
-            <h4>Accesos rápidos</h4>
-            <div class="quick-access-buttons">
-                <a href="#" class="btn-quick"><i class="bi bi-plus-circle"></i> Nuevo expediente</a>
-                <a href="#" class="btn-quick"><i class="bi bi-person-add"></i> Agregar cliente</a>
-                <a href="#" class="btn-quick"><i class="bi bi-file-earmark-arrow-up"></i> Subir documento</a>
-                <a href="#" class="btn-quick"><i class="bi bi-bell"></i> Revisar alertas</a>
-            </div>
-        </section>
-
-        <section class="dashboard-grid">
-            <div class="card-main">
-                <div class="card-title">Resumen general</div>
-                <div class="chart-container-donut">
-                    <div class="donut-emulated donut-expedientes">
-                        <div class="donut-internal">
-                            <span class="total-num">{{ estadisticas.total_general }}</span>
-                            <span class="total-lbl">Registros</span>
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-4" style="color: #071c4d;">Cobertura de Datos del Sistema</h6>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1 fw-semibold">
+                            <span class="text-secondary">Expedientes</span>
+                            <span class="text-primary">{{ estadisticas.porcentaje_expedientes }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: {{ estadisticas.porcentaje_expedientes }}%;"></div>
                         </div>
                     </div>
-                    <ul class="chart-legend">
-                        <li class="legend-item">
-                            <span class="legend-label"><span class="legend-bullet" style="background: #0046d5"></span> Expedientes</span>
-                            <span class="legend-value">{{ estadisticas.expedientes }} ({{ estadisticas.porcentaje_expedientes }}%)</span>
-                        </li>
-                        <li class="legend-item">
-                            <span class="legend-label"><span class="legend-bullet" style="background: #f1416c"></span> Clientes</span>
-                            <span class="legend-value">{{ estadisticas.clientes }} ({{ estadisticas.porcentaje_clientes }}%)</span>
-                        </li>
-                    </ul>
-                </div>
-                <a href="#" class="card-footer-link">Ver reporte completo <i class="bi bi-arrow-right"></i></a>
-            </div>
 
-            <div class="card-main">
-                <div class="card-title">Cobertura del sistema</div>
-                <div class="progress-list">
-                    <div class="progress-item">
-                        <div class="progress-info"><span>Expedientes</span> <span>{{ estadisticas.expedientes }} ({{ estadisticas.porcentaje_expedientes }}%)</span></div>
-                        <div class="progress-bar-container"><div class="progress-bar-fill" style="width: {{ estadisticas.porcentaje_expedientes }}%; background: #0046d5;"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-info"><span>Clientes</span> <span>{{ estadisticas.clientes }} ({{ estadisticas.porcentaje_clientes }}%)</span></div>
-                        <div class="progress-bar-container"><div class="progress-bar-fill" style="width: {{ estadisticas.porcentaje_clientes }}%; background: #3498db;"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-info"><span>Documentos</span> <span>{{ estadisticas.documentos }} ({{ estadisticas.porcentaje_documentos }}%)</span></div>
-                        <div class="progress-bar-container"><div class="progress-bar-fill" style="width: {{ estadisticas.porcentaje_documentos }}%; background: #ffc700;"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-info"><span>Alertas</span> <span>{{ estadisticas.alertas }} ({{ estadisticas.porcentaje_alertas }}%)</span></div>
-                        <div class="progress-bar-container"><div class="progress-bar-fill" style="width: {{ estadisticas.porcentaje_alertas }}%; background: #7239ea;"></div></div>
-                    </div>
-                    <div class="progress-item">
-                        <div class="progress-info"><span>Usuarios</span> <span>{{ estadisticas.usuarios }} ({{ estadisticas.porcentaje_usuarios }}%)</span></div>
-                        <div class="progress-bar-container"><div class="progress-bar-fill" style="width: {{ estadisticas.porcentaje_usuarios }}%; background: #50cd89;"></div></div>
-                    </div>
-                </div>
-                <a href="#" class="card-footer-link">Ver todos los registros <i class="bi bi-arrow-right"></i></a>
-            </div>
-
-            <div class="card-main">
-                <div class="card-title">Distribución de registros</div>
-                <div class="chart-container-donut">
-                    <div class="donut-emulated donut-roles">
-                        <div class="donut-internal">
-                            <span class="total-num">{{ estadisticas.total_general }}</span>
-                            <span class="total-lbl">Total</span>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1 fw-semibold">
+                            <span class="text-secondary">Clientes</span>
+                            <span class="text-info">{{ estadisticas.porcentaje_clientes }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ estadisticas.porcentaje_clientes }}%;"></div>
                         </div>
                     </div>
-                    <ul class="chart-legend" style="width: 50%;">
-                        <li class="legend-item"><span class="legend-label"><span class="legend-bullet" style="background: #0046d5"></span> Expedientes</span><span class="legend-value">{{ estadisticas.expedientes }}</span></li>
-                        <li class="legend-item"><span class="legend-label"><span class="legend-bullet" style="background: #3498db"></span> Clientes</span><span class="legend-value">{{ estadisticas.clientes }}</span></li>
-                        <li class="legend-item"><span class="legend-label"><span class="legend-bullet" style="background: #50cd89"></span> Documentos</span><span class="legend-value">{{ estadisticas.documentos }}</span></li>
-                        <li class="legend-item"><span class="legend-label"><span class="legend-bullet" style="background: #7239ea"></span> Alertas</span><span class="legend-value">{{ estadisticas.alertas }}</span></li>
-                        <li class="legend-item"><span class="legend-label"><span class="legend-bullet" style="background: #ffc700"></span> Usuarios</span><span class="legend-value">{{ estadisticas.usuarios }}</span></li>
-                    </ul>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1 fw-semibold">
+                            <span class="text-secondary">Documentos</span>
+                            <span class="text-warning">{{ estadisticas.porcentaje_documentos }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: {{ estadisticas.porcentaje_documentos }}%;"></div>
+                        </div>
+                    </div>
                 </div>
-                <a href="#" class="card-footer-link">Ver detalle de datos <i class="bi bi-arrow-right"></i></a>
             </div>
-        </section>
-    </main>
-</div>
-<style>
-    :root {
-        --blue-primary: #0046d5;
-        --blue-dark: #071c4d;
-        --blue-sidebar: #0a1931;
-        --bg-light: #f4f6fa;
-        --text-dark: #333333;
-        --text-muted: #7e8299;
-        --success: #50cd89;
-        --danger: #f1416c;
-        --warning: #ffc700;
-        --info: #7239ea;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: var(--bg-light); color: var(--text-dark); }
-    .dashboard-shell { display: flex; min-height: 100vh; background: var(--bg-light); }
-    .sidebar { width: 240px; background: var(--blue-sidebar); color: #fff; display: flex; flex-direction: column; }
-    .logo-section { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); background: #fff; color: var(--blue-dark); }
-    .logo-section i { color: var(--blue-dark); }
-    .logo-section h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
-    .user-profile { padding: 20px; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.15); }
-    .user-profile img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-    .user-info h4 { font-size: 13px; font-weight: 600; }
-    .user-info p { font-size: 11px; color: #a2a5b5; }
-    .status-online { font-size: 10px; color: var(--success); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
-    .menu-items { list-style: none; padding: 15px 10px; flex-grow: 1; overflow-y: auto; }
-    .menu-item { display: flex; align-items: center; padding: 10px 15px; color: #a2a5b5; text-decoration: none; border-radius: 6px; font-size: 13px; margin-bottom: 4px; transition: all 0.2s; }
-    .menu-item i { width: 20px; margin-right: 10px; font-size: 14px; }
-    .menu-item.active, .menu-item:hover { background: var(--blue-primary); color: #fff; }
-    .logout-btn { padding: 20px; border-top: 1px solid rgba(255,255,255,0.05); color: #a2a5b5; text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 10px; }
-    .main-content { flex-grow: 1; padding: 25px; overflow-y: auto; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-    .header-title h1 { font-size: 22px; font-weight: 700; color: var(--blue-dark); }
-    .header-title p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-    .header-actions { display: flex; align-items: center; gap: 15px; }
-    .date-picker, .notification-bell { background: #fff; border: 1px solid #e4e6ef; padding: 8px 14px; border-radius: 8px; display: flex; align-items: center; gap: 8px; color: #5e6278; font-size: 13px; }
-    .notification-bell { width: 38px; height: 38px; justify-content: center; padding: 0; position: relative; }
-    .notification-badge { position: absolute; top: -4px; right: -4px; background: var(--danger); color: #fff; font-size: 10px; padding: 2px 5px; border-radius: 10px; font-weight: bold; }
-    .btn-action { background: var(--blue-primary); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-    .top-cards-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-bottom: 25px; }
-    .card-stat { background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #f1f1f4; }
-    .card-stat-header { display: flex; align-items: center; gap: 10px; color: #5e6278; font-size: 11px; font-weight: 600; margin-bottom: 10px; }
-    .card-stat-header i { font-size: 14px; padding: 6px; border-radius: 6px; }
-    .icon-blue { color: #0046d5; background: #e8f0fe; }
-    .icon-green { color: #50cd89; background: #e8fff3; }
-    .icon-purple { color: #7239ea; background: #f8f5ff; }
-    .icon-orange { color: #ff9f43; background: #fff5ed; }
-    .card-stat-number { font-size: 20px; font-weight: 700; color: var(--blue-dark); margin-bottom: 5px; }
-    .card-stat-sub { font-size: 10px; font-weight: 600; color: var(--success); display: flex; align-items: center; gap: 2px; }
-    .card-stat-link { font-size: 11px; color: var(--blue-primary); text-decoration: none; font-weight: 500; display: inline-block; margin-top: 5px; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
-    .card-main { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #f1f1f4; display: flex; flex-direction: column; min-height: 290px; }
-    .card-title { font-size: 14px; font-weight: 700; color: var(--blue-dark); margin-bottom: 20px; }
-    .chart-container-donut { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 100%; }
-    .donut-emulated { width: 130px; height: 130px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
-    .donut-expedientes { background: conic-gradient(var(--blue-primary) 0% 65.6%, var(--danger) 65.6% 100%); }
-    .donut-roles { background: conic-gradient(var(--blue-primary) 0% 12.5%, #3498db 12.5% 37.5%, var(--success) 37.5% 75%, var(--info) 75% 84.4%, var(--warning) 84.4% 100%); }
-    .donut-internal { width: 90px; height: 90px; background: #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .donut-internal .total-num { font-size: 18px; font-weight: 700; color: var(--blue-dark); }
-    .donut-internal .total-lbl { font-size: 10px; color: var(--text-muted); }
-    .chart-legend { list-style: none; font-size: 11px; display: flex; flex-direction: column; gap: 8px; width: 55%; }
-    .legend-item { display: flex; align-items: center; justify-content: space-between; }
-    .legend-label { display: flex; align-items: center; gap: 6px; color: #5e6278; }
-    .legend-bullet { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-    .legend-value { font-weight: 600; color: #3f4254; }
-    .progress-list { display: flex; flex-direction: column; gap: 12px; }
-    .progress-item { font-size: 11px; }
-    .progress-info { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 500; }
-    .progress-bar-container { width: 100%; height: 6px; background: #f1f1f4; border-radius: 3px; overflow: hidden; }
-    .progress-bar-fill { height: 100%; border-radius: 3px; }
-    .card-footer-link { font-size: 12px; color: var(--blue-primary); text-decoration: none; font-weight: 600; margin-top: auto; display: inline-flex; align-items: center; gap: 5px; }
-    .quick-access { background: #fff; padding: 15px 20px; border-radius: 12px; border: 1px solid #f1f1f4; }
-    .quick-access h4 { font-size: 13px; font-weight: 700; color: var(--blue-dark); margin-bottom: 12px; }
-    .quick-access-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
-    .btn-quick { background: #f4f6fa; border: 1px solid #e4e6ef; padding: 8px 14px; border-radius: 6px; font-size: 11px; font-weight: 600; color: #464e5f; cursor: pointer; display: flex; align-items: center; gap: 6px; text-decoration: none; transition: all 0.2s; }
-    .btn-quick:hover { background: #e4e6ef; }
-    @media (max-width: 1200px) { .top-cards-grid { grid-template-columns: repeat(3, 1fr); } .dashboard-grid { grid-template-columns: 1fr; } }
-    @media (max-width: 900px) { .dashboard-shell { flex-direction: column; } .sidebar { width: 100%; } .main-content { padding: 15px; } .header { flex-direction: column; align-items: flex-start; gap: 12px; } .header-actions { width: 100%; flex-wrap: wrap; } }
-</style>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4 d-flex flex-column justify-content-center align-items-center text-center">
+                    <h6 class="fw-bold mb-2 w-100 text-start" style="color: #071c4d;">Resumen de Registros</h6>
+                    
+                    <div class="display-3 fw-bold text-primary mt-3">{{ estadisticas.total_general }}</div>
+                    <p class="text-muted small text-uppercase fw-semibold tracking-wide">Datos Totales Procesados</p>
+                    
+                    <div class="d-flex justify-content-center gap-4 mt-4 w-100">
+                        <div>
+                            <div class="fs-5 fw-bold text-dark">{{ estadisticas.expedientes }}</div>
+                            <div class="small text-muted"><i class="bi bi-circle-fill text-primary small me-1"></i>Expedientes</div>
+                        </div>
+                        <div class="border-start"></div>
+                        <div>
+                            <div class="fs-5 fw-bold text-dark">{{ estadisticas.clientes }}</div>
+                            <div class="small text-muted"><i class="bi bi-circle-fill text-info small me-1"></i>Clientes</div>
+                        </div>
+                        <div class="border-start"></div>
+                        <div>
+                            <div class="fs-5 fw-bold text-dark">{{ estadisticas.documentos }}</div>
+                            <div class="small text-muted"><i class="bi bi-circle-fill text-warning small me-1"></i>Documentos</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
 {% endblock %}
