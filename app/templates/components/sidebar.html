@@ -1,51 +1,225 @@
-<aside class="d-flex flex-column text-white shadow-sm flex-shrink-0" style="width: 250px; background-color: #0a1931;">
-    <div class="p-4 text-center border-bottom border-secondary border-opacity-25 bg-white">
-        <i class="bi bi-balance-scale fs-1" style="color: #071c4d;"></i>
-        <h6 class="mt-2 fw-bold text-uppercase mb-0" style="color: #071c4d; font-size: 0.75rem;">Rosado Méndez & Asoc.</h6>
-    </div>
+<style>
+    :root {
+        --sigex-blue: #00409A;
+        --sigex-hover: rgba(255, 255, 255, 0.15);
+        --sidebar-expanded: 240px;
+        --sidebar-collapsed: 85px;
+    }
+
+    #main-sidebar {
+        width: var(--sidebar-expanded);
+        min-width: var(--sidebar-expanded);
+        background-color: var(--sigex-blue);
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-x: hidden;
+        border-top-right-radius: 1.5rem;
+        border-bottom-right-radius: 1.5rem;
+        z-index: 1000;
+        box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+    }
+
+    /* --- ESTADO COLAPSADO --- */
+    #main-sidebar.sidebar-collapsed {
+        width: var(--sidebar-collapsed);
+        min-width: var(--sidebar-collapsed);
+    }
+
+    #main-sidebar.sidebar-collapsed .menu-text {
+        display: none !important;
+    }
+
+    #main-sidebar.sidebar-collapsed .logo-container {
+        padding: 0.5rem !important;
+    }
+    #main-sidebar.sidebar-collapsed .logo-img {
+        width: 40px;
+        height: 40px;
+    }
+
+    #main-sidebar.sidebar-collapsed .user-role {
+        display: none;
+    }
+    #main-sidebar.sidebar-collapsed .user-name {
+        font-size: 0.75rem !important;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+
+    #main-sidebar.sidebar-collapsed .nav-link {
+        justify-content: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    #main-sidebar.sidebar-collapsed .nav-link i {
+        margin-right: 0 !important;
+        font-size: 1.5rem !important;
+    }
+
+    /* --- ESTILOS GENERALES --- */
+    .nav-link {
+        color: white !important;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
     
-    <div class="p-3 d-flex align-items-center gap-3" style="background-color: rgba(0,0,0,0.15);">
-        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">
+    .nav-link i {
+        font-size: 1.3rem;
+    }
+
+    .nav-link:hover {
+        background-color: var(--sigex-hover);
+        border-radius: 10px;
+    }
+
+    .active-sigex {
+        background-color: white !important;
+        color: var(--sigex-blue) !important;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .active-sigex i {
+        color: var(--sigex-blue) !important;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+    }
+
+    /* BOTÓN FLOTANTE CORREGIDO (Más visible) */
+    .toggle-btn {
+        position: absolute;
+        top: 25px; /* Un poco más abajo para alinear con el logo */
+        right: -15px; /* Mitad adentro, mitad afuera */
+        background: var(--sigex-blue); /* Fondo azul para que resalte */
+        color: white; /* Icono blanco */
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.4); /* Sombra más fuerte */
+        z-index: 1001;
+        border: 2px solid white; /* Borde blanco para separarlo del fondo */
+        transition: transform 0.2s;
+    }
+    .toggle-btn:hover {
+        transform: scale(1.1);
+    }
+</style>
+
+<aside id="main-sidebar" class="d-flex flex-column text-white vh-100 position-sticky top-0 py-3 position-relative">
+    
+    <div class="toggle-btn" id="btn-sidebar-toggle">
+        <i class="bi bi-chevron-left" id="toggle-icon"></i>
+    </div>
+
+    <div class="logo-container d-flex justify-content-center px-4 mb-4 transition-all">
+        <div class="bg-white rounded-pill p-2 d-flex align-items-center justify-content-center" style="width: 100%; max-width: 150px;">
+            <i class="bi bi-bank2 text-dark fs-3 logo-img"></i>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column align-items-center mb-4 px-2 text-center">
+        <div class="rounded-circle bg-white text-dark d-flex align-items-center justify-content-center fw-bold shadow-sm mb-2" style="width: 60px; height: 60px; font-size: 1.5rem;">
             {{ current_user.nombre[:2] | upper }}
         </div>
-        <div class="lh-sm">
-            <div class="fw-semibold text-truncate" style="font-size: 0.85rem; max-width: 140px;">{{ current_user.nombre }}</div>
-            <small class="text-white-50" style="font-size: 0.75rem;"><i class="bi bi-circle-fill text-success" style="font-size: 0.4rem;"></i> {{ current_user.rol }}</small>
-        </div>
+        <h5 class="fw-bold mb-0 text-white user-name">{{ current_user.nombre.split()[0] }}</h5>
+        <div class="text-white-50 fw-semibold small user-role mt-1">{{ current_user.rol }}</div>
     </div>
 
-    <ul class="nav nav-pills flex-column px-2 py-3 flex-grow-1 gap-1">
-        <li class="nav-item">
-            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active bg-primary text-white shadow-sm{% else %}text-white-50{% endif %} small">
-                <i class="bi bi-grid-1x2-fill me-2"></i> Dashboard
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="{{ url_for('clientes') }}" class="nav-link {% if request.endpoint == 'clientes' %}active bg-primary text-white shadow-sm{% else %}text-white-50{% endif %} small">
-                <i class="bi bi-people-fill me-2"></i> Clientes
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="#" class="nav-link text-white-50 small"><i class="bi bi-folder2-open me-2"></i> Expedientes</a>
-        </li>
-        <li class="nav-item">
-            <a href="#" class="nav-link text-white-50 small"><i class="bi bi-receipt-cutoff me-2"></i> Facturación</a>
-        </li>
-
-        {% if current_user.rol == 'Administrador' %}
-            <li class="nav-item mt-3 mb-1 px-3 text-uppercase text-white-50" style="font-size: 0.65rem; font-weight: bold; letter-spacing: 1px;">
-                Administración
+    <div class="overflow-auto flex-grow-1 custom-scrollbar px-3">
+        <ul class="nav flex-column gap-2">
+            <li class="nav-item">
+                <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-speedometer2 me-3"></i> 
+                    <span class="menu-text">Dashboard</span>
+                </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link text-white-50 small"><i class="bi bi-shield-lock-fill me-2"></i> Usuarios y Roles</a>
+                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-journal-bookmark-fill me-3"></i> 
+                    <span class="menu-text">Expedientes</span>
+                </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link text-white-50 small"><i class="bi bi-clock-history me-2"></i> Auditoría</a>
+                <a href="{{ url_for('clientes') }}" class="nav-link {% if request.endpoint == 'clientes' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-person-lines-fill me-3"></i> 
+                    <span class="menu-text">Clientes</span>
+                </a>
             </li>
-        {% endif %}
-    </ul>
+            <li class="nav-item">
+                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-calendar-date-fill me-3"></i> 
+                    <span class="menu-text">Agenda</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-file-earmark-arrow-down-fill me-3"></i> 
+                    <span class="menu-text">Documentos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-clipboard2-check-fill me-3"></i> 
+                    <span class="menu-text">Mis Tareas</span>
+                </a>
+            </li>
+            
+            {% if current_user.rol == 'Administrador' %}
+            <hr class="text-white-50 my-2"> <li class="nav-item">
+                <a href="{{ url_for('usuarios') }}" class="nav-link {% if request.endpoint == 'usuarios' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-shield-lock-fill me-3"></i> 
+                    <span class="menu-text">Usuarios y Roles</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-gear-fill me-3"></i> 
+                    <span class="menu-text">Configuración</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
 
-    <div class="p-3 border-top border-secondary border-opacity-25">
-        <a href="{{ url_for('logout') }}" class="text-white-50 text-decoration-none small"><i class="bi bi-box-arrow-right me-2"></i> Cerrar sesión</a>
+    <div class="px-3 mt-3">
+        <a href="{{ url_for('logout') }}" class="nav-link text-white d-flex align-items-center px-3 py-2">
+            <i class="bi bi-box-arrow-right me-3"></i> 
+            <span class="menu-text">Cerrar Sesión</span>
+        </a>
     </div>
 </aside>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const sidebar = document.getElementById("main-sidebar");
+        const toggleBtn = document.getElementById("btn-sidebar-toggle");
+        const toggleIcon = document.getElementById("toggle-icon");
+
+        if (localStorage.getItem("sigex-sidebar-state") === "collapsed") {
+            sidebar.classList.add("sidebar-collapsed");
+            toggleIcon.classList.replace("bi-chevron-left", "bi-chevron-right");
+        }
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener("click", function() {
+                sidebar.classList.toggle("sidebar-collapsed");
+                const isCollapsed = sidebar.classList.contains("sidebar-collapsed");
+                
+                if(isCollapsed) {
+                    toggleIcon.classList.replace("bi-chevron-left", "bi-chevron-right");
+                } else {
+                    toggleIcon.classList.replace("bi-chevron-right", "bi-chevron-left");
+                }
+
+                localStorage.setItem("sigex-sidebar-state", isCollapsed ? "collapsed" : "expanded");
+            });
+        }
+    });
+</script>
