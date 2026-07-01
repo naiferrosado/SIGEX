@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <div class="mx-auto" style="max-width: 1000px;">
+        <div class="mb-4 d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold text-primary">Editar Expediente</h2>
+                <p class="text-muted">Modifique los datos del expediente <strong>{{ exp.codigo_firma }}</strong> (Vía {{ exp.tipo_tramite }}).</p>
+            </div>
+            <a href="{{ url_for('expedientes') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>Información General</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            {{ form.cliente_id.label(class="form-label small fw-bold") }}
+                            {{ form.cliente_id(class="form-control") }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.nombre_caso.label(class="form-label small fw-bold") }}
+                            {{ form.nombre_caso(class="form-control") }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.rol_firma.label(class="form-label small fw-bold") }}
+                            {{ form.rol_firma(class="form-control") }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.abogado_responsable_id.label(class="form-label small fw-bold") }}
+                            {{ form.abogado_responsable_id(class="form-control") }}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    {% if exp.tipo_tramite == 'Judicial' %}
+                    <h6 class="text-primary mb-3"><i class="bi bi-bank me-2"></i>Datos Procesales</h6>
+                    <div class="row g-3">
+                        {% for field in form if field.name not in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id', 'csrf_token', 'submit_judicial'] %}
+                        <div class="col-md-4">
+                            {{ field.label(class="form-label small fw-bold") }}
+                            {{ field(class="form-control") }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <h6 class="text-primary mb-3"><i class="bi bi-folder-check me-2"></i>Datos del Trámite</h6>
+                    <div class="row g-3">
+                        {% for field in form if field.name not in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id', 'csrf_token', 'submit_admin'] %}
+                        <div class="col-md-4">
+                            {{ field.label(class="form-label small fw-bold") }}
+                            {{ field(class="form-control") }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary px-5 py-2 shadow-sm">
+                            <i class="bi bi-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+<style>
+    .card { border-radius: 1rem; }
+    .form-control { border-radius: 0.5rem; border: 1px solid #ced4da; }
+    .form-control:focus { border-color: #00409A; box-shadow: 0 0 0 0.25rem rgba(0, 64, 154, 0.1); }
+</style>
+{% endblock %}

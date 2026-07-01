@@ -1,57 +1,383 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
 {% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
 {% include 'components/sidebar.html' %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
-            <h2 class="fw-bold">Gestión de Expedientes</h2>
-            <p class="text-muted">Total de expedientes registrados: {{ expedientes|length }}</p>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">Gestión de Expedientes</h2>
+            <p class="text-muted small mb-0">Administra y consulta la información procesal y administrativa de la firma.</p>
         </div>
-        <a href="{{ url_for('nuevo_expediente') }}" class="btn btn-primary shadow-sm px-4">
-            <i class="bi bi-plus-circle me-2"></i>Nuevo Expediente
+        <a href="{{ url_for('nuevo_expediente') }}" class="btn btn-primary shadow-sm fw-semibold d-flex align-items-center gap-2">
+            <i class="bi bi-plus-circle-fill fs-5"></i> Nuevo expediente
         </a>
     </div>
 
-    <div class="card shadow-sm border-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Código</th>
-                        <th>Cliente</th>
-                        <th>Nombre del Caso</th>
-                        <th>Tipo</th>
-                        <th>Estado</th>
-                        <th class="text-end pe-4">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for exp in expedientes %}
-                    <tr>
-                        <td class="ps-4 fw-bold text-primary">{{ exp.codigo_firma }}</td>
-                        <td>{{ exp.cliente.nombres }} {{ exp.cliente.apellidos }}</td>
-                        <td>{{ exp.nombre_caso }}</td>
-                        <td>
-                            <span class="badge {{ 'bg-primary' if exp.tipo_tramite == 'Judicial' else 'bg-success' }}">
-                                {{ exp.tipo_tramite }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge bg-light text-dark border">{{ exp.estado }}</span>
-                        </td>
-                        <td class="text-end pe-4">
-                            <a href="#" class="btn btn-sm btn-outline-primary">Detalle</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">No hay expedientes registrados aún.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
+                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        
+        <!-- COLUMNA IZQUIERDA: Tabla (DataTable local) -->
+        <div class="col-xl-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                
+                <div class="card-header bg-white border-bottom p-3 d-flex gap-2 align-items-center flex-wrap rounded-top-4">
+                    <div class="input-group input-group-sm flex-grow-1" style="max-width: 350px;">
+                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control bg-light border-start-0" id="searchInput" placeholder="Buscar por código, cliente o caso...">
+                    </div>
+                    <select class="form-select form-select-sm bg-light w-auto" id="statusFilter">
+                        <option value="Todos">Todos los estados</option>
+                        <option value="Abierto">Abiertos</option>
+                        <option value="Suspendido">Suspendidos</option>
+                        <option value="Archivado">Archivados</option>
+                    </select>
+                    <select class="form-select form-select-sm bg-light w-auto" id="typeFilter">
+                        <option value="Todos">Todos los tipos</option>
+                        <option value="Judicial">Vía Jurisdiccional (Litigio)</option>
+                        <option value="Administrativo">Vía Administrativa</option>
+                    </select>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-muted fw-semibold">
+                            <tr>
+                                <th class="ps-4 py-3">Código</th>
+                                <th class="py-3">Cliente</th>
+                                <th class="py-3">Caso</th>
+                                <th class="py-3">Responsable</th>
+                                <th class="py-3">Tipo</th>
+                                <th class="py-3">Estado</th>
+                                <th class="py-3 pe-4 text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expTableBody">
+                            <!-- Inyección por JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center rounded-bottom-4 text-muted small">
+                    <span id="paginationInfo">Mostrando registros...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: Panel de Detalles -->
+        <div class="col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4 position-sticky" style="top: 20px;" id="detailsPanel">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h6 class="mb-0 fw-bold" style="color: #071c4d;"><i class="bi bi-eye-fill me-2 text-primary"></i>Detalle del expediente</h6>
+                </div>
+                
+                <div class="card-body p-4 text-center">
+                    <div class="bg-light rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm text-secondary" style="width: 55px; height: 55px; font-size: 1.5rem;" id="detIcon">
+                        <i class="bi bi-briefcase-fill"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1 text-dark" id="detName">Seleccione un registro</h5>
+                    <div class="mb-3" id="detStatusBadgeContainer">
+                        <span class="badge bg-secondary">Ninguno</span>
+                    </div>
+                    
+                    <ul class="nav nav-tabs justify-content-center mb-3 small" role="tablist">
+                        <li class="nav-item"><a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general">General</a></li>
+                        <li class="nav-item"><a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-detalle">Detalles Técnicos</a></li>
+                    </ul>
+
+                    <div class="tab-content text-start small">
+                        <!-- Pestaña General -->
+                        <div class="tab-pane fade show active" id="tab-general">
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Datos del Expediente</div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Código Firma:</span><span class="fw-semibold text-dark" id="detCodigo">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Cliente:</span><span class="fw-semibold text-dark" id="detCliente">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Responsable:</span><span class="fw-semibold text-dark" id="detResponsable">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rol de la Firma:</span><span class="fw-semibold text-dark" id="detRolFirma">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de Trámite:</span><span class="fw-semibold text-dark" id="detTipoTramite">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Apertura:</span><span class="fw-semibold text-dark" id="detApertura">—</span></div>
+                            <div class="d-flex justify-content-between py-2"><span class="text-muted">Fecha Cierre:</span><span class="fw-semibold text-dark" id="detCierre">—</span></div>
+                        </div>
+
+                        <!-- Pestaña de Detalles Técnicos -->
+                        <div class="tab-pane fade" id="tab-detalle">
+                            <!-- Detalles Judiciales -->
+                            <div id="det-judicial" style="display: none;">
+                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Detalles del Proceso Judicial</div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rama del Derecho:</span><span class="fw-semibold text-dark" id="detJudRama">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Sub-categoría:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudSubCat">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo Acción:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAccion">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Instancia Actual:</span><span class="fw-semibold text-dark" id="detJudInstancia">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tribunal Asignado:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudTribunal">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Expediente Tribunal:</span><span class="fw-semibold text-dark" id="detJudNroExp">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Juez Asignado:</span><span class="fw-semibold text-dark" id="detJudJuez">—</span></div>
+                                
+                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Contraparte y Abogados</div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Nombre Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudContraparte">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Contacto Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudContraContacto">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Abogado Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAbogContra">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Contacto Abogado:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAbogContraContacto">—</span></div>
+                                
+                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Aspectos Financieros y Agenda</div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Monto Demanda:</span><span class="fw-semibold text-dark" id="detJudMonto">—</span></div>
+                                <div class="d-flex justify-content-between py-2"><span class="text-muted">Próxima Audiencia:</span><span class="fw-semibold text-dark" id="detJudAudiencia">—</span></div>
+                            </div>
+
+                            <!-- Detalles Administrativos -->
+                            <div id="det-admin" style="display: none;">
+                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Detalles del Proceso Administrativo</div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo Trámite:</span><span class="fw-semibold text-dark" id="detAdmTipo">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Sub-proceso:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detAdmSubProc">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Institución:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detAdmInst">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Nro. Solicitud:</span><span class="fw-semibold text-dark" id="detAdmTicket">—</span></div>
+                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tasas Pagadas:</span><span class="fw-semibold text-dark" id="detAdmMonto">—</span></div>
+                                <div class="py-2"><span class="text-muted d-block mb-1">Descripción:</span><p class="fw-medium text-dark bg-light p-2 rounded-2 text-start mb-0" id="detAdmDesc" style="white-space: pre-line; max-height: 120px; overflow-y: auto;">—</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex flex-column gap-2">
+                    <!-- Editar Expediente -->
+                    <a href="" class="btn btn-primary btn-sm w-100 fw-semibold disabled" id="btnEditar">
+                        <i class="bi bi-pencil-square me-1"></i> Editar Expediente
+                    </a>
+                    
+                    <div class="d-flex gap-2">
+                        <!-- Suspender / Reanudar -->
+                        <form method="POST" action="" id="formSuspender" style="flex: 1;" onsubmit="return confirm('¿Está seguro de que desea cambiar el estado de este expediente?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnSuspender">
+                                <i class="bi bi-pause-fill me-1"></i> Suspender
+                            </button>
+                        </form>
+                        
+                        <!-- Archivar / Reabrir -->
+                        <form method="POST" action="" id="formArchivar" style="flex: 1;" onsubmit="return confirm('¿Está seguro de que desea cambiar el estado de archivo de este expediente?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnArchivar">
+                                <i class="bi bi-archive-fill me-1"></i> Archivar
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Eliminar Expediente (Solo para Socios/Admin) -->
+                    {% if current_user.rol in ['Socio', 'Administrador'] %}
+                    <form method="POST" action="" id="formEliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar permanentemente este expediente del sistema? Esta acción no se puede deshacer.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-white border border-danger text-danger w-100 fw-semibold disabled" id="btnEliminar">
+                            <i class="bi bi-trash3-fill me-1"></i> Eliminar Expediente
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
-</div>
+</main>
+
+<div id="expedientes-data" data-expedientes='{{ expedientes_data | tojson | safe }}' hidden></div>
+
+<script>
+    const expedientes = JSON.parse(document.getElementById('expedientes-data').dataset.expedientes || '[]');
+    let seleccionadoId = null;
+
+    function renderTable() {
+        const tbody = document.getElementById('expTableBody');
+        const searchVal = document.getElementById('searchInput').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const typeFilter = document.getElementById('typeFilter').value;
+
+        const filtrados = expedientes.filter(e => {
+            const matchesSearch = e.codigo_firma.toLowerCase().includes(searchVal) 
+                || e.nombre_caso.toLowerCase().includes(searchVal) 
+                || e.cliente_nombre.toLowerCase().includes(searchVal)
+                || e.abogado_responsable_nombre.toLowerCase().includes(searchVal);
+            
+            const matchesStatus = statusFilter === 'Todos' || e.estado === statusFilter;
+            const matchesType = typeFilter === 'Todos' || e.tipo_tramite === typeFilter;
+
+            return matchesSearch && matchesStatus && matchesType;
+        });
+
+        document.getElementById('paginationInfo').innerText = `Mostrando ${filtrados.length} de ${expedientes.length} expedientes encontrados`;
+        tbody.innerHTML = '';
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron registros que coincidan con los filtros.</td></tr>';
+            return;
+        }
+
+        filtrados.forEach(e => {
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            if (e.id === seleccionadoId) tr.classList.add('table-primary');
+
+            // Badges para estados
+            let badgeEstado = '';
+            if (e.estado === 'Abierto') {
+                badgeEstado = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Abierto</span>';
+            } else if (e.estado === 'Suspendido') {
+                badgeEstado = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">Suspendido</span>';
+            } else if (e.estado === 'Archivado') {
+                badgeEstado = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Archivado</span>';
+            }
+
+            // Badges para tipos
+            const badgeTipo = e.tipo_tramite === 'Judicial'
+                ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-1 px-2"><i class="bi bi-balance-scale me-1"></i>Judicial</span>'
+                : '<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2"><i class="bi bi-folder-check me-1"></i>Admin</span>';
+
+            tr.innerHTML = `
+                <td class="ps-4 fw-bold text-dark">${e.codigo_firma}</td>
+                <td class="fw-semibold text-dark">${e.cliente_nombre}</td>
+                <td>${e.nombre_caso}</td>
+                <td class="text-muted">${e.abogado_responsable_nombre}</td>
+                <td>${badgeTipo}</td>
+                <td>${badgeEstado}</td>
+                <td class="pe-4 text-end">
+                    <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
+                </td>
+            `;
+
+            tr.onclick = () => {
+                seleccionadoId = e.id;
+                renderTable();
+
+                // Cambiar el avatar/icono
+                const detIcon = document.getElementById('detIcon');
+                if (e.tipo_tramite === 'Judicial') {
+                    detIcon.innerHTML = '<i class="bi bi-balance-scale"></i>';
+                    detIcon.className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm fs-2 text-white bg-primary`;
+                } else {
+                    detIcon.innerHTML = '<i class="bi bi-folder-check"></i>';
+                    detIcon.className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm fs-2 text-white bg-info`;
+                }
+
+                document.getElementById('detName').innerText = e.nombre_caso;
+                document.getElementById('detStatusBadgeContainer').innerHTML = badgeEstado;
+
+                // Llenar panel visual - General
+                document.getElementById('detCodigo').innerText = e.codigo_firma;
+                document.getElementById('detCliente').innerText = e.cliente_nombre;
+                document.getElementById('detResponsable').innerText = e.abogado_responsable_nombre;
+                document.getElementById('detRolFirma').innerText = e.rol_firma;
+                document.getElementById('detTipoTramite').innerText = e.tipo_tramite;
+                document.getElementById('detApertura').innerText = e.fecha_apertura || 'No registrada';
+                document.getElementById('detCierre').innerText = e.fecha_cierre || 'Vigente';
+
+                // Llenar panel visual - Detalles específicos (Judicial / Admin)
+                if (e.tipo_tramite === 'Judicial') {
+                    document.getElementById('det-judicial').style.display = 'block';
+                    document.getElementById('det-admin').style.display = 'none';
+
+                    document.getElementById('detJudRama').innerText = e.rama_derecho || 'No especificada';
+                    document.getElementById('detJudSubCat').innerText = e.sub_categoria || 'No especificada';
+                    document.getElementById('detJudAccion').innerText = e.tipo_accion || 'No especificada';
+                    document.getElementById('detJudInstancia').innerText = e.jurisjurisdiccion_actual || e.jurisdiccion_actual || 'No especificada';
+                    document.getElementById('detJudTribunal').innerText = e.tribunal_asignado || 'No asignado';
+                    document.getElementById('detJudNroExp').innerText = e.numero_expediente_tribunal || 'No asignado';
+                    document.getElementById('detJudJuez').innerText = e.juez_asignado || 'No asignado';
+                    document.getElementById('detJudContraparte').innerText = e.nombre_contraparte || 'No provista';
+                    document.getElementById('detJudContraContacto').innerText = e.contacto_contraparte || 'No provisto';
+                    document.getElementById('detJudAbogContra').innerText = e.abogado_contraparte || 'No provisto';
+                    document.getElementById('detJudAbogContraContacto').innerText = e.contacto_abogado_contraparte || 'No provisto';
+                    document.getElementById('detJudMonto').innerText = e.monto_demanda !== null ? `RD$ ${e.monto_demanda.toLocaleString('es-DO', {minimumFractionDigits: 2})}` : 'No cuantificable';
+                    
+                    let audienciaText = 'Sin programar';
+                    if (e.fecha_audiencia) {
+                        audienciaText = e.fecha_audiencia;
+                        if (e.hora_audiencia) {
+                            audienciaText += ` a las ${e.hora_audiencia}`;
+                        }
+                    }
+                    document.getElementById('detJudAudiencia').innerText = audienciaText;
+                } else {
+                    document.getElementById('det-judicial').style.display = 'none';
+                    document.getElementById('det-admin').style.display = 'block';
+
+                    document.getElementById('detAdmTipo').innerText = e.tipo_proceso || 'No especificado';
+                    document.getElementById('detAdmSubProc').innerText = e.sub_proceso || 'No especificado';
+                    document.getElementById('detAdmInst').innerText = e.institucion_encargada || 'No especificada';
+                    document.getElementById('detAdmTicket').innerText = e.numero_solicitud_oficial || 'No provisto';
+                    document.getElementById('detAdmMonto').innerText = e.monto_tasas_impuestos !== null ? `RD$ ${e.monto_tasas_impuestos.toLocaleString('es-DO', {minimumFractionDigits: 2})}` : 'RD$ 0.00';
+                    document.getElementById('detAdmDesc').innerText = e.descripcion_tramite || 'Sin descripción';
+                }
+
+                // Configurar Formularios y Botones de Acción
+                const btnEditar = document.getElementById('btnEditar');
+                const btnSuspender = document.getElementById('btnSuspender');
+                const formSuspender = document.getElementById('formSuspender');
+                const btnArchivar = document.getElementById('btnArchivar');
+                const formArchivar = document.getElementById('formArchivar');
+                const btnEliminar = document.getElementById('btnEliminar');
+                const formEliminar = document.getElementById('formEliminar');
+
+                // Habilitar botones
+                btnEditar.classList.remove('disabled');
+                btnEditar.href = `/expedientes/${e.id}/editar`;
+                btnSuspender.classList.remove('disabled');
+                btnArchivar.classList.remove('disabled');
+                if (btnEliminar) btnEliminar.classList.remove('disabled');
+
+                // Lógica Suspender / Reanudar
+                if (e.estado === 'Suspendido') {
+                    btnSuspender.innerHTML = '<i class="bi bi-play-fill me-1"></i> Reanudar';
+                    btnSuspender.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                    formSuspender.action = `/expedientes/${e.id}/cambiar_estado/Abierto`;
+                } else {
+                    btnSuspender.innerHTML = '<i class="bi bi-pause-fill me-1"></i> Suspender';
+                    btnSuspender.className = 'btn btn-white btn-sm border border-warning text-warning w-100 fw-semibold';
+                    formSuspender.action = `/expedientes/${e.id}/cambiar_estado/Suspendido`;
+                }
+
+                // Lógica Archivar / Reabrir
+                if (e.estado === 'Archivado') {
+                    btnArchivar.innerHTML = '<i class="bi bi-folder-symlink-fill me-1"></i> Reabrir';
+                    btnArchivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                    formArchivar.action = `/expedientes/${e.id}/cambiar_estado/Abierto`;
+                    // Desactivar suspender cuando está archivado
+                    btnSuspender.classList.add('disabled');
+                } else {
+                    btnArchivar.innerHTML = '<i class="bi bi-archive-fill me-1"></i> Archivar';
+                    btnArchivar.className = 'btn btn-white btn-sm border border-secondary text-secondary w-100 fw-semibold';
+                    formArchivar.action = `/expedientes/${e.id}/cambiar_estado/Archivado`;
+                }
+
+                // Lógica Eliminar
+                if (formEliminar) {
+                    formEliminar.action = `/expedientes/${e.id}/eliminar`;
+                }
+            };
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', renderTable);
+    document.getElementById('statusFilter').addEventListener('change', renderTable);
+    document.getElementById('typeFilter').addEventListener('change', renderTable);
+
+    window.onload = () => {
+        renderTable();
+        if (expedientes.length > 0) {
+            setTimeout(() => { document.querySelector('#expTableBody tr').click(); }, 50);
+        }
+    };
+</script>
 {% endblock %}
