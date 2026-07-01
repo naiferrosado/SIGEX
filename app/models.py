@@ -26,6 +26,10 @@ class Usuario(UserMixin, db.Model):
 
     # Propiedades helper
     @property
+    def is_active(self):
+        return self.activo
+
+    @property
     def is_personal(self):
         return self.rol in ['Socio', 'Asociado', 'Paralegal', 'Administrador']
 

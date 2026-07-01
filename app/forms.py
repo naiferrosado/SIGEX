@@ -130,7 +130,7 @@ class ExpedienteJudicialForm(ExpedienteBaseForm):
     fecha_audiencia = DateField('Fecha de Próxima Audiencia', format='%Y-%m-%d', validators=[Optional()])
     hora_audiencia = TimeField('Hora', format='%H:%M', validators=[Optional()])
 
-    submit = SubmitField('Crear Expediente Judicial')
+    submit_judicial = SubmitField('Crear Expediente Judicial')
 
 
 # FORMULARIO HIJO: ADMINISTRATIVO
@@ -149,4 +149,4 @@ class ExpedienteAdministrativoForm(ExpedienteBaseForm):
     descripcion_tramite = TextAreaField('Descripción del Trámite', validators=[Optional()])
     monto_tasas_impuestos = DecimalField('Total Tasas/Impuestos (RD$)', places=2, validators=[Optional()])
 
-    submit = SubmitField('Crear Expediente Administrativo')
+    submit_admin = SubmitField('Crear Expediente Administrativo')

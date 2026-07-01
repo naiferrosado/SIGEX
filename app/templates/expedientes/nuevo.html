@@ -3,7 +3,8 @@
 {% block content %}
 {% include 'components/sidebar.html' %}
 
-<div class="container-fluid py-4" style="padding-left: 260px;"> <div class="mx-auto" style="max-width: 1000px;">
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <div class="mx-auto" style="max-width: 1000px;">
         <div class="mb-4">
             <h2 class="fw-bold text-primary">Registrar Nuevo Expediente</h2>
             <p class="text-muted">Complete la información para iniciar el proceso legal o administrativo.</p>
@@ -38,12 +39,12 @@
                             <hr>
                             <h6 class="text-primary mb-3"><i class="bi bi-bank me-2"></i>Datos Procesales</h6>
                             <div class="row g-3">
-                                {% for field in form_judicial if field.name not in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id', 'csrf_token', 'submit'] %}
+                                {% for field in form_judicial if field.name not in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id', 'csrf_token', 'submit_judicial'] %}
                                 <div class="col-md-4">{{ field.label(class="form-label small fw-bold") }} {{ field(class="form-control") }}</div>
                                 {% endfor %}
                             </div>
                             <div class="mt-4 text-end">
-                                {{ form_judicial.submit(class="btn btn-primary px-5 py-2 shadow-sm") }}
+                                {{ form_judicial.submit_judicial(class="btn btn-primary px-5 py-2 shadow-sm") }}
                             </div>
                         </form>
                     </div>
@@ -60,7 +61,7 @@
                                 {% endfor %}
                             </div>
                             <div class="mt-4 text-end">
-                                {{ form_admin.submit(class="btn btn-primary px-5 py-2 shadow-sm") }}
+                                {{ form_admin.submit_admin(class="btn btn-primary px-5 py-2 shadow-sm") }}
                             </div>
                         </form>
                     </div>
@@ -69,12 +70,26 @@
             </div>
         </div>
     </div>
-</div>
+</main>
 
 <style>
     /* Estilos extra para que se vea más profesional */
-    .nav-tabs .nav-link { color: #6c757d; border: none; }
-    .nav-tabs .nav-link.active { background: #f8f9fa !important; border-bottom: 3px solid #00409A !important; color: #00409A !important; }
+    .nav-tabs .nav-link { 
+        color: #495057; 
+        background-color: #e3e6ec; 
+        border: none; 
+        margin-right: 5px;
+        transition: all 0.2s ease-in-out;
+    }
+    .nav-tabs .nav-link:hover { 
+        background-color: #d1d5db; 
+        color: #1f2937; 
+    }
+    .nav-tabs .nav-link.active { 
+        background: #ffffff !important; 
+        border-bottom: 3px solid #00409A !important; 
+        color: #00409A !important; 
+    }
     .card { border-radius: 1rem; }
     .form-control { border-radius: 0.5rem; border: 1px solid #ced4da; }
     .form-control:focus { border-color: #00409A; box-shadow: 0 0 0 0.25rem rgba(0, 64, 154, 0.1); }
