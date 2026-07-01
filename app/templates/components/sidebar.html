@@ -140,8 +140,10 @@
                     <span class="menu-text">Dashboard</span>
                 </a>
             </li>
+
+            {% if current_user.rol in ['Socio', 'Asociado', 'Paralegal', 'Administrador'] %}
             <li class="nav-item">
-                <a href="{{ url_for('expedientes') }}" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                <a href="{{ url_for('expedientes') }}" class="nav-link {% if request.endpoint == 'expedientes' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                     <i class="bi bi-journal-bookmark-fill me-3"></i> 
                     <span class="menu-text">Expedientes</span>
                 </a>
@@ -170,9 +172,11 @@
                     <span class="menu-text">Mis Tareas</span>
                 </a>
             </li>
+            {% endif %}
             
-            {% if current_user.rol == 'Administrador' %}
-            <hr class="text-white-50 my-2"> <li class="nav-item">
+            {% if current_user.rol in ['Socio', 'Administrador'] %}
+            <hr class="text-white-50 my-2">
+            <li class="nav-item">
                 <a href="{{ url_for('usuarios') }}" class="nav-link {% if request.endpoint == 'usuarios' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                     <i class="bi bi-shield-lock-fill me-3"></i> 
                     <span class="menu-text">Usuarios y Roles</span>
