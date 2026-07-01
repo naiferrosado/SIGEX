@@ -1,22 +1,22 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, current_user, logout_user, login_required
 from app import db
-from app.models import Usuario, Cliente, Expediente, Documento, AlertaPlazoAudiencia, FacturaHonorario
-from app.forms import LoginForm, ClienteForm, UsuarioForm
+from app.models import Usuario, Cliente, Expediente, ExpedienteJudicial, ExpedienteAdministrativo, Documento, AlertaPlazoAudiencia, FacturaHonorario
+from app.forms import LoginForm, ClienteForm, UsuarioForm, ExpedienteJudicialForm, ExpedienteAdministrativoForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
+import uuid # Para generar el código único de la firma
 
 
 def _serialize_clientes(clientes):
     return [{
         'id': c.id,
-        'nombre': c.nombre,
+        'nombre': f"{c.nombres} {c.apellidos}",   # ← corregido
         'rnc_cedula': c.rnc_cedula,
         'telefono': c.telefono,
         'email_contacto': c.email_contacto,
         'consentimiento_datos': bool(c.consentimiento_datos),
-        # Nuevos datos serializados:
         'tipo_cliente': c.tipo_cliente,
         'direccion': c.direccion,
         'fecha_nacimiento': c.fecha_nacimiento.strftime('%Y-%m-%d') if c.fecha_nacimiento else None
@@ -89,7 +89,7 @@ def register_routes(app):
     def clientes():
         # 1. Instanciamos el formulario vacío para pasarlo a la vista (para el Modal de Agregar)
         form = ClienteForm()
-        clientes_db = Cliente.query.order_by(Cliente.nombre.asc()).all()
+        clientes_db = Cliente.query.order_by(Cliente.nombres.asc()).all()
         clientes_data = _serialize_clientes(clientes_db)
         return render_template('clientes/clientes.html', form=form, usuario=current_user, clientes=clientes_db, clientes_data=clientes_data, current_date=datetime.now())
 
@@ -109,7 +109,8 @@ def register_routes(app):
 
             # Inserción segura a la BD
             cliente = Cliente(
-                nombre=nombre_completo,
+                nombres=form.nombre.data.strip(),
+                apellidos=form.apellido.data.strip(),
                 rnc_cedula=form.rnc_cedula.data,
                 tipo_cliente=form.tipo_cliente.data,
                 fecha_nacimiento=form.fecha_nacimiento.data,
@@ -145,7 +146,8 @@ def register_routes(app):
                 return redirect(url_for('clientes'))
 
             # Actualización
-            cliente.nombre = nombre_completo
+            cliente.nombres   = form.nombre.data.strip()
+            cliente.apellidos = form.apellido.data.strip()
             cliente.rnc_cedula = form.rnc_cedula.data
             cliente.tipo_cliente = form.tipo_cliente.data
             cliente.fecha_nacimiento = form.fecha_nacimiento.data
@@ -180,7 +182,7 @@ def register_routes(app):
         logout_user()
         return redirect(url_for('login'))
     
-# --- HELPER PARA USUARIOS ---
+    # --- HELPER PARA USUARIOS ---
     def _serialize_usuarios(usuarios):
         return [{
             'id': u.id,
@@ -279,3 +281,152 @@ def register_routes(app):
         estado = "reactivado" if usuario.activo else "suspendido"
         flash(f'Acceso de usuario {estado}.', 'success')
         return redirect(url_for('usuarios'))
+    
+
+    # --- LISTADO DE EXPEDIENTES ---
+    @app.route('/expedientes')
+    @login_required
+    def expedientes():
+        # Gracias al polimorfismo, esto trae TODOS los expedientes (Judiciales y Administrativos)
+        lista_expedientes = Expediente.query.order_by(Expediente.fecha_apertura.desc()).all()
+        return render_template('expedientes/index.html', expedientes=lista_expedientes)
+
+
+    # --- CREAR NUEVO EXPEDIENTE ---
+    @app.route('/expedientes/nuevo', methods=['GET', 'POST'])
+    @login_required
+    def nuevo_expediente():
+        # Instanciamos ambos formularios
+        form_judicial = ExpedienteJudicialForm()
+        form_admin = ExpedienteAdministrativoForm()
+
+        # LLENAR LOS SELECTORES DINÁMICAMENTE (Para ambos formularios)
+        clientes_db = Cliente.query.all()
+        opciones_clientes = [(c.id, f"{c.nombres} {c.apellidos}") for c in clientes_db]
+
+        abogados_db = Usuario.query.filter(Usuario.rol.in_(['Abogado', 'Socio', 'Administrador'])).all()
+        opciones_abogados = [(a.id, a.nombre) for a in abogados_db]
+
+        # Asignamos las opciones — usamos 0 como placeholder (no '') para evitar ValueError con coerce=int
+        form_judicial.cliente_id.choices = [(0, 'Seleccione un cliente...')] + opciones_clientes
+        form_judicial.abogado_responsable_id.choices = [(0, 'Seleccione un abogado...')] + opciones_abogados
+
+        form_admin.cliente_id.choices = [(0, 'Seleccione un cliente...')] + opciones_clientes
+        form_admin.abogado_responsable_id.choices = [(0, 'Seleccione un abogado...')] + opciones_abogados
+
+        # PROCESAR EL FORMULARIO ENVIADO (POST)
+        if request.method == 'POST':
+            codigo_generado = f"EXP-{uuid.uuid4().hex[:6].upper()}"
+
+            # FORMULARIO JUDICIAL
+            if form_judicial.submit.name in request.form and form_judicial.validate_on_submit():
+
+                # Validar que hayan seleccionado cliente (no el placeholder 0)
+                if not form_judicial.cliente_id.data or form_judicial.cliente_id.data == 0:
+                    flash('Debe seleccionar un cliente para el expediente.', 'danger')
+                    return render_template(
+                        'expedientes/nuevo.html',
+                        form_judicial=form_judicial,
+                        form_admin=form_admin
+                    )
+
+                # Validar abogado responsable
+                if not form_judicial.abogado_responsable_id.data or form_judicial.abogado_responsable_id.data == 0:
+                    flash('Debe seleccionar un abogado responsable.', 'danger')
+                    return render_template(
+                        'expedientes/nuevo.html',
+                        form_judicial=form_judicial,
+                        form_admin=form_admin
+                    )
+
+                nuevo_caso = ExpedienteJudicial(
+                    codigo_firma=codigo_generado,
+                    cliente_id=form_judicial.cliente_id.data,
+                    abogado_responsable_id=form_judicial.abogado_responsable_id.data,
+                    nombre_caso=form_judicial.nombre_caso.data,
+                    rol_firma=form_judicial.rol_firma.data,
+
+                    # Campos específicos judiciales
+                    rama_derecho=form_judicial.rama_derecho.data,
+                    sub_categoria=form_judicial.sub_categoria.data,
+                    tipo_accion=form_judicial.tipo_accion.data,
+                    jurisdiccion_actual=form_judicial.jurisdiccion_actual.data,
+                    tribunal_asignado=form_judicial.tribunal_asignado.data,
+                    numero_expediente_tribunal=form_judicial.numero_expediente_tribunal.data,
+                    juez_asignado=form_judicial.juez_asignado.data,
+
+                    nombre_contraparte=form_judicial.nombre_contraparte.data,
+                    contacto_contraparte=form_judicial.contacto_contraparte.data,
+                    abogado_contraparte=form_judicial.abogado_contraparte.data,
+                    contacto_abogado_contraparte=form_judicial.contacto_abogado_contraparte.data,
+
+                    monto_demanda=form_judicial.monto_demanda.data,
+                    fecha_audiencia=form_judicial.fecha_audiencia.data,
+                    hora_audiencia=form_judicial.hora_audiencia.data,
+
+                    tipo_tramite='Judicial'
+                )
+
+                try:
+                    db.session.add(nuevo_caso)
+                    db.session.commit()
+                    flash('Expediente judicial creado exitosamente.', 'success')
+                    return redirect(url_for('expedientes'))
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'Error al guardar el expediente: {str(e)}', 'danger')
+
+            # FORMULARIO ADMINISTRATIVO
+            elif form_admin.submit.name in request.form and form_admin.validate_on_submit():
+
+                # Validar que hayan seleccionado cliente
+                if not form_admin.cliente_id.data or form_admin.cliente_id.data == 0:
+                    flash('Debe seleccionar un cliente para el trámite.', 'danger')
+                    return render_template(
+                        'expedientes/nuevo.html',
+                        form_judicial=form_judicial,
+                        form_admin=form_admin
+                    )
+
+                # Validar abogado responsable
+                if not form_admin.abogado_responsable_id.data or form_admin.abogado_responsable_id.data == 0:
+                    flash('Debe seleccionar un abogado responsable.', 'danger')
+                    return render_template(
+                        'expedientes/nuevo.html',
+                        form_judicial=form_judicial,
+                        form_admin=form_admin
+                    )
+
+                nuevo_tramite = ExpedienteAdministrativo(
+                    codigo_firma=codigo_generado,
+                    cliente_id=form_admin.cliente_id.data,
+                    abogado_responsable_id=form_admin.abogado_responsable_id.data,
+                    nombre_caso=form_admin.nombre_caso.data,
+                    rol_firma=form_admin.rol_firma.data,
+
+                    # Campos específicos administrativos
+                    tipo_proceso=form_admin.tipo_proceso.data,
+                    sub_proceso=form_admin.sub_proceso.data,
+                    institucion_encargada=form_admin.institucion_encargada.data,
+                    numero_solicitud_oficial=form_admin.numero_solicitud_oficial.data,
+                    descripcion_tramite=form_admin.descripcion_tramite.data,
+                    monto_tasas_impuestos=form_admin.monto_tasas_impuestos.data,
+
+                    tipo_tramite='Administrativo'
+                )
+
+                try:
+                    db.session.add(nuevo_tramite)
+                    db.session.commit()
+                    flash('Expediente administrativo creado exitosamente.', 'success')
+                    return redirect(url_for('expedientes'))
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'Error al guardar el trámite: {str(e)}', 'danger')
+
+        # RENDERIZAR LA VISTA (GET o si hay errores de validación)
+        return render_template(
+            'expedientes/nuevo.html',
+            form_judicial=form_judicial,
+            form_admin=form_admin
+        )

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold">Gestión de Expedientes</h2>
+            <p class="text-muted">Total de expedientes registrados: {{ expedientes|length }}</p>
+        </div>
+        <a href="{{ url_for('nuevo_expediente') }}" class="btn btn-primary shadow-sm px-4">
+            <i class="bi bi-plus-circle me-2"></i>Nuevo Expediente
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Código</th>
+                        <th>Cliente</th>
+                        <th>Nombre del Caso</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in expedientes %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-primary">{{ exp.codigo_firma }}</td>
+                        <td>{{ exp.cliente.nombres }} {{ exp.cliente.apellidos }}</td>
+                        <td>{{ exp.nombre_caso }}</td>
+                        <td>
+                            <span class="badge {{ 'bg-primary' if exp.tipo_tramite == 'Judicial' else 'bg-success' }}">
+                                {{ exp.tipo_tramite }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">{{ exp.estado }}</span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="#" class="btn btn-sm btn-outline-primary">Detalle</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">No hay expedientes registrados aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

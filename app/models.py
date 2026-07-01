@@ -39,7 +39,8 @@ class Cliente(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     rnc_cedula = db.Column(db.String(11), unique=True, nullable=False)
-    nombre = db.Column(db.String(255), nullable=False)
+    nombres = db.Column(db.String(150),  nullable=False) 
+    apellidos = db.Column(db.String(150),  nullable=False) 
     
     # --- NUEVOS CAMPOS ---
     tipo_cliente = db.Column(db.String(50), nullable=False, default='Persona física')
@@ -54,28 +55,128 @@ class Cliente(db.Model):
     
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True)
 
-    expedientes = db.relationship('Expediente', backref='titular', lazy=True)
+    expedientes = db.relationship(
+    'Expediente',
+    backref='cliente',
+    lazy=True)
     facturas = db.relationship('FacturaHonorario', backref='cliente', lazy=True)
-# 2. GESTIÓN DE EXPEDIENTES Y ALERTAS
+    
+    @property
+    def nombre_completo(self):
+        return f"{self.nombres} {self.apellidos}"
 
+# TABLA PADRE (Datos comunes a todos los expedientes)
 class Expediente(db.Model):
     __tablename__ = 'expedientes'
 
     id = db.Column(db.Integer, primary_key=True)
     codigo_firma = db.Column(db.String(50), unique=True, nullable=False)
-    # ON DELETE RESTRICT: Impide borrar cliente si tiene casos
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False)
+    
+    # NUEVO: ¿Qué abogado de la firma lleva el caso? (Asignación interna)
+    abogado_responsable_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True)
+    
     nombre_caso = db.Column(db.String(255), nullable=False)
-    tipo_tramite = db.Column(db.String(50), nullable=False) # 'Judicial', 'Administrativo'
-    estado = db.Column(db.String(20), nullable=False, default='Abierto') # 'Abierto', 'Pendiente', 'Cerrado'
-    fecha_apertura = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+    
+    # NUEVO: ¿A quién representamos? (Demandante, Demandado, Querellante, Imputado, Solicitante)
+    rol_firma = db.Column(db.String(50), nullable=False) 
+    
+    tipo_tramite = db.Column(db.String(50), nullable=False) 
+    estado = db.Column(db.String(20), nullable=False, default='Abierto')
+    fecha_apertura = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    fecha_cierre = db.Column(db.DateTime(timezone=True), nullable=True) # Para auditoría
 
-    # Relaciones
+    # Relaciones base
     documentos = db.relationship('Documento', backref='expediente', lazy=True, cascade="all, delete-orphan")
     tiempos = db.relationship('BitacoraTiempoTarea', backref='expediente', lazy=True)
-    alertas = db.relationship('AlertaPlazoAudiencia', backref='expediente', lazy=True, cascade="all, delete-orphan")
     auditorias = db.relationship('BitacoraAuditoria', backref='expediente_afectado', lazy=True)
+    abogado_responsable = db.relationship(
+    'Usuario',
+    foreign_keys=[abogado_responsable_id])
 
+    __mapper_args__ = {
+        'polymorphic_on': tipo_tramite,
+        'polymorphic_identity': 'Base'
+    }
+
+
+# TABLA HIJA: Vía Jurisdiccional / Litigio
+class ExpedienteJudicial(Expediente):
+    __tablename__ = 'expedientes_judiciales'
+    id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True)
+
+    rama_derecho = db.Column(db.String(100))
+    sub_categoria = db.Column(db.String(100))
+    tipo_accion = db.Column(db.String(100))
+    
+    # NUEVO: Instancia actual (Ej: Juzgado de Paz, Primera Instancia, Corte de Apelación, Suprema Corte)
+    jurisdiccion_actual = db.Column(db.String(100))
+    tribunal_asignado = db.Column(db.String(150))
+    numero_expediente_tribunal = db.Column(db.String(100))
+    juez_asignado = db.Column(db.String(150))
+    
+    # NUEVO: Datos de la contraparte
+    nombre_contraparte = db.Column(db.String(200))
+    contacto_contraparte = db.Column(db.String(150)) # Tel/Dirección para el alguacil inicial
+    abogado_contraparte = db.Column(db.String(200))
+    contacto_abogado_contraparte = db.Column(db.String(150)) # Tel/Correo para negociaciones
+    
+    # NUEVO: Aspecto financiero del litigio (Monto demandado)
+    monto_demanda = db.Column(db.Numeric(15, 2), nullable=True) # Maneja montos exactos con decimales
+
+    fecha_audiencia = db.Column(db.Date, nullable=True)
+    hora_audiencia = db.Column(db.Time, nullable=True)
+
+    alertas_plazos = db.relationship('AlertaPlazoAudiencia', backref='expediente_judicial', lazy=True, cascade="all, delete-orphan")
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'Judicial'
+    }
+
+
+# TABLA HIJA: Vía Administrativa / Consultoría
+class ExpedienteAdministrativo(Expediente):
+    __tablename__ = 'expedientes_administrativos'
+    id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True)
+
+    tipo_proceso = db.Column(db.String(100))  
+    sub_proceso = db.Column(db.String(100))   
+    
+    # NUEVO: Ej: DGII, ONAPI, DGM, JCE, Ayuntamientos
+    institucion_encargada = db.Column(db.String(150)) 
+    
+    # NUEVO: Número oficial que da la institución al someter el trámite
+    numero_solicitud_oficial = db.Column(db.String(100), nullable=True)
+    
+    descripcion_tramite = db.Column(db.Text)
+    
+    # NUEVO: Control de impuestos pagados para el trámite
+    monto_tasas_impuestos = db.Column(db.Numeric(12, 2), nullable=True, default=0.00)
+
+    requisitos = db.relationship('RequisitoAdministrativo', backref='expediente_admin', lazy=True, cascade="all, delete-orphan")
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'Administrativo'
+    }
+
+class RequisitoAdministrativo(db.Model):
+    __tablename__ = 'requisitos_administrativos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes_administrativos.id', ondelete='CASCADE'), nullable=False)
+    
+    descripcion = db.Column(db.String(255), nullable=False) 
+    
+    # NUEVO:  para flujos de documentos legales
+    requiere_legalizacion = db.Column(db.Boolean, default=False) # Ej: Procuraduría, MIREX
+    requiere_apostilla = db.Column(db.Boolean, default=False)
+    requiere_traduccion = db.Column(db.Boolean, default=False)
+    
+    estado = db.Column(db.String(50), nullable=False, default='Pendiente') 
+    observaciones = db.Column(db.Text, nullable=True) 
+
+    fecha_creacion = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    fecha_completado = db.Column(db.DateTime(timezone=True), nullable=True)
 
 class AlertaPlazoAudiencia(db.Model):
     __tablename__ = 'alertas_plazos_audiencias'

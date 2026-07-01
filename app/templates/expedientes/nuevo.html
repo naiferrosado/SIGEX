@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<div class="container-fluid py-4" style="padding-left: 260px;"> <div class="mx-auto" style="max-width: 1000px;">
+        <div class="mb-4">
+            <h2 class="fw-bold text-primary">Registrar Nuevo Expediente</h2>
+            <p class="text-muted">Complete la información para iniciar el proceso legal o administrativo.</p>
+        </div>
+
+        <ul class="nav nav-tabs border-0 mb-4" id="expTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active fw-bold px-4 rounded-top" data-bs-toggle="tab" data-bs-target="#judicial" type="button">
+                    <i class="bi bi-balance-scale me-2"></i>Vía Jurisdiccional
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link fw-bold px-4 rounded-top" data-bs-toggle="tab" data-bs-target="#admin" type="button">
+                    <i class="bi bi-folder-check me-2"></i>Vía Administrativa
+                </button>
+            </li>
+        </ul>
+
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <div class="tab-content">
+                    
+                    <div class="tab-pane fade show active" id="judicial">
+                        <form method="POST">
+                            {{ form_judicial.hidden_tag() }}
+                            <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>Información General</h6>
+                            <div class="row g-3 mb-4">
+                                {% for field in form_judicial if field.name in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id'] %}
+                                <div class="col-md-3">{{ field.label(class="form-label small fw-bold") }} {{ field(class="form-control") }}</div>
+                                {% endfor %}
+                            </div>
+                            <hr>
+                            <h6 class="text-primary mb-3"><i class="bi bi-bank me-2"></i>Datos Procesales</h6>
+                            <div class="row g-3">
+                                {% for field in form_judicial if field.name not in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id', 'csrf_token', 'submit'] %}
+                                <div class="col-md-4">{{ field.label(class="form-label small fw-bold") }} {{ field(class="form-control") }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="mt-4 text-end">
+                                {{ form_judicial.submit(class="btn btn-primary px-5 py-2 shadow-sm") }}
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane fade" id="admin">
+                        <form method="POST">
+                            {{ form_admin.hidden_tag() }}
+                            <div class="row g-3">
+                                {% for field in form_admin if field.type != 'CSRFTokenField' and field.type != 'SubmitField' %}
+                                <div class="col-md-4">
+                                    {{ field.label(class="form-label small fw-bold") }}
+                                    {{ field(class="form-control") }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="mt-4 text-end">
+                                {{ form_admin.submit(class="btn btn-primary px-5 py-2 shadow-sm") }}
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos extra para que se vea más profesional */
+    .nav-tabs .nav-link { color: #6c757d; border: none; }
+    .nav-tabs .nav-link.active { background: #f8f9fa !important; border-bottom: 3px solid #00409A !important; color: #00409A !important; }
+    .card { border-radius: 1rem; }
+    .form-control { border-radius: 0.5rem; border: 1px solid #ced4da; }
+    .form-control:focus { border-color: #00409A; box-shadow: 0 0 0 0.25rem rgba(0, 64, 154, 0.1); }
+</style>
+{% endblock %}
