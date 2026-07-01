@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">¡Hola, {{ current_user.nombre }}! 👋</h2>
+            <p class="text-muted small mb-0">Panel de Paralegal. Administra la carga de documentos, expedición de trámites y checklist de tareas.</p>
+        </div>
+        <div class="d-flex gap-3 align-items-center">
+            <div class="bg-white border rounded px-3 py-2 small text-secondary shadow-sm">
+                <i class="bi bi-calendar3 me-2"></i>{{ current_date.strftime('%d de %B, %Y') }}
+            </div>
+            <a href="{{ url_for('expedientes') }}" class="btn btn-primary btn-sm shadow-sm px-3 py-2 fw-semibold">
+                <i class="bi bi-search me-1"></i> Buscar Expediente
+            </a>
+        </div>
+    </header>
+
+    <!-- Fila superior de tarjetas estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-folder-fill text-primary bg-primary bg-opacity-10 p-1 rounded me-1"></i> Expedientes Activos</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.expedientes_activos }}</h3>
+                    <div class="text-muted small mt-1">Total de la oficina</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-clipboard2-data text-danger bg-danger bg-opacity-10 p-1 rounded me-1"></i> Tareas Pendientes</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.tareas_pendientes }}</h3>
+                    <div class="text-danger small mt-1">Pendientes de cierre</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-file-earmark-check-fill text-success bg-success bg-opacity-10 p-1 rounded me-1"></i> Documentos Cargados</div>
+                    <h3 class="fw-bold mb-0 text-success">{{ estadisticas.documentos_cargados }}</h3>
+                    <div class="text-muted small mt-1">Por mi cuenta</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-patch-check-fill text-warning bg-warning bg-opacity-10 p-1 rounded me-1"></i> Tareas Aprobadas</div>
+                    <h3 class="fw-bold mb-0 text-warning">{{ estadisticas.tareas_completadas }}</h3>
+                    <div class="text-muted small mt-1">Este mes fiscal</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="row g-4 mb-4">
+        <!-- Tareas y Listado Asignado -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-clipboard-check text-primary me-2"></i>Mis Hojas de Actividades Recientes</h6>
+                    {% if estadisticas.tareas_proximas %}
+                    <div class="list-group list-group-flush">
+                        {% for tarea in estadisticas.tareas_proximas %}
+                        <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1 small text-dark">{{ tarea.descripcion_gestion }}</h6>
+                                    <span class="small text-muted"><i class="bi bi-folder2 me-1"></i>{{ tarea.expediente.nombre_caso }}</span>
+                                </div>
+                                <div>
+                                    <span class="badge bg-light text-dark me-2">{{ tarea.horas_trabajadas }} h</span>
+                                    <span class="badge {% if tarea.estado_cierre == 'Aprobado' %}bg-success{% else %}bg-warning{% endif %} rounded-pill small">{{ tarea.estado_cierre }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-success fs-1"></i>
+                        <p class="text-muted mt-2 small">No tienes actividades de soporte pendientes de revisión.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Carga de Documentos Recientes -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-file-earmark-arrow-up-fill text-success me-2"></i>Historial General de Archivos Digitalizados</h6>
+                    {% if estadisticas.documentos_recientes %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="small fw-bold">Fecha</th>
+                                    <th class="small fw-bold">Archivo</th>
+                                    <th class="small fw-bold">Expediente</th>
+                                    <th class="small fw-bold text-end">Firma</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for version in estadisticas.documentos_recientes %}
+                                <tr>
+                                    <td class="small text-muted">{{ version.fecha_carga.strftime('%d/%m/%Y') }}</td>
+                                    <td class="small fw-semibold text-dark">{{ version.documento_maestro.categoria.nombre_tipo }}</td>
+                                    <td class="small text-muted text-truncate" style="max-width: 150px;">{{ version.documento_maestro.expediente.nombre_caso }}</td>
+                                    <td class="text-end">
+                                        {% if version.es_firmado %}
+                                        <span class="badge bg-success small"><i class="bi bi-shield-fill-check"></i> Firmado</span>
+                                        {% else %}
+                                        <span class="badge bg-light text-secondary border small">Borrador</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small text-center py-4">Aún no se han cargado versiones físicas de documentos legales en el sistema.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

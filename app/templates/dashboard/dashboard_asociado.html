@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">¡Hola, {{ current_user.nombre }}! 👋</h2>
+            <p class="text-muted small mb-0">Panel de control del Abogado Asociado. Revisa tus casos asignados y plazos de ley.</p>
+        </div>
+        <div class="d-flex gap-3 align-items-center">
+            <div class="bg-white border rounded px-3 py-2 small text-secondary shadow-sm">
+                <i class="bi bi-calendar3 me-2"></i>{{ current_date.strftime('%d de %B, %Y') }}
+            </div>
+            <a href="{{ url_for('nuevo_expediente') }}" class="btn btn-primary btn-sm shadow-sm px-3 py-2 fw-semibold">
+                <i class="bi bi-plus-circle me-1"></i> Registrar Caso
+            </a>
+        </div>
+    </header>
+
+    <!-- Fila superior de tarjetas estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-folder-check text-primary bg-primary bg-opacity-10 p-1 rounded me-1"></i> Mis Casos</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.expedientes_activos }}</h3>
+                    <div class="text-muted small mt-1">Bajo mi cargo</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-alarm-fill text-danger bg-danger bg-opacity-10 p-1 rounded me-1"></i> Alert. Semana</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.alertas_semana }}</h3>
+                    <div class="text-danger small mt-1">Plazos de ley</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-clock-fill text-info bg-info bg-opacity-10 p-1 rounded me-1"></i> Horas Reportadas</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.horas_mes }} h</h3>
+                    <div class="text-muted small mt-1">Registradas este mes</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-hourglass-split text-warning bg-warning bg-opacity-10 p-1 rounded me-1"></i> Horas Pendientes</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.horas_pendientes }} h</h3>
+                    <div class="text-muted small mt-1">Por aprobar por Socio</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-graph-up-arrow text-success bg-success bg-opacity-10 p-1 rounded me-1"></i> Proyectado</div>
+                    <h5 class="fw-bold mb-0 text-success">RD$ {{ "{:,.0f}".format(estadisticas.total_facturable_proyectado) }}</h5>
+                    <div class="text-muted small mt-1">Rendimiento mes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="row g-4 mb-4">
+        <!-- Mis Expedientes y Tareas Recientes -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-journal-bookmark text-primary me-2"></i>Mis Expedientes Asignados Recientes</h6>
+                    {% if estadisticas.expedientes %}
+                    <div class="list-group list-group-flush">
+                        {% for exp in estadisticas.expedientes %}
+                        <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1 small text-dark">{{ exp.nombre_caso }}</h6>
+                                    <span class="badge bg-light text-secondary border small">{{ exp.codigo_firma }}</span>
+                                    <span class="small text-muted ms-2"><i class="bi bi-tag-fill me-1"></i>{{ exp.tipo_tramite }}</span>
+                                </div>
+                                <span class="badge {% if exp.estado == 'Abierto' %}bg-success{% elif exp.estado == 'Suspendido' %}bg-warning{% else %}bg-secondary{% endif %} rounded-pill small">{{ exp.estado }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-folder-x text-muted fs-2"></i>
+                        <p class="text-muted mt-2 small">No tienes expedientes asignados en este momento.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-journal-text text-info me-2"></i>Bitácora Reciente de Actividades Realizadas</h6>
+                    {% if estadisticas.tareas_recientes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="small fw-bold text-muted">Fecha</th>
+                                    <th class="small fw-bold text-muted">Horas</th>
+                                    <th class="small fw-bold text-muted">Descripción</th>
+                                    <th class="small fw-bold text-muted text-end">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tarea in estadisticas.tareas_recientes %}
+                                <tr>
+                                    <td class="small text-muted">{{ tarea.fecha_tarea.strftime('%d/%m/%Y') }}</td>
+                                    <td class="small fw-bold">{{ tarea.horas_trabajadas }} h</td>
+                                    <td class="small text-dark text-truncate" style="max-width: 250px;">{{ tarea.descripcion_gestion }}</td>
+                                    <td class="text-end">
+                                        <span class="badge {% if tarea.estado_cierre == 'Aprobado' %}bg-success{% elif tarea.estado_cierre == 'Facturado' %}bg-primary{% else %}bg-warning{% endif %} rounded-pill small">{{ tarea.estado_cierre }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small text-center py-3">Aún no has registrado horas de gestión en tus expedientes.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha (Resumen de Tiempos y Enlaces) -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-card-checklist text-success me-2"></i>Resumen de Rendimiento (Tiempos)</h6>
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Horas trabajadas este mes:</span>
+                            <span class="fw-bold">{{ estadisticas.horas_mes }} h</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Horas aprobadas por socio:</span>
+                            <span class="fw-bold text-success">{{ estadisticas.horas_mes - estadisticas.horas_pendientes }} h</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Horas pendientes de revisión:</span>
+                            <span class="fw-bold text-warning">{{ estadisticas.horas_pendientes }} h</span>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-outline-primary btn-sm w-100 fw-semibold" onclick="alert('Sección para agregar horas y actividades disponible en la barra lateral (Mis Tareas).')">
+                        <i class="bi bi-plus-lg me-1"></i> Registrar Horas de Trabajo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

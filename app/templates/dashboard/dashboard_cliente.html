@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">¡Hola, {{ current_user.nombre }}! 👋</h2>
+            <p class="text-muted small mb-0">Bienvenido a tu portal de cliente. Aquí puedes revisar el avance de tus casos y descargar documentos compartidos.</p>
+        </div>
+        <div class="bg-white border rounded px-3 py-2 small text-secondary shadow-sm">
+            <i class="bi bi-calendar3 me-2"></i>{{ current_date.strftime('%d de %B, %Y') }}
+        </div>
+    </header>
+
+    <!-- Fila superior de tarjetas estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-3 text-primary me-3">
+                        <i class="bi bi-folder-check fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">Mis Casos Activos</div>
+                        <h3 class="fw-bold mb-0 text-dark">{{ estadisticas.expedientes_activos_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-danger bg-opacity-10 p-3 rounded-3 text-danger me-3">
+                        <i class="bi bi-calendar-event fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">Próxima Audiencia</div>
+                        <h6 class="fw-bold mb-0 text-dark">
+                            {% if estadisticas.audiencia_proxima %}
+                            {{ estadisticas.audiencia_proxima.fecha_vencimiento.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                            Sin audiencias programadas
+                            {% endif %}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 p-3 rounded-3 text-success me-3">
+                        <i class="bi bi-file-earmark-arrow-down fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">Documentos Disponibles</div>
+                        <h3 class="fw-bold mb-0 text-dark">{{ estadisticas.documentos_disponibles_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-warning bg-opacity-10 p-3 rounded-3 text-warning me-3">
+                        <i class="bi bi-shield-check fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">Estado</div>
+                        <h6 class="fw-bold mb-0 text-success">Todo al día</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="row g-4 mb-4">
+        <!-- Avance de Caso Principal -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-4" style="color: #071c4d;"><i class="bi bi-compass text-primary me-2"></i>Línea de Progreso de Caso Activo Principal</h6>
+                    
+                    {% if estadisticas.caso_activo_principal %}
+                    <div class="mb-4">
+                        <h5 class="fw-bold mb-1 text-dark">{{ estadisticas.caso_activo_principal.nombre_caso }}</h5>
+                        <p class="text-muted small mb-3"><i class="bi bi-tag-fill me-1"></i>Código del caso: {{ estadisticas.caso_activo_principal.codigo_firma }}</p>
+                    </div>
+
+                    <!-- Timeline Horizontal de Fases -->
+                    <div class="row text-center position-relative mb-4">
+                        <!-- Línea de fondo -->
+                        <div class="position-absolute top-50 start-0 translate-y-50 w-100 bg-secondary bg-opacity-25" style="height: 4px; z-index: 1;"></div>
+                        
+                        <div class="col col-lg">
+                            <div class="position-relative" style="z-index: 2;">
+                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 1 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">1. Demanda interpuesta</div>
+                            </div>
+                        </div>
+                        <div class="col col-lg">
+                            <div class="position-relative" style="z-index: 2;">
+                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 2 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-check-circle"></i>
+                                </div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">2. Demanda admitida</div>
+                            </div>
+                        </div>
+                        <div class="col col-lg">
+                            <div class="position-relative" style="z-index: 2;">
+                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 3 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-calendar-event"></i>
+                                </div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">3. Audiencia fijada</div>
+                            </div>
+                        </div>
+                        <div class="col col-lg">
+                            <div class="position-relative" style="z-index: 2;">
+                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 4 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-chat-left-dots"></i>
+                                </div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">4. Conclusiones</div>
+                            </div>
+                        </div>
+                        <div class="col col-lg">
+                            <div class="position-relative" style="z-index: 2;">
+                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 5 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-gavel"></i>
+                                </div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">5. Sentencia</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-folder2 text-muted fs-1"></i>
+                        <p class="text-muted mt-2 small">No posees expedientes activos registrados en el bufete en este momento.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Últimas Actividades -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-activity text-info me-2"></i>Últimos Hitos y Notificaciones Recientes</h6>
+                    
+                    {% if estadisticas.actividades %}
+                    <ul class="list-group list-group-flush">
+                        {% for actividad in estadisticas.actividades %}
+                        <li class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-center">
+                            <div class="bg-light p-2 rounded-circle me-3 text-primary">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 small text-dark">{{ actividad.titulo_hito }}</h6>
+                                <span class="small text-muted">Fecha límite: {{ actividad.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted small text-center py-3">No hay hitos ni actividades registradas recientemente.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalles del Expediente y Descarga de Documentos -->
+        <div class="col-lg-4">
+            {% if estadisticas.caso_activo_principal %}
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-card-text text-warning me-2"></i>Detalle de mi Expediente</h6>
+                    <div class="list-group list-group-flush small">
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between text-dark">
+                            <span>Tipo de caso:</span>
+                            <span class="fw-bold">{{ estadisticas.caso_activo_principal.tipo_tramite }}</span>
+                        </div>
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between text-dark">
+                            <span>Abogado Asignado:</span>
+                            <span class="fw-bold">
+                                {% if estadisticas.caso_activo_principal.abogado_responsable %}
+                                {{ estadisticas.caso_activo_principal.abogado_responsable.nombre }}
+                                {% else %}
+                                Firma General
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between text-dark">
+                            <span>Fecha de apertura:</span>
+                            <span class="fw-bold">{{ estadisticas.caso_activo_principal.fecha_apertura.strftime('%d/%m/%Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Documentos Compartidos -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-folder-symlink-fill text-success me-2"></i>Documentos Compartidos</h6>
+                    
+                    {% if estadisticas.documentos %}
+                    <div class="list-group list-group-flush">
+                        {% for doc in estadisticas.documentos %}
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold mb-0 small text-dark">{{ doc.categoria.nombre_tipo }}</h6>
+                                <span class="small text-muted" style="font-size: 0.75rem;">Disponible</span>
+                            </div>
+                            <button class="btn btn-outline-success btn-xs" onclick="alert('Descargando archivo digitalizado...')">
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted small text-center py-4">No se han subido documentos compartidos en este momento.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

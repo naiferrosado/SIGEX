@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">¡Bienvenido, Administrador! 🛠️</h2>
+            <p class="text-muted small mb-0">Panel de Control Técnico. Monitoreo de infraestructura y registro forense de auditoría.</p>
+        </div>
+        <div class="d-flex gap-3 align-items-center">
+            <div class="bg-white border rounded px-3 py-2 small text-secondary shadow-sm">
+                <i class="bi bi-calendar3 me-2"></i>{{ current_date.strftime('%d de %B, %Y') }}
+            </div>
+            <a href="{{ url_for('usuarios') }}" class="btn btn-primary btn-sm shadow-sm px-3 py-2 fw-semibold">
+                <i class="bi bi-person-gear me-1"></i> Gestionar Usuarios
+            </a>
+        </div>
+    </header>
+
+    <!-- Fila superior de tarjetas estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-people-fill text-primary bg-primary bg-opacity-10 p-1 rounded me-1"></i> Usuarios Activos</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.usuarios_activos }}</h3>
+                    <div class="text-success small mt-1">Cuentas habilitadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-folder-fill text-success bg-success bg-opacity-10 p-1 rounded me-1"></i> Total Casos</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.expedientes_totales }}</h3>
+                    <div class="text-muted small mt-1">Base de datos</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-file-earmark-code text-info bg-info bg-opacity-10 p-1 rounded me-1"></i> Documentos</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.documentos_almacenados }}</h3>
+                    <div class="text-muted small mt-1">Archivos binarios</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-hourglass-bottom text-warning bg-warning bg-opacity-10 p-1 rounded me-1"></i> Horas Reg.</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.horas_registradas }} h</h3>
+                    <div class="text-muted small mt-1">Acumulado total</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-activity text-danger bg-danger bg-opacity-10 p-1 rounded me-1"></i> Audit. Hoy</div>
+                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.eventos_auditoria_hoy }}</h3>
+                    <div class="text-danger small mt-1">Logs registrados</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-database-check text-dark bg-secondary bg-opacity-10 p-1 rounded me-1"></i> Base Datos</div>
+                    <h5 class="fw-bold mb-0 text-success"><i class="bi bi-check-circle-fill"></i> Conectado</h5>
+                    <div class="text-muted small mt-1">PostgreSQL 15</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="row g-4 mb-4">
+        <!-- Auditoría Forense Reciente -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-terminal-split text-danger me-2"></i>Bitácora de Auditoría Forense Reciente (RF-LEG-002)</h6>
+                    
+                    {% if estadisticas.auditorias_recientes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="small fw-bold">Fecha/Hora</th>
+                                    <th class="small fw-bold">Usuario</th>
+                                    <th class="small fw-bold">Acción</th>
+                                    <th class="small fw-bold">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for audit in estadisticas.auditorias_recientes %}
+                                <tr>
+                                    <td class="small text-muted" style="font-size: 0.75rem;">{{ audit.fecha_hora.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td class="small fw-semibold text-dark">{{ audit.usuario_id }}</td>
+                                    <td class="small"><span class="badge bg-light text-dark border">{{ audit.accion_realizada }}</span></td>
+                                    <td class="small text-muted">{{ audit.ip_direccion }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small text-center py-4">No se han registrado eventos de auditoría en la bitácora aún.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Distribución de Roles y Estado de Servicios -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-people text-info me-2"></i>Distribución de Cuentas de Usuario</h6>
+                    <div class="p-3 bg-light rounded-3 border">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small"><i class="bi bi-circle-fill text-primary small me-2"></i>Socios:</span>
+                            <span class="fw-bold">{{ estadisticas.socios_count }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small"><i class="bi bi-circle-fill text-info small me-2"></i>Asociados:</span>
+                            <span class="fw-bold">{{ estadisticas.asociados_count }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small"><i class="bi bi-circle-fill text-warning small me-2"></i>Paralegales:</span>
+                            <span class="fw-bold">{{ estadisticas.paralegales_count }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small"><i class="bi bi-circle-fill text-danger small me-2"></i>Administradores:</span>
+                            <span class="fw-bold">{{ estadisticas.administradores_count }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small"><i class="bi bi-circle-fill text-secondary small me-2"></i>Clientes:</span>
+                            <span class="fw-bold">{{ estadisticas.clientes_count }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-hdd-network text-success me-2"></i>Estado de Infraestructura</h6>
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                            <span class="small text-dark">Servidor Flask Web:</span>
+                            <span class="badge bg-success">Operativo</span>
+                        </div>
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                            <span class="small text-dark">Almacenamiento Cloud:</span>
+                            <span class="badge bg-success">Operativo</span>
+                        </div>
+                        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                            <span class="small text-dark">Servicio de Correos (Alertas):</span>
+                            <span class="badge bg-success">Activo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
