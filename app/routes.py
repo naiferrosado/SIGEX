@@ -1,7 +1,7 @@
 import uuid  # Para generar el código único de la firma
 from datetime import datetime
-from urllib.parse import urlparse
 from functools import wraps
+from urllib.parse import urlparse
 
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
@@ -18,6 +18,8 @@ from app.forms import (
 )
 from app.models import (
     AlertaPlazoAudiencia,
+    BitacoraAuditoria,
+    BitacoraTiempoTarea,
     Cliente,
     Documento,
     Expediente,
@@ -25,10 +27,8 @@ from app.models import (
     ExpedienteJudicial,
     FacturaHonorario,
     Usuario,
-    rd_now,
-    BitacoraTiempoTarea,
     VersionDocumento,
-    BitacoraAuditoria,
+    rd_now,
 )
 
 
@@ -36,7 +36,7 @@ def _serialize_clientes(clientes):
     return [
         {
             "id": c.id,
-            "nombre": f"{c.nombres} {c.apellidos}",  # ← corregido
+            "nombre": f"{c.nombres} {c.apellidos}",
             "rnc_cedula": c.rnc_cedula,
             "telefono": c.telefono,
             "email_contacto": c.email_contacto,
@@ -58,42 +58,62 @@ def _serialize_expedientes(expedientes):
             "id": exp.id,
             "codigo_firma": exp.codigo_firma,
             "cliente_id": exp.cliente_id,
-            "cliente_nombre": exp.cliente.nombre_completo if exp.cliente else "Desconocido",
+            "cliente_nombre": exp.cliente.nombre_completo
+            if exp.cliente
+            else "Desconocido",
             "abogado_responsable_id": exp.abogado_responsable_id,
-            "abogado_responsable_nombre": exp.abogado_responsable.nombre if exp.abogado_responsable else "No asignado",
+            "abogado_responsable_nombre": exp.abogado_responsable.nombre
+            if exp.abogado_responsable
+            else "No asignado",
             "nombre_caso": exp.nombre_caso,
             "rol_firma": exp.rol_firma,
             "tipo_tramite": exp.tipo_tramite,
             "estado": exp.estado,
-            "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d") if exp.fecha_apertura else None,
-            "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d") if exp.fecha_cierre else None,
+            "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d")
+            if exp.fecha_apertura
+            else None,
+            "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d")
+            if exp.fecha_cierre
+            else None,
         }
-        if exp.tipo_tramite == 'Judicial':
-            item.update({
-                "rama_derecho": exp.rama_derecho,
-                "sub_categoria": exp.sub_categoria,
-                "tipo_accion": exp.tipo_accion,
-                "jurisdiccion_actual": exp.jurisdiccion_actual,
-                "tribunal_asignado": exp.tribunal_asignado,
-                "numero_expediente_tribunal": exp.numero_expediente_tribunal,
-                "juez_asignado": exp.juez_asignado,
-                "nombre_contraparte": exp.nombre_contraparte,
-                "contacto_contraparte": exp.contacto_contraparte,
-                "abogado_contraparte": exp.abogado_contraparte,
-                "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
-                "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
-                "fecha_audiencia": exp.fecha_audiencia.strftime("%Y-%m-%d") if exp.fecha_audiencia else None,
-                "hora_audiencia": exp.hora_audiencia.strftime("%H:%M") if exp.hora_audiencia else None,
-            })
-        elif exp.tipo_tramite == 'Administrativo':
-            item.update({
-                "tipo_proceso": exp.tipo_proceso,
-                "sub_proceso": exp.sub_proceso,
-                "institucion_encargada": exp.institucion_encargada,
-                "numero_solicitud_oficial": exp.numero_solicitud_oficial,
-                "descripcion_tramite": exp.descripcion_tramite,
-                "monto_tasas_impuestos": float(exp.monto_tasas_impuestos) if exp.monto_tasas_impuestos is not None else None,
-            })
+        if exp.tipo_tramite == "Judicial":
+            item.update(
+                {
+                    "rama_derecho": exp.rama_derecho,
+                    "sub_categoria": exp.sub_categoria,
+                    "tipo_accion": exp.tipo_accion,
+                    "jurisdiccion_actual": exp.jurisdiccion_actual,
+                    "tribunal_asignado": exp.tribunal_asignado,
+                    "numero_expediente_tribunal": exp.numero_expediente_tribunal,
+                    "juez_asignado": exp.juez_asignado,
+                    "nombre_contraparte": exp.nombre_contraparte,
+                    "contacto_contraparte": exp.contacto_contraparte,
+                    "abogado_contraparte": exp.abogado_contraparte,
+                    "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
+                    "monto_demanda": float(exp.monto_demanda)
+                    if exp.monto_demanda is not None
+                    else None,
+                    "fecha_audiencia": exp.fecha_audiencia.strftime("%Y-%m-%d")
+                    if exp.fecha_audiencia
+                    else None,
+                    "hora_audiencia": exp.hora_audiencia.strftime("%H:%M")
+                    if exp.hora_audiencia
+                    else None,
+                }
+            )
+        elif exp.tipo_tramite == "Administrativo":
+            item.update(
+                {
+                    "tipo_proceso": exp.tipo_proceso,
+                    "sub_proceso": exp.sub_proceso,
+                    "institucion_encargada": exp.institucion_encargada,
+                    "numero_solicitud_oficial": exp.numero_solicitud_oficial,
+                    "descripcion_tramite": exp.descripcion_tramite,
+                    "monto_tasas_impuestos": float(exp.monto_tasas_impuestos)
+                    if exp.monto_tasas_impuestos is not None
+                    else None,
+                }
+            )
         data.append(item)
     return data
 
@@ -103,12 +123,17 @@ def roles_permitidos(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                return redirect(url_for('login'))
+                return redirect(url_for("login"))
             if current_user.rol not in roles:
-                flash("Acceso denegado. No tiene permisos para acceder a esta sección o realizar esta acción.", "danger")
-                return redirect(url_for('dashboard'))
+                flash(
+                    "Acceso denegado. No tiene permisos para acceder a esta sección o realizar esta acción.",
+                    "danger",
+                )
+                return redirect(url_for("dashboard"))
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
 
 
@@ -161,7 +186,7 @@ def register_routes(app):
             rol = current_user.rol
             now_dt = datetime.utcnow()
             start_of_month = datetime(now_dt.year, now_dt.month, 1)
-            
+
             # --- SOCIO ---
             if rol == "Socio":
                 total_clientes = Cliente.query.count()
@@ -170,20 +195,47 @@ def register_routes(app):
                 total_documentos = Documento.query.count()
                 total_facturas = FacturaHonorario.query.count()
                 total_usuarios = Usuario.query.count()
-                
-                total_general = max(1, total_expedientes + total_clientes + total_documentos + total_alertas + total_facturas + total_usuarios)
-                
+
+                total_general = max(
+                    1,
+                    total_expedientes
+                    + total_clientes
+                    + total_documentos
+                    + total_alertas
+                    + total_facturas
+                    + total_usuarios,
+                )
+
                 # Aprobaciones pendientes (tiempos reportados por asociados/paralegales en estado 'Abierto')
-                tiempos_pendientes = BitacoraTiempoTarea.query.filter_by(estado_cierre="Abierto").limit(5).all()
-                total_tiempos_pendientes_count = BitacoraTiempoTarea.query.filter_by(estado_cierre="Abierto").count()
-                
+                tiempos_pendientes = (
+                    BitacoraTiempoTarea.query.filter_by(estado_cierre="Abierto")
+                    .limit(5)
+                    .all()
+                )
+                total_tiempos_pendientes_count = BitacoraTiempoTarea.query.filter_by(
+                    estado_cierre="Abierto"
+                ).count()
+
                 # Facturas y finanzas
-                facturas_pendientes_monto = db.session.query(db.func.sum(FacturaHonorario.monto_total)).filter_by(estado_pago="Pendiente").scalar() or 0.00
-                facturas_emitidas_mes = FacturaHonorario.query.filter(FacturaHonorario.fecha_emision >= start_of_month).count()
-                
+                facturas_pendientes_monto = (
+                    db.session.query(db.func.sum(FacturaHonorario.monto_total))
+                    .filter_by(estado_pago="Pendiente")
+                    .scalar()
+                    or 0.00
+                )
+                facturas_emitidas_mes = FacturaHonorario.query.filter(
+                    FacturaHonorario.fecha_emision >= start_of_month
+                ).count()
+
                 # Horas facturables aprobadas
-                horas_facturables_mes = db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas)).filter_by(estado_cierre="Aprobado").filter(BitacoraTiempoTarea.fecha_tarea >= start_of_month.date()).scalar() or 0.00
-                
+                horas_facturables_mes = (
+                    db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas))
+                    .filter_by(estado_cierre="Aprobado")
+                    .filter(BitacoraTiempoTarea.fecha_tarea >= start_of_month.date())
+                    .scalar()
+                    or 0.00
+                )
+
                 # Coberturas y porcentajes
                 estadisticas = {
                     "clientes": total_clientes,
@@ -193,47 +245,105 @@ def register_routes(app):
                     "facturas": total_facturas,
                     "usuarios": total_usuarios,
                     "total_general": total_general,
-                    "porcentaje_expedientes": round((total_expedientes / total_general) * 100, 1),
-                    "porcentaje_clientes": round((total_clientes / total_general) * 100, 1),
-                    "porcentaje_documentos": round((total_documentos / total_general) * 100, 1),
-                    "porcentaje_alertas": round((total_alertas / total_general) * 100, 1),
-                    "porcentaje_facturas": round((total_facturas / total_general) * 100, 1),
-                    "porcentaje_usuarios": round((total_usuarios / total_general) * 100, 1),
+                    "porcentaje_expedientes": round(
+                        (total_expedientes / total_general) * 100, 1
+                    ),
+                    "porcentaje_clientes": round(
+                        (total_clientes / total_general) * 100, 1
+                    ),
+                    "porcentaje_documentos": round(
+                        (total_documentos / total_general) * 100, 1
+                    ),
+                    "porcentaje_alertas": round(
+                        (total_alertas / total_general) * 100, 1
+                    ),
+                    "porcentaje_facturas": round(
+                        (total_facturas / total_general) * 100, 1
+                    ),
+                    "porcentaje_usuarios": round(
+                        (total_usuarios / total_general) * 100, 1
+                    ),
                     "tiempos_pendientes": tiempos_pendientes,
                     "total_tiempos_pendientes_count": total_tiempos_pendientes_count,
                     "facturas_pendientes_monto": float(facturas_pendientes_monto),
                     "facturas_emitidas_mes": facturas_emitidas_mes,
-                    "horas_facturables_mes": float(horas_facturables_mes)
+                    "horas_facturables_mes": float(horas_facturables_mes),
                 }
                 return render_template(
                     "dashboard/dashboard_socio.html",
                     usuario=current_user,
                     estadisticas=estadisticas,
-                    current_date=rd_now()
+                    current_date=rd_now(),
                 )
-                
+
             # --- ASOCIADO ---
             elif rol == "Asociado":
                 # Filtrar métricas de sus expedientes asignados
-                mis_expedientes_activos = Expediente.query.filter_by(abogado_responsable_id=current_user.id).filter(Expediente.estado != "Archivado").count()
-                
+                mis_expedientes_activos = (
+                    Expediente.query.filter_by(abogado_responsable_id=current_user.id)
+                    .filter(Expediente.estado != "Archivado")
+                    .count()
+                )
+
                 # Obtener IDs de sus expedientes para alertas
-                mis_expedientes_ids = [e.id for e in Expediente.query.filter_by(abogado_responsable_id=current_user.id).all()]
-                
-                mis_alertas_semana = AlertaPlazoAudiencia.query.filter(AlertaPlazoAudiencia.expediente_id.in_(mis_expedientes_ids)).filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente").count() if mis_expedientes_ids else 0
-                mis_vencimientos_proximos = AlertaPlazoAudiencia.query.filter(AlertaPlazoAudiencia.expediente_id.in_(mis_expedientes_ids)).filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente").count() if mis_expedientes_ids else 0
-                
+                mis_expedientes_ids = [
+                    e.id
+                    for e in Expediente.query.filter_by(
+                        abogado_responsable_id=current_user.id
+                    ).all()
+                ]
+
+                mis_alertas_semana = (
+                    AlertaPlazoAudiencia.query.filter(
+                        AlertaPlazoAudiencia.expediente_id.in_(mis_expedientes_ids)
+                    )
+                    .filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente")
+                    .count()
+                    if mis_expedientes_ids
+                    else 0
+                )
+                mis_vencimientos_proximos = (
+                    AlertaPlazoAudiencia.query.filter(
+                        AlertaPlazoAudiencia.expediente_id.in_(mis_expedientes_ids)
+                    )
+                    .filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente")
+                    .count()
+                    if mis_expedientes_ids
+                    else 0
+                )
+
                 # Horas del mes
-                mis_horas_mes = db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas)).filter_by(usuario_id=current_user.id).filter(BitacoraTiempoTarea.fecha_tarea >= start_of_month.date()).scalar() or 0.00
-                mis_horas_pendientes = db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas)).filter_by(usuario_id=current_user.id, estado_cierre="Abierto").scalar() or 0.00
-                
+                mis_horas_mes = (
+                    db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas))
+                    .filter_by(usuario_id=current_user.id)
+                    .filter(BitacoraTiempoTarea.fecha_tarea >= start_of_month.date())
+                    .scalar()
+                    or 0.00
+                )
+                mis_horas_pendientes = (
+                    db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas))
+                    .filter_by(usuario_id=current_user.id, estado_cierre="Abierto")
+                    .scalar()
+                    or 0.00
+                )
+
                 # Actividades del asociado
-                mis_tareas_recientes = BitacoraTiempoTarea.query.filter_by(usuario_id=current_user.id).order_by(BitacoraTiempoTarea.fecha_tarea.desc()).limit(5).all()
-                mis_expedientes_todos = Expediente.query.filter_by(abogado_responsable_id=current_user.id).order_by(Expediente.fecha_apertura.desc()).limit(5).all()
-                
+                mis_tareas_recientes = (
+                    BitacoraTiempoTarea.query.filter_by(usuario_id=current_user.id)
+                    .order_by(BitacoraTiempoTarea.fecha_tarea.desc())
+                    .limit(5)
+                    .all()
+                )
+                mis_expedientes_todos = (
+                    Expediente.query.filter_by(abogado_responsable_id=current_user.id)
+                    .order_by(Expediente.fecha_apertura.desc())
+                    .limit(5)
+                    .all()
+                )
+
                 # Calcular total facturable proyectado para este mes (supongamos tarifa de RD$ 5,000 por hora)
                 total_facturable_proyectado = float(mis_horas_mes) * 5000.0
-                
+
                 estadisticas = {
                     "expedientes_activos": mis_expedientes_activos,
                     "alertas_semana": mis_alertas_semana,
@@ -242,27 +352,48 @@ def register_routes(app):
                     "horas_pendientes": float(mis_horas_pendientes),
                     "tareas_recientes": mis_tareas_recientes,
                     "expedientes": mis_expedientes_todos,
-                    "total_facturable_proyectado": total_facturable_proyectado
+                    "total_facturable_proyectado": total_facturable_proyectado,
                 }
                 return render_template(
                     "dashboard/dashboard_asociado.html",
                     usuario=current_user,
                     estadisticas=estadisticas,
-                    current_date=rd_now()
+                    current_date=rd_now(),
                 )
-                
+
             # --- PARALEGAL ---
             elif rol == "Paralegal":
                 # El paralegal ve tareas administrativas y soporte
-                expedientes_activos = Expediente.query.filter(Expediente.estado != "Archivado").count()
-                total_tareas_pendientes = BitacoraTiempoTarea.query.filter_by(usuario_id=current_user.id, estado_cierre="Abierto").count()
-                mis_documentos_cargados = VersionDocumento.query.filter_by(usuario_id=current_user.id).count()
-                
+                expedientes_activos = Expediente.query.filter(
+                    Expediente.estado != "Archivado"
+                ).count()
+                total_tareas_pendientes = BitacoraTiempoTarea.query.filter_by(
+                    usuario_id=current_user.id, estado_cierre="Abierto"
+                ).count()
+                mis_documentos_cargados = VersionDocumento.query.filter_by(
+                    usuario_id=current_user.id
+                ).count()
+
                 # Tareas de apoyo reportadas y aprobadas este mes
-                tareas_completadas = BitacoraTiempoTarea.query.filter_by(usuario_id=current_user.id, estado_cierre="Aprobado").filter(BitacoraTiempoTarea.fecha_tarea >= start_of_month.date()).count()
-                
-                documentos_recientes = VersionDocumento.query.order_by(VersionDocumento.fecha_carga.desc()).limit(5).all()
-                tareas_proximas = BitacoraTiempoTarea.query.filter_by(usuario_id=current_user.id).order_by(BitacoraTiempoTarea.fecha_tarea.desc()).limit(5).all()
+                tareas_completadas = (
+                    BitacoraTiempoTarea.query.filter_by(
+                        usuario_id=current_user.id, estado_cierre="Aprobado"
+                    )
+                    .filter(BitacoraTiempoTarea.fecha_tarea >= start_of_month.date())
+                    .count()
+                )
+
+                documentos_recientes = (
+                    VersionDocumento.query.order_by(VersionDocumento.fecha_carga.desc())
+                    .limit(5)
+                    .all()
+                )
+                tareas_proximas = (
+                    BitacoraTiempoTarea.query.filter_by(usuario_id=current_user.id)
+                    .order_by(BitacoraTiempoTarea.fecha_tarea.desc())
+                    .limit(5)
+                    .all()
+                )
 
                 estadisticas = {
                     "expedientes_activos": expedientes_activos,
@@ -270,34 +401,52 @@ def register_routes(app):
                     "documentos_cargados": mis_documentos_cargados,
                     "tareas_completadas": tareas_completadas,
                     "documentos_recientes": documentos_recientes,
-                    "tareas_proximas": tareas_proximas
+                    "tareas_proximas": tareas_proximas,
                 }
                 return render_template(
                     "dashboard/dashboard_paralegal.html",
                     usuario=current_user,
                     estadisticas=estadisticas,
-                    current_date=rd_now()
+                    current_date=rd_now(),
                 )
-                
+
             # --- ADMINISTRADOR ---
             elif rol == "Administrador":
                 usuarios_activos = Usuario.query.filter_by(activo=True).count()
                 expedientes_totales = Expediente.query.count()
                 documentos_almacenados = Documento.query.count()
-                horas_registradas = db.session.query(db.func.sum(BitacoraTiempoTarea.horas_trabajadas)).scalar() or 0.00
-                facturacion_total = db.session.query(db.func.sum(FacturaHonorario.monto_total)).scalar() or 0.00
-                
+                horas_registradas = (
+                    db.session.query(
+                        db.func.sum(BitacoraTiempoTarea.horas_trabajadas)
+                    ).scalar()
+                    or 0.00
+                )
+                facturacion_total = (
+                    db.session.query(db.func.sum(FacturaHonorario.monto_total)).scalar()
+                    or 0.00
+                )
+
                 # Logs de auditoría de hoy
-                eventos_auditoria_hoy = BitacoraAuditoria.query.filter(db.func.date(BitacoraAuditoria.fecha_hora) == db.func.current_date()).count()
-                auditorias_recientes = BitacoraAuditoria.query.order_by(BitacoraAuditoria.fecha_hora.desc()).limit(8).all()
-                
+                eventos_auditoria_hoy = BitacoraAuditoria.query.filter(
+                    db.func.date(BitacoraAuditoria.fecha_hora) == db.func.current_date()
+                ).count()
+                auditorias_recientes = (
+                    BitacoraAuditoria.query.order_by(
+                        BitacoraAuditoria.fecha_hora.desc()
+                    )
+                    .limit(8)
+                    .all()
+                )
+
                 # Distribución de usuarios
                 socios_count = Usuario.query.filter_by(rol="Socio").count()
                 asociados_count = Usuario.query.filter_by(rol="Asociado").count()
                 paralegales_count = Usuario.query.filter_by(rol="Paralegal").count()
-                administradores_count = Usuario.query.filter_by(rol="Administrador").count()
+                administradores_count = Usuario.query.filter_by(
+                    rol="Administrador"
+                ).count()
                 clientes_count = Usuario.query.filter_by(rol="Cliente").count()
-                
+
                 estadisticas = {
                     "usuarios_activos": usuarios_activos,
                     "expedientes_totales": expedientes_totales,
@@ -310,15 +459,15 @@ def register_routes(app):
                     "asociados_count": asociados_count,
                     "paralegales_count": paralegales_count,
                     "administradores_count": administradores_count,
-                    "clientes_count": clientes_count
+                    "clientes_count": clientes_count,
                 }
                 return render_template(
                     "dashboard/dashboard_admin.html",
                     usuario=current_user,
                     estadisticas=estadisticas,
-                    current_date=rd_now()
+                    current_date=rd_now(),
                 )
-                
+
             # --- CLIENTE ---
             elif rol == "Cliente":
                 cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
@@ -329,37 +478,59 @@ def register_routes(app):
                         "documentos_disponibles_count": 0,
                         "expedientes": [],
                         "documentos": [],
-                        "actividades": []
+                        "actividades": [],
                     }
                     return render_template(
                         "dashboard/dashboard_cliente.html",
                         usuario=current_user,
                         estadisticas=estadisticas,
-                        current_date=rd_now()
+                        current_date=rd_now(),
                     )
-                
-                expedientes_cliente = Expediente.query.filter_by(cliente_id=cliente_db.id).all()
-                expedientes_activos_count = sum(1 for e in expedientes_cliente if e.estado != "Archivado")
-                
+
+                expedientes_cliente = Expediente.query.filter_by(
+                    cliente_id=cliente_db.id
+                ).all()
+                expedientes_activos_count = sum(
+                    1 for e in expedientes_cliente if e.estado != "Archivado"
+                )
+
                 exp_ids = [e.id for e in expedientes_cliente]
                 audiencia_proxima = None
                 if exp_ids:
-                    audiencia_proxima = AlertaPlazoAudiencia.query.filter(AlertaPlazoAudiencia.expediente_id.in_(exp_ids)).filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente").order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc()).first()
-                
+                    audiencia_proxima = (
+                        AlertaPlazoAudiencia.query.filter(
+                            AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
+                        )
+                        .filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente")
+                        .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
+                        .first()
+                    )
+
                 documentos_compartidos = []
                 if exp_ids:
-                    documentos_compartidos = Documento.query.filter(Documento.expediente_id.in_(exp_ids)).filter_by(visibilidad="Compartido").all()
-                
+                    documentos_compartidos = (
+                        Documento.query.filter(Documento.expediente_id.in_(exp_ids))
+                        .filter_by(visibilidad="Compartido")
+                        .all()
+                    )
+
                 alertas_recientes = []
                 if exp_ids:
-                    alertas_recientes = AlertaPlazoAudiencia.query.filter(AlertaPlazoAudiencia.expediente_id.in_(exp_ids)).order_by(AlertaPlazoAudiencia.fecha_vencimiento.desc()).limit(5).all()
-                
+                    alertas_recientes = (
+                        AlertaPlazoAudiencia.query.filter(
+                            AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
+                        )
+                        .order_by(AlertaPlazoAudiencia.fecha_vencimiento.desc())
+                        .limit(5)
+                        .all()
+                    )
+
                 caso_activo_principal = None
                 for e in expedientes_cliente:
                     if e.estado != "Archivado":
                         caso_activo_principal = e
                         break
-                
+
                 # Fases del caso principal
                 progreso_fase = 1
                 if caso_activo_principal:
@@ -368,14 +539,16 @@ def register_routes(app):
                     else:
                         has_hearing = False
                         if caso_activo_principal.tipo_tramite == "Judicial":
-                            has_hearing = (caso_activo_principal.fecha_audiencia is not None)
+                            has_hearing = (
+                                caso_activo_principal.fecha_audiencia is not None
+                            )
                         if has_hearing:
                             progreso_fase = 3
                         elif len(caso_activo_principal.documentos) > 2:
                             progreso_fase = 2
                         else:
                             progreso_fase = 1
-                
+
                 estadisticas = {
                     "expedientes_activos_count": expedientes_activos_count,
                     "audiencia_proxima": audiencia_proxima,
@@ -384,18 +557,18 @@ def register_routes(app):
                     "documentos": documentos_compartidos,
                     "actividades": alertas_recientes,
                     "caso_activo_principal": caso_activo_principal,
-                    "progreso_fase": progreso_fase
+                    "progreso_fase": progreso_fase,
                 }
                 return render_template(
                     "dashboard/dashboard_cliente.html",
                     usuario=current_user,
                     estadisticas=estadisticas,
-                    current_date=rd_now()
+                    current_date=rd_now(),
                 )
             else:
                 flash("Rol no identificado.", "danger")
                 return redirect(url_for("login"))
-                
+
         except SQLAlchemyError as e:
             flash(f"Error al cargar el Dashboard: {str(e)}", "danger")
             return redirect(url_for("login"))
@@ -425,10 +598,6 @@ def register_routes(app):
         form = ClienteForm()
 
         if form.validate_on_submit():
-            nombre_completo = (
-                f"{form.nombre.data.strip()} {form.apellido.data.strip()}".strip()
-            )
-
             # Verificación de duplicados
             if Cliente.query.filter_by(rnc_cedula=form.rnc_cedula.data).first():
                 flash(
@@ -471,10 +640,6 @@ def register_routes(app):
         form = ClienteForm()
 
         if form.validate_on_submit():
-            nombre_completo = (
-                f"{form.nombre.data.strip()} {form.apellido.data.strip()}".strip()
-            )
-
             # Verificar si se está intentando usar una cédula que ya tiene OTRO cliente
             duplicado = Cliente.query.filter_by(rnc_cedula=form.rnc_cedula.data).first()
             if duplicado and duplicado.id != cliente.id:
@@ -830,32 +995,34 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def editar_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
-        
+
         # Instanciar el formulario según el tipo
         if exp.tipo_tramite == "Judicial":
             form = ExpedienteJudicialForm()
         else:
             form = ExpedienteAdministrativoForm()
-            
+
         # Llenar selectores
         clientes_db = Cliente.query.all()
         opciones_clientes = [(c.id, f"{c.nombres} {c.apellidos}") for c in clientes_db]
-        
+
         abogados_db = Usuario.query.filter(
             Usuario.rol.in_(["Asociado", "Socio", "Administrador"])
         ).all()
         opciones_abogados = [(a.id, a.nombre) for a in abogados_db]
-        
+
         form.cliente_id.choices = opciones_clientes
-        form.abogado_responsable_id.choices = [(0, "Seleccione un abogado...")] + opciones_abogados
-        
+        form.abogado_responsable_id.choices = [
+            (0, "Seleccione un abogado...")
+        ] + opciones_abogados
+
         if request.method == "GET":
             # Pre-poblar los campos
             form.cliente_id.data = exp.cliente_id
             form.abogado_responsable_id.data = exp.abogado_responsable_id or 0
             form.nombre_caso.data = exp.nombre_caso
             form.rol_firma.data = exp.rol_firma
-            
+
             if exp.tipo_tramite == "Judicial":
                 form.rama_derecho.data = exp.rama_derecho
                 form.sub_categoria.data = exp.sub_categoria
@@ -867,7 +1034,9 @@ def register_routes(app):
                 form.nombre_contraparte.data = exp.nombre_contraparte
                 form.contacto_contraparte.data = exp.contacto_contraparte
                 form.abogado_contraparte.data = exp.abogado_contraparte
-                form.contacto_abogado_contraparte.data = exp.contacto_abogado_contraparte
+                form.contacto_abogado_contraparte.data = (
+                    exp.contacto_abogado_contraparte
+                )
                 form.monto_demanda.data = exp.monto_demanda
                 form.fecha_audiencia.data = exp.fecha_audiencia
                 form.hora_audiencia.data = exp.hora_audiencia
@@ -878,37 +1047,85 @@ def register_routes(app):
                 form.numero_solicitud_oficial.data = exp.numero_solicitud_oficial
                 form.descripcion_tramite.data = exp.descripcion_tramite
                 form.monto_tasas_impuestos.data = exp.monto_tasas_impuestos
-                
+
         if form.validate_on_submit():
             # Actualizar datos comunes
             exp.cliente_id = form.cliente_id.data
-            exp.abogado_responsable_id = form.abogado_responsable_id.data if form.abogado_responsable_id.data != 0 else None
+            exp.abogado_responsable_id = (
+                form.abogado_responsable_id.data
+                if form.abogado_responsable_id.data != 0
+                else None
+            )
             exp.nombre_caso = form.nombre_caso.data.strip()
             exp.rol_firma = form.rol_firma.data
-            
+
             if exp.tipo_tramite == "Judicial":
                 exp.rama_derecho = form.rama_derecho.data
-                exp.sub_categoria = form.sub_categoria.data.strip() if form.sub_categoria.data else None
-                exp.tipo_accion = form.tipo_accion.data.strip() if form.tipo_accion.data else None
+                exp.sub_categoria = (
+                    form.sub_categoria.data.strip() if form.sub_categoria.data else None
+                )
+                exp.tipo_accion = (
+                    form.tipo_accion.data.strip() if form.tipo_accion.data else None
+                )
                 exp.jurisdiccion_actual = form.jurisdiccion_actual.data
-                exp.tribunal_asignado = form.tribunal_asignado.data.strip() if form.tribunal_asignado.data else None
-                exp.numero_expediente_tribunal = form.numero_expediente_tribunal.data.strip() if form.numero_expediente_tribunal.data else None
-                exp.juez_asignado = form.juez_asignado.data.strip() if form.juez_asignado.data else None
-                exp.nombre_contraparte = form.nombre_contraparte.data.strip() if form.nombre_contraparte.data else None
-                exp.contacto_contraparte = form.contacto_contraparte.data.strip() if form.contacto_contraparte.data else None
-                exp.abogado_contraparte = form.abogado_contraparte.data.strip() if form.abogado_contraparte.data else None
-                exp.contacto_abogado_contraparte = form.contacto_abogado_contraparte.data.strip() if form.contacto_abogado_contraparte.data else None
+                exp.tribunal_asignado = (
+                    form.tribunal_asignado.data.strip()
+                    if form.tribunal_asignado.data
+                    else None
+                )
+                exp.numero_expediente_tribunal = (
+                    form.numero_expediente_tribunal.data.strip()
+                    if form.numero_expediente_tribunal.data
+                    else None
+                )
+                exp.juez_asignado = (
+                    form.juez_asignado.data.strip() if form.juez_asignado.data else None
+                )
+                exp.nombre_contraparte = (
+                    form.nombre_contraparte.data.strip()
+                    if form.nombre_contraparte.data
+                    else None
+                )
+                exp.contacto_contraparte = (
+                    form.contacto_contraparte.data.strip()
+                    if form.contacto_contraparte.data
+                    else None
+                )
+                exp.abogado_contraparte = (
+                    form.abogado_contraparte.data.strip()
+                    if form.abogado_contraparte.data
+                    else None
+                )
+                exp.contacto_abogado_contraparte = (
+                    form.contacto_abogado_contraparte.data.strip()
+                    if form.contacto_abogado_contraparte.data
+                    else None
+                )
                 exp.monto_demanda = form.monto_demanda.data
                 exp.fecha_audiencia = form.fecha_audiencia.data
                 exp.hora_audiencia = form.hora_audiencia.data
             else:
                 exp.tipo_proceso = form.tipo_proceso.data
-                exp.sub_proceso = form.sub_proceso.data.strip() if form.sub_proceso.data else None
-                exp.institucion_encargada = form.institucion_encargada.data.strip() if form.institucion_encargada.data else None
-                exp.numero_solicitud_oficial = form.numero_solicitud_oficial.data.strip() if form.numero_solicitud_oficial.data else None
-                exp.descripcion_tramite = form.descripcion_tramite.data.strip() if form.descripcion_tramite.data else None
+                exp.sub_proceso = (
+                    form.sub_proceso.data.strip() if form.sub_proceso.data else None
+                )
+                exp.institucion_encargada = (
+                    form.institucion_encargada.data.strip()
+                    if form.institucion_encargada.data
+                    else None
+                )
+                exp.numero_solicitud_oficial = (
+                    form.numero_solicitud_oficial.data.strip()
+                    if form.numero_solicitud_oficial.data
+                    else None
+                )
+                exp.descripcion_tramite = (
+                    form.descripcion_tramite.data.strip()
+                    if form.descripcion_tramite.data
+                    else None
+                )
                 exp.monto_tasas_impuestos = form.monto_tasas_impuestos.data
-                
+
             try:
                 db.session.commit()
                 flash("Expediente actualizado exitosamente.", "success")
@@ -916,14 +1133,13 @@ def register_routes(app):
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error al actualizar el expediente: {str(e)}", "danger")
-                
-        return render_template(
-            "expedientes/editar.html",
-            form=form,
-            exp=exp
-        )
 
-    @app.route("/expedientes/<int:expediente_id>/cambiar_estado/<string:nuevo_estado>", methods=["POST"])
+        return render_template("expedientes/editar.html", form=form, exp=exp)
+
+    @app.route(
+        "/expedientes/<int:expediente_id>/cambiar_estado/<string:nuevo_estado>",
+        methods=["POST"],
+    )
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def cambiar_estado_expediente(expediente_id, nuevo_estado):
@@ -933,19 +1149,19 @@ def register_routes(app):
 
         exp = Expediente.query.get_or_404(expediente_id)
         exp.estado = nuevo_estado
-        
+
         if nuevo_estado == "Archivado":
             exp.fecha_cierre = datetime.utcnow()
         else:
             exp.fecha_cierre = None
-            
+
         try:
             db.session.commit()
             flash(f"Estado del expediente cambiado a {nuevo_estado}.", "success")
         except Exception as e:
             db.session.rollback()
             flash(f"Error al cambiar el estado del expediente: {str(e)}", "danger")
-            
+
         return redirect(url_for("expedientes"))
 
     @app.route("/expedientes/<int:expediente_id>/eliminar", methods=["POST"])
@@ -960,6 +1176,9 @@ def register_routes(app):
             flash("Expediente eliminado correctamente del sistema.", "success")
         except Exception as e:
             db.session.rollback()
-            flash(f"Error al eliminar el expediente. Puede que tenga tareas o documentos vinculados. Detalle: {str(e)}", "danger")
-            
+            flash(
+                f"Error al eliminar el expediente. Puede que tenga tareas o documentos vinculados. Detalle: {str(e)}",
+                "danger",
+            )
+
         return redirect(url_for("expedientes"))

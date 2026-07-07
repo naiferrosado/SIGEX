@@ -1,101 +1,104 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row g-0 min-vh-100 align-items-stretch">
-    
-    <div class="col-lg-4 bg-primary text-white d-none d-lg-flex flex-column justify-content-between p-5" style="background: linear-gradient(135deg, #0d6efd 0%, #0a46a6 100%) !important;">
-        <div class="text-center my-auto">
-            <i class="bi bi-balance-scale display-1 mb-3"></i>
-            <h2 class="fw-bold text-uppercase tracking-wide mb-1">Oficina de Abogados</h2>
-            <h3 class="h4 fw-light mb-4">Rosado Méndez y Asoc. </h3>
-            <p class="small text-white-50 mb-4">Soluciones Jurídicas en General </p>
+<style>
+    .login-btn {
+        background-color: #0046a6 !important;
+        border: none !important;
+        transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+    }
+    .login-btn:hover {
+        background-color: #003680 !important;
+        transform: translateY(-1px);
+    }
+    .login-btn:active {
+        transform: translateY(0);
+    }
+    .form-control:focus {
+        border-color: #0046a6 !important;
+        box-shadow: 0 0 0 0.25rem rgba(0, 70, 166, 0.25) !important;
+    }
+    .forgot-link {
+        color: #333333 !important;
+        text-decoration: underline !important;
+        transition: color 0.2s;
+    }
+    .forgot-link:hover {
+        color: #0046a6 !important;
+    }
+</style>
+
+<div class="min-vh-100 w-100 d-flex align-items-center justify-content-center py-5 px-3" style="background-color: #f4f6f9;">
+    <!-- Main Card Container -->
+    <div class="shadow bg-white" style="max-width: 850px; width: 100%; border-radius: 20px; border: 1.5px solid #0046a6; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;">
+        <div class="row g-0">
+            <!-- Left Side: Banner Image -->
+            <div class="col-lg-5 d-none d-lg-block p-0" style="position: relative;">
+                <img src="{{ url_for('static', filename='img/login_banner.png') }}" alt="Oficina de Abogados Rosado Méndez y Asoc." class="w-100 h-100" style="object-fit: cover; display: block; min-height: 520px; border-top-left-radius: 18px; border-bottom-left-radius: 18px;">
+            </div>
             
-            <hr class="border-white opacity-25 my-4">
-            
-            <div class="text-start px-3">
-                <h5 class="fw-bold text-uppercase mb-3 small tracking-wider"><i class="bi bi-briefcase-fill me-2"></i>Servicios Jurídicos</h5>
-                <ul class="list-unstyled lh-lg">
-                    <li><i class="bi bi-chevron-right me-1 small"></i> <strong>Derecho Migratorio:</strong> Visas, residencias, ciudadanía</li>
-                    <li><i class="bi bi-chevron-right me-1 small"></i> Civil</li>
-                    <li><i class="bi bi-chevron-right me-1 small"></i> Comercial</li>
-                    <li><i class="bi bi-chevron-right me-1 small"></i> Inmobiliario</li>
-                    <li><i class="bi bi-chevron-right me-1 small"></i> Laboral</li>
-                    <li><i class="bi bi-chevron-right me-1 small"></i> Penal</li>
-                    <li><i class="bi bi-chevron-right me-1 small"></i> Tributario</li>
-                </ul>
+            <!-- Right Side: Login Form -->
+            <div class="col-lg-7 d-flex align-items-center justify-content-center p-4 p-md-5" style="background-color: #ffffff;">
+                <div class="w-100" style="max-width: 380px;">
+                    <h1 class="h3 fw-bold text-center mb-4" style="color: #0046a6; font-family: 'Segoe UI', Arial, sans-serif;">Inicio de Sesión</h1>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show small py-2 mb-3" role="alert">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem 1rem;"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <!-- Inner Card for the Form -->
+                    <div class="card border-0 p-4 shadow" style="border-radius: 16px; background-color: #ffffff; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;">
+                        <form method="POST" action="{{ url_for('login') }}" novalidate>
+                            {{ form.hidden_tag() }}
+                            <!-- Hidden recordarme check to satisfy WTForms requirements without displaying it -->
+                            <input type="hidden" name="recordarme" value="y">
+                            
+                            <div class="mb-3">
+                                <label for="email" class="form-label text-secondary small fw-bold mb-1" style="font-size: 0.85rem;">Correo Institucional</label>
+                                <div class="position-relative">
+                                    {{ form.email(class="form-control pe-5 py-2", placeholder="naiferrosado@rosadomendez.com", id="email", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem; background-color: #ffffff;") }}
+                                    <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-secondary fs-5" style="pointer-events: none; font-weight: 500; font-family: sans-serif;">@</span>
+                                </div>
+                                {% if form.email.errors %}
+                                    {% for error in form.email.errors %}
+                                        <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="password" class="form-label text-secondary small fw-bold mb-1" style="font-size: 0.85rem;">Contraseña</label>
+                                <div class="position-relative">
+                                    {{ form.password(class="form-control pe-5 py-2", placeholder="naiferrosado123", id="password", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem; background-color: #ffffff;") }}
+                                    <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock-fill" style="font-size: 1.1rem; color: #4a5568;"></i></span>
+                                </div>
+                                {% if form.password.errors %}
+                                    {% for error in form.password.errors %}
+                                        <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+
+                            <div class="d-grid mb-3">
+                                {{ form.submit(class="btn btn-lg fw-semibold py-2 text-white login-btn", style="border-radius: 8px; font-size: 1rem;") }}
+                            </div>
+                            
+                            <div class="text-center mt-3">
+                                <a href="#" class="forgot-link small">¿Olvidaste tu contraseña?</a>
+                            </div>
+                        </form>
+                    </div>
+                    
+                </div>
             </div>
         </div>
-        
-        <div class="text-center text-white-50 small mt-auto">
-            <i class="bi bi-telephone-fill me-2"></i> 829-299-3186 
-        </div>
     </div>
-    
-    <div class="col-lg-8 d-flex align-items-center justify-content-center bg-light p-4 p-md-5">
-        <div class="card shadow-lg border-0 p-4 p-md-5" style="max-width: 450px; width: 100%; border-radius: 16px;">
-            
-            <div class="text-center mb-4">
-                <h1 class="h3 fw-bold text-dark">Inicio de Sesión</h1>
-                <p class="text-muted small">Ingrese sus credenciales de acceso institucional</p>
-            </div>
-
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show small py-2" role="alert">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem 1rem;"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <form method="POST" action="{{ url_for('login') }}" novalidate>
-                {{ form.hidden_tag() }}
-
-                <div class="mb-3">
-                    <label for="email" class="form-label text-secondary small fw-semibold">{{ form.email.label }}</label>
-                    <div class="input-group">
-                        {{ form.email(class="form-box form-control", placeholder="usuario@rosadomendez.com", id="email") }}
-                        <span class="input-group-text bg-white text-muted"><i class="bi bi-at"></i></span>
-                    </div>
-                    {% if form.email.errors %}
-                        {% for error in form.email.errors %}
-                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-
-                <div class="mb-3">
-                    <label for="password" class="form-label text-secondary small fw-semibold">{{ form.password.label }}</label>
-                    <div class="input-group">
-                        {{ form.password(class="form-control", placeholder="••••••••", id="password") }}
-                        <span class="input-group-text bg-white text-muted"><i class="bi bi-lock-fill"></i></span>
-                    </div>
-                    {% if form.password.errors %}
-                        {% for error in form.password.errors %}
-                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-
-                <div class="mb-4 d-flex justify-content-between align-items-center small">
-                    <div class="form-check">
-                        {{ form.recordarme(class="form-check-input", id="recordarme") }}
-                        <label class="form-check-label text-muted" for="recordarme">
-                            Keep me logged in
-                        </label>
-                    </div>
-                    <a href="#" class="text-decoration-none fw-medium text-primary">¿Olvidaste tu contraseña?</a>
-                </div>
-
-                <div class="d-grid">
-                    {{ form.submit(class="btn btn-primary btn-lg fw-bold shadow-sm py-2", style="border-radius: 8px;") }}
-                </div>
-            </form>
-
-        </div>
-    </div>
-
 </div>
 {% endblock %}
