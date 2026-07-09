@@ -978,6 +978,63 @@ def register_routes(app):
             flash(f"Error al cambiar el estado del usuario: {str(e)}", "danger")
         return redirect(url_for("usuarios"))
 
+    # --- BITÁCORA DE AUDITORÍA GENERAL ---
+    @app.route("/auditoria")
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def auditoria():
+        page = request.args.get("page", 1, type=int)
+        q = request.args.get("q", "").strip()
+        accion = request.args.get("accion", "Todos").strip()
+        usuario_filtro = request.args.get("usuario", "Todos").strip()
+
+        query = BitacoraAuditoria.query
+
+        if q:
+            search_pattern = f"%{q}%"
+            # Unir con Usuario para buscar por nombre
+            query = query.join(Usuario, isouter=True).filter(
+                db.or_(
+                    BitacoraAuditoria.detalles_tecnicos.ilike(search_pattern),
+                    BitacoraAuditoria.accion_realizada.ilike(search_pattern),
+                    BitacoraAuditoria.ip_direccion.ilike(search_pattern),
+                    Usuario.nombre.ilike(search_pattern)
+                )
+            )
+
+        if accion != "Todos":
+            query = query.filter(BitacoraAuditoria.accion_realizada == accion)
+
+        if usuario_filtro != "Todos":
+            try:
+                u_id = int(usuario_filtro)
+                query = query.filter(BitacoraAuditoria.usuario_id == u_id)
+            except ValueError:
+                pass
+
+        # Paginar resultados (30 por página)
+        pagination = query.order_by(BitacoraAuditoria.fecha_hora.desc()).paginate(
+            page=page, per_page=30, error_out=False
+        )
+
+        # Obtener listado de acciones únicas para los filtros
+        acciones_query = db.session.query(BitacoraAuditoria.accion_realizada).distinct().all()
+        acciones_disponibles = [a[0] for a in acciones_query if a[0]]
+
+        # Obtener listado de todos los usuarios para los filtros
+        usuarios_disponibles = Usuario.query.order_by(Usuario.nombre.asc()).all()
+
+        return render_template(
+            "auditoria/index.html",
+            pagination=pagination,
+            acciones_disponibles=acciones_disponibles,
+            usuarios_disponibles=usuarios_disponibles,
+            q=q,
+            accion_actual=accion,
+            usuario_actual=usuario_filtro,
+            usuario=current_user,
+        )
+
     # --- LISTADO DE EXPEDIENTES ---
     @app.route("/expedientes")
     @login_required

@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">Bitácora de Auditoría</h2>
+            <p class="text-muted small mb-0">Control de accesos, modificaciones y justificaciones de acciones en el sistema.</p>
+        </div>
+    </div>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
+                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filtros de búsqueda -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('auditoria') }}" class="row g-2 align-items-center">
+                <!-- Búsqueda por texto -->
+                <div class="col-md-4 col-sm-12">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control bg-light border-start-0" name="q" value="{{ q }}" placeholder="Buscar por detalle, IP, usuario o acción...">
+                    </div>
+                </div>
+
+                <!-- Filtro de Acción -->
+                <div class="col-md-3 col-sm-6">
+                    <select class="form-select form-select-sm bg-light" name="accion">
+                        <option value="Todos">Todas las acciones</option>
+                        {% for acc in acciones_disponibles %}
+                            <option value="{{ acc }}" {% if acc == accion_actual %}selected{% endif %}>{{ acc }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro de Usuario -->
+                <div class="col-md-3 col-sm-6">
+                    <select class="form-select form-select-sm bg-light" name="usuario">
+                        <option value="Todos">Todos los usuarios</option>
+                        {% for usr in usuarios_disponibles %}
+                            <option value="{{ usr.id }}" {% if usr.id|string == usuario_actual %}selected{% endif %}>{{ usr.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="col-md-2 col-sm-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-primary flex-grow-1 fw-semibold"><i class="bi bi-filter"></i> Filtrar</button>
+                    <a href="{{ url_for('auditoria') }}" class="btn btn-sm btn-light border fw-semibold"><i class="bi bi-x-circle"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Logs -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 small">
+                <thead class="table-light text-muted fw-semibold">
+                    <tr>
+                        <th class="ps-4 py-3" style="width: 15%;">Fecha y Hora</th>
+                        <th class="py-3" style="width: 15%;">Usuario</th>
+                        <th class="py-3" style="width: 12%;">Acción</th>
+                        <th class="py-3" style="width: 38%;">Detalles técnicos / Justificación</th>
+                        <th class="py-3" style="width: 12%;">Dirección IP</th>
+                        <th class="py-3 pe-4 text-end" style="width: 8%;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if pagination.items %}
+                        {% for log in pagination.items %}
+                            {% set tr_class = "" %}
+                            {% if log.accion_realizada == "Eliminación" %}
+                                {% set tr_class = "table-danger-hover" %}
+                            {% elif log.accion_realizada == "Desactivación" %}
+                                {% set tr_class = "table-warning-hover" %}
+                            {% endif %}
+                            <tr class="{{ tr_class }} cursor-pointer btn-detail-trigger"
+                                data-fecha="{{ log.fecha_hora.strftime('%d/%m/%Y %I:%M %p') }}"
+                                data-usuario="{{ log.usuario.nombre if log.usuario else 'Desconocido' }}"
+                                data-accion="{{ log.accion_realizada }}"
+                                data-detalle="{{ log.detalles_tecnicos | e }}"
+                                data-ip="{{ log.ip_direccion or '' }}"
+                                data-dispositivo="{{ log.dispositivo_info | e if log.dispositivo_info else '' }}">
+                                <td class="ps-4 text-dark fw-medium">{{ log.fecha_hora.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                                <td class="fw-semibold text-dark">{{ log.usuario.nombre if log.usuario else 'Desconocido' }}</td>
+                                <td>
+                                    {% set badge = "bg-secondary" %}
+                                    {% if log.accion_realizada == "Creación" %}{% set badge = "bg-success" %}
+                                    {% elif log.accion_realizada == "Edición" %}{% set badge = "bg-warning text-dark" %}
+                                    {% elif log.accion_realizada == "Visualización" %}{% set badge = "bg-info text-dark" %}
+                                    {% elif log.accion_realizada == "Estado cambiado" %}{% set badge = "bg-primary" %}
+                                    {% elif log.accion_realizada == "Eliminación" %}{% set badge = "bg-danger" %}
+                                    {% elif log.accion_realizada == "Desactivación" %}{% set badge = "bg-danger" %}
+                                    {% elif log.accion_realizada == "Activación" %}{% set badge = "bg-success" %}
+                                    {% endif %}
+                                    <span class="badge {{ badge }} px-2 py-1">{{ log.accion_realizada }}</span>
+                                </td>
+                                <td class="text-muted text-truncate" style="max-width: 350px;">{{ log.detalles_tecnicos }}</td>
+                                <td class="text-muted text-monospace">{{ log.ip_direccion or '—' }}</td>
+                                <td class="pe-4 text-end">
+                                    <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-zoom-in"></i></button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-info-circle fs-3 mb-2 d-block"></i> No se encontraron registros de auditoría que coincidan con los filtros.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Controles de Paginación -->
+        {% if pagination.pages > 1 %}
+            <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center rounded-bottom-4">
+                <span class="text-muted small">
+                    Mostrando registros {{ (pagination.page - 1) * pagination.per_page + 1 }} - 
+                    {{ [pagination.page * pagination.per_page, pagination.total]|min }} de {{ pagination.total }}
+                </span>
+                <nav aria-label="Navegación de auditoría">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('auditoria', page=pagination.prev_num, q=q, accion=accion_actual, usuario=usuario_actual) }}" aria-label="Anterior">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('auditoria', page=page_num, q=q, accion=accion_actual, usuario=usuario_actual) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('auditoria', page=pagination.next_num, q=q, accion=accion_actual, usuario=usuario_actual) }}" aria-label="Siguiente">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {% else %}
+            <div class="card-footer bg-white border-top p-3 rounded-bottom-4 text-muted small">
+                Mostrando {{ pagination.items|length }} de {{ pagination.total }} registros.
+            </div>
+        {% endif %}
+    </div>
+</main>
+
+<!-- MODAL PARA MOSTRAR EL DETALLE DE AUDITORÍA -->
+<div class="modal fade" id="modalDetalleAudit" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Inspeccionar Registro de Auditoría</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-6 border-end">
+                        <h6 class="text-uppercase text-primary fw-bold tracking-wider mb-3" style="font-size: 0.65rem;">Información del Evento</h6>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha y Hora:</span><span class="fw-semibold text-dark" id="modalFechaHora">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Usuario Ejecutor:</span><span class="fw-semibold text-dark" id="modalUsuario">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Acción:</span><span id="modalAccionContainer">—</span></div>
+                        <div class="d-flex justify-content-between py-2"><span class="text-muted">Dirección IP:</span><span class="fw-semibold text-dark text-monospace" id="modalIP">—</span></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-uppercase text-primary fw-bold tracking-wider mb-3" style="font-size: 0.65rem;">Información del Dispositivo</h6>
+                        <div class="bg-light p-3 rounded-3 small text-dark mb-0 border" style="max-height: 120px; overflow-y: auto; white-space: pre-line; word-break: break-all;" id="modalDispositivo">
+                            —
+                        </div>
+                    </div>
+                    <div class="col-12 mt-4">
+                        <h6 class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Detalles / Justificación</h6>
+                        <div class="bg-light p-3 rounded-3 border text-dark fw-medium shadow-inner" style="white-space: pre-line; max-height: 150px; overflow-y: auto;" id="modalDetalle">
+                            —
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cerrar Inspección</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('.btn-detail-trigger').forEach(row => {
+            row.addEventListener('click', function() {
+                const fechaHora = this.getAttribute('data-fecha');
+                const usuario = this.getAttribute('data-usuario');
+                const accion = this.getAttribute('data-accion');
+                const detalle = this.getAttribute('data-detalle');
+                const ip = this.getAttribute('data-ip');
+                const dispositivo = this.getAttribute('data-dispositivo');
+
+                verDetalleAudit(fechaHora, usuario, accion, detalle, ip, dispositivo);
+            });
+        });
+    });
+
+    function verDetalleAudit(fechaHora, usuario, accion, detalle, ip, dispositivo) {
+        document.getElementById('modalFechaHora').innerText = fechaHora;
+        document.getElementById('modalUsuario').innerText = usuario;
+        document.getElementById('modalIP').innerText = ip || '—';
+        document.getElementById('modalDispositivo').innerText = dispositivo || 'Información de dispositivo no registrada';
+        document.getElementById('modalDetalle').innerText = detalle || 'Sin descripción técnica o justificación registrada.';
+
+        // Badge para acción en modal
+        let badgeClass = "badge bg-secondary";
+        if (accion === "Creación") badgeClass = "badge bg-success";
+        else if (accion === "Edición") badgeClass = "badge bg-warning text-dark";
+        else if (accion === "Visualización") badgeClass = "badge bg-info text-dark";
+        else if (accion === "Estado cambiado") badgeClass = "badge bg-primary";
+        else if (accion === "Eliminación") badgeClass = "badge bg-danger";
+        else if (accion === "Desactivación") badgeClass = "badge bg-danger";
+        else if (accion === "Activación") badgeClass = "badge bg-success";
+
+        document.getElementById('modalAccionContainer').innerHTML = `<span class="${badgeClass} px-2 py-1">${accion}</span>`;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalDetalleAudit'));
+        modal.show();
+    }
+</script>
+
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .table-danger-hover:hover td {
+        background-color: rgba(220, 53, 69, 0.05) !important;
+    }
+    .table-warning-hover:hover td {
+        background-color: rgba(255, 193, 7, 0.05) !important;
+    }
+    .text-monospace {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+</style>
+{% endblock %}
