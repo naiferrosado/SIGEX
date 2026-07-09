@@ -74,11 +74,12 @@
             <table class="table table-hover align-middle mb-0 small">
                 <thead class="table-light text-muted fw-semibold">
                     <tr>
-                        <th class="ps-4 py-3" style="width: 15%;">Fecha y Hora</th>
-                        <th class="py-3" style="width: 15%;">Usuario</th>
-                        <th class="py-3" style="width: 12%;">Acción</th>
-                        <th class="py-3" style="width: 38%;">Detalles técnicos / Justificación</th>
-                        <th class="py-3" style="width: 12%;">Dirección IP</th>
+                        <th class="ps-4 py-3" style="width: 14%;">Fecha y Hora</th>
+                        <th class="py-3" style="width: 13%;">Usuario</th>
+                        <th class="py-3" style="width: 10%;">Acción</th>
+                        <th class="py-3" style="width: 15%;">Afectado</th>
+                        <th class="py-3" style="width: 30%;">Detalles técnicos / Justificación</th>
+                        <th class="py-3" style="width: 10%;">Dirección IP</th>
                         <th class="py-3 pe-4 text-end" style="width: 8%;">Acciones</th>
                     </tr>
                 </thead>
@@ -95,6 +96,7 @@
                                 data-fecha="{{ log.fecha_hora.strftime('%d/%m/%Y %I:%M %p') }}"
                                 data-usuario="{{ log.usuario.nombre if log.usuario else 'Desconocido' }}"
                                 data-accion="{{ log.accion_realizada }}"
+                                data-afectado="{% if log.cliente_afectado %}Cliente: {{ log.cliente_afectado.nombre_completo }}{% elif log.expediente_afectado %}Expediente: {{ log.expediente_afectado.codigo_firma }} - {{ log.expediente_afectado.nombre_caso }}{% else %}General / Ninguno{% endif %}"
                                 data-detalle="{{ log.detalles_tecnicos | e }}"
                                 data-ip="{{ log.ip_direccion or '' }}"
                                 data-dispositivo="{{ log.dispositivo_info | e if log.dispositivo_info else '' }}">
@@ -112,7 +114,16 @@
                                     {% endif %}
                                     <span class="badge {{ badge }} px-2 py-1">{{ log.accion_realizada }}</span>
                                 </td>
-                                <td class="text-muted text-truncate" style="max-width: 350px;">{{ log.detalles_tecnicos }}</td>
+                                <td>
+                                    {% if log.cliente_afectado %}
+                                        <span class="text-dark fw-semibold text-truncate d-inline-block" style="max-width: 140px;" title="Cliente: {{ log.cliente_afectado.nombre_completo }}"><i class="bi bi-person-fill text-muted me-1"></i>{{ log.cliente_afectado.nombre_completo }}</span>
+                                    {% elif log.expediente_afectado %}
+                                        <span class="text-dark fw-semibold text-truncate d-inline-block" style="max-width: 140px;" title="Expediente: {{ log.expediente_afectado.codigo_firma }} - {{ log.expediente_afectado.nombre_caso }}"><i class="bi bi-briefcase-fill text-muted me-1"></i>{{ log.expediente_afectado.codigo_firma }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted text-truncate" style="max-width: 250px;">{{ log.detalles_tecnicos }}</td>
                                 <td class="text-muted text-monospace">{{ log.ip_direccion or '—' }}</td>
                                 <td class="pe-4 text-end">
                                     <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-zoom-in"></i></button>
@@ -184,6 +195,7 @@
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha y Hora:</span><span class="fw-semibold text-dark" id="modalFechaHora">—</span></div>
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Usuario Ejecutor:</span><span class="fw-semibold text-dark" id="modalUsuario">—</span></div>
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Acción:</span><span id="modalAccionContainer">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Registro Afectado:</span><span class="fw-semibold text-dark" id="modalAfectado">—</span></div>
                         <div class="d-flex justify-content-between py-2"><span class="text-muted">Dirección IP:</span><span class="fw-semibold text-dark text-monospace" id="modalIP">—</span></div>
                     </div>
                     <div class="col-md-6">
@@ -214,19 +226,21 @@
                 const fechaHora = this.getAttribute('data-fecha');
                 const usuario = this.getAttribute('data-usuario');
                 const accion = this.getAttribute('data-accion');
+                const afectado = this.getAttribute('data-afectado');
                 const detalle = this.getAttribute('data-detalle');
                 const ip = this.getAttribute('data-ip');
                 const dispositivo = this.getAttribute('data-dispositivo');
 
-                verDetalleAudit(fechaHora, usuario, accion, detalle, ip, dispositivo);
+                verDetalleAudit(fechaHora, usuario, accion, afectado, detalle, ip, dispositivo);
             });
         });
     });
 
-    function verDetalleAudit(fechaHora, usuario, accion, detalle, ip, dispositivo) {
+    function verDetalleAudit(fechaHora, usuario, accion, afectado, detalle, ip, dispositivo) {
         document.getElementById('modalFechaHora').innerText = fechaHora;
         document.getElementById('modalUsuario').innerText = usuario;
         document.getElementById('modalIP').innerText = ip || '—';
+        document.getElementById('modalAfectado').innerText = afectado || 'General / Ninguno';
         document.getElementById('modalDispositivo').innerText = dispositivo || 'Información de dispositivo no registrada';
         document.getElementById('modalDetalle').innerText = detalle || 'Sin descripción técnica o justificación registrada.';
 
