@@ -168,6 +168,11 @@
 
                 <!-- Botones de Acción -->
                 <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex flex-column gap-2">
+                    <!-- Ver Documentos -->
+                    <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled" id="btnVerDocumentos">
+                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Ver Documentos
+                    </a>
+
                     <!-- Editar Expediente -->
                     <a href="" class="btn btn-primary btn-sm w-100 fw-semibold disabled" id="btnEditar">
                         <i class="bi bi-pencil-square me-1"></i> Editar Expediente
@@ -424,12 +429,15 @@
                 renderAuditorias(e.auditorias);
 
                 // Configurar Formularios y Botones de Acción
+                const btnVerDocumentos = document.getElementById('btnVerDocumentos');
                 const btnEditar = document.getElementById('btnEditar');
                 const btnSuspender = document.getElementById('btnSuspender');
                 const btnArchivar = document.getElementById('btnArchivar');
                 const btnEliminar = document.getElementById('btnEliminar');
 
                 // Habilitar botones
+                btnVerDocumentos.classList.remove('disabled');
+                btnVerDocumentos.href = `/documentos?expediente_id=${e.id}`;
                 btnEditar.classList.remove('disabled');
                 btnEditar.href = `/expedientes/${e.id}/editar`;
                 btnSuspender.classList.remove('disabled');
@@ -523,7 +531,31 @@
     document.getElementById('typeFilter').addEventListener('change', buscarExpedientes);
 
     window.onload = () => {
-        renderTable();
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselectedId = urlParams.get('id');
+        
+        if (preselectedId) {
+            seleccionadoId = parseInt(preselectedId);
+            cargarDetalleExpediente(seleccionadoId);
+            
+            // Buscar y listar este expediente específico en la tabla
+            fetch(`/expedientes/${seleccionadoId}/detalle`)
+                .then(res => res.json())
+                .then(e => {
+                    expedientes = [{
+                        id: e.id,
+                        codigo_firma: e.codigo_firma,
+                        nombre_caso: e.nombre_caso
+                    }];
+                    renderTable();
+                })
+                .catch(err => {
+                    console.error("Error al preseleccionar expediente:", err);
+                    renderTable();
+                });
+        } else {
+            renderTable();
+        }
     };
 </script>
 {% endblock %}

@@ -127,12 +127,18 @@
                     </div>
                 </div>
 
-                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex gap-2">
-                    <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold disabled" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Editar</button>
-                    <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="button" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-toggle-off me-1"></i> Desactivar</button>
-                    </form>
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex flex-column gap-2">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold disabled" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Editar</button>
+                        <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-toggle-off me-1"></i> Desactivar</button>
+                        </form>
+                    </div>
+                    <!-- Ver Documentos -->
+                    <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled" id="btnVerDocumentosPanel">
+                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Ver Documentos
+                    </a>
                 </div>
             </div>
         </div>
@@ -417,6 +423,10 @@
                 renderAuditorias(c.auditorias);
 
                 // Habilitar y llenar Modal de Edición
+                const btnVerDocs = document.getElementById('btnVerDocumentosPanel');
+                btnVerDocs.classList.remove('disabled');
+                btnVerDocs.href = `/documentos?cliente_id=${c.id}`;
+
                 const btnEdit = document.getElementById('btnEditarPanel');
                 btnEdit.classList.remove('disabled');
                 btnEdit.onclick = () => {

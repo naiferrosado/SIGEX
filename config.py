@@ -17,3 +17,7 @@ class Config:
     
     SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Configuración de archivos subidos
+    UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # Límite de 16 MB para subidas

@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -6,6 +7,7 @@ from flask_wtf.csrf import CSRFProtect
 
 # IMPORTACIÓN DIRECTA DE CONFIGURACIÓN
 from config import Config
+
 
 # Inicializamos las extensiones globales
 db = SQLAlchemy()
@@ -23,6 +25,10 @@ def create_app():
     
     # ¡ESTA ES LA LÍNEA CLAVE! Carga la configuración del objeto importado
     app.config.from_object(Config)
+
+    # Crear la carpeta de subidas si no existe
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
 
     # Vinculamos las extensiones con la aplicación fabricada
     db.init_app(app)

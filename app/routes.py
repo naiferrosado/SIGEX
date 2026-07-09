@@ -1,12 +1,14 @@
+import os
 import uuid  # Para generar el código único de la firma
 from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse
 
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for, send_from_directory, current_app
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 
 from app import db
 from app.forms import (
@@ -22,6 +24,7 @@ from app.models import (
     BitacoraTiempoTarea,
     Cliente,
     Documento,
+    TipoDocumento,
     Expediente,
     ExpedienteAdministrativo,
     ExpedienteJudicial,
@@ -1047,7 +1050,6 @@ def register_routes(app):
 
     @app.route("/expedientes/buscar")
     @login_required
-    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def buscar_expedientes():
         q = request.args.get("q", "").strip()
         status = request.args.get("status", "Todos").strip()
@@ -1065,6 +1067,13 @@ def register_routes(app):
             )
         )
 
+        if current_user.rol == "Cliente":
+            cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+            if not cliente_db:
+                return jsonify([])
+            exp_ids = [e.id for e in cliente_db.expedientes]
+            query = query.filter(Expediente.id.in_(exp_ids))
+
         if status != "Todos":
             query = query.filter_by(estado=status)
 
@@ -1078,6 +1087,7 @@ def register_routes(app):
                 "id": exp.id,
                 "codigo_firma": exp.codigo_firma,
                 "nombre_caso": exp.nombre_caso,
+                "cliente": exp.cliente.nombre_completo if exp.cliente else "N/A"
             }
             for exp in lista_exp
         ]
@@ -1568,3 +1578,408 @@ def register_routes(app):
             )
 
         return redirect(url_for("expedientes"))
+
+    # --- RUTAS DE MOTOR DOCUMENTAL ---
+    @app.route("/documentos")
+    @login_required
+    def documentos():
+        expediente_id = request.args.get("expediente_id", type=int)
+        cliente_id = request.args.get("cliente_id", type=int)
+        
+        rol = current_user.rol
+        
+        # Cargar lista de expedientes para el selector
+        expedientes_select = []
+        if rol == "Cliente":
+            cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+            if cliente_db:
+                expedientes_select = [e for e in cliente_db.expedientes if e.estado != "Archivado"]
+        else:
+            expedientes_select = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
+
+        # Validar permisos de Cliente si se provee expediente_id
+        if rol == "Cliente" and expediente_id:
+            cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+            if not cliente_db:
+                flash("No posee un registro de cliente asociado.", "danger")
+                return redirect(url_for("dashboard"))
+            exp_ids = [e.id for e in cliente_db.expedientes]
+            if expediente_id not in exp_ids:
+                flash("No tiene permisos para acceder a este expediente.", "danger")
+                return redirect(url_for("documentos"))
+
+        # Cargar expediente preseleccionado
+        expediente_preseleccionado = None
+        if expediente_id:
+            expediente_preseleccionado = Expediente.query.get(expediente_id)
+        
+        documentos_lista = []
+        audit_logs = []
+        q = request.args.get("q", "").strip()
+        tipo_filtro = request.args.get("tipo", "Todos")
+        visibilidad_filtro = request.args.get("visibilidad", "Todos")
+        
+        audit_doc = ""
+        audit_action = "Todos"
+        audit_user = "Todos"
+        audit_desde = ""
+        audit_hasta = ""
+
+        # Solo si se ha seleccionado un expediente, cargar documentos y bitácora
+        if expediente_preseleccionado:
+            query = Documento.query.filter_by(expediente_id=expediente_id)
+
+            if rol == "Cliente":
+                query = query.filter_by(visibilidad="Compartido")
+
+            if q:
+                search_pattern = f"%{q}%"
+                query = query.join(VersionDocumento).filter(
+                    db.or_(
+                        VersionDocumento.descripcion.ilike(search_pattern),
+                        VersionDocumento.ruta_almacenamiento.ilike(search_pattern)
+                    )
+                )
+                
+            if tipo_filtro != "Todos":
+                try:
+                    tipo_id = int(tipo_filtro)
+                    query = query.filter(Documento.tipo_documento_id == tipo_id)
+                except ValueError:
+                    pass
+                    
+            if visibilidad_filtro != "Todos" and rol != "Cliente":
+                query = query.filter(Documento.visibilidad == visibilidad_filtro)
+
+            documentos_lista = query.order_by(Documento.id.desc()).all()
+
+            # Cargar bitácora de auditoría asociada a los accesos de este expediente
+            audit_query = BitacoraAuditoria.query.filter_by(expediente_id=expediente_id)
+            
+            # Filtros de bitácora
+            audit_doc = request.args.get("audit_doc", "").strip()
+            audit_action = request.args.get("audit_action", "Todos").strip()
+            audit_user = request.args.get("audit_user", "Todos").strip()
+            audit_desde = request.args.get("audit_desde", "").strip()
+            audit_hasta = request.args.get("audit_hasta", "").strip()
+
+            if audit_doc:
+                audit_query = audit_query.filter(BitacoraAuditoria.detalles_tecnicos.ilike(f"%{audit_doc}%"))
+            if audit_action != "Todos":
+                audit_query = audit_query.filter(BitacoraAuditoria.accion_realizada == audit_action)
+            if audit_user != "Todos":
+                try:
+                    u_id = int(audit_user)
+                    audit_query = audit_query.filter(BitacoraAuditoria.usuario_id == u_id)
+                except ValueError:
+                    pass
+            if audit_desde:
+                try:
+                    desde_dt = datetime.strptime(audit_desde, "%Y-%m-%d")
+                    audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora >= desde_dt)
+                except ValueError:
+                    pass
+            if audit_hasta:
+                try:
+                    hasta_dt = datetime.strptime(audit_hasta, "%Y-%m-%d")
+                    from datetime import timedelta
+                    audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora < hasta_dt + timedelta(days=1))
+                except ValueError:
+                    pass
+
+            audit_logs = audit_query.order_by(BitacoraAuditoria.fecha_hora.desc()).all()
+
+        # Datos para los selectores del modal de subida (solo para internos)
+        clientes_select = []
+        tipos_documentos = []
+
+        if rol != "Cliente":
+            clientes_select = Cliente.query.order_by(Cliente.nombres.asc()).all()
+            tipos_documentos = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
+
+        # Usuarios para filtro de auditoría
+        usuarios_audit_select = Usuario.query.order_by(Usuario.nombre.asc()).all()
+
+        # Estadísticas rápidas
+        total_docs = len(documentos_lista)
+        compartidos_docs = sum(1 for d in documentos_lista if d.visibilidad == "Compartido")
+        internos_docs = sum(1 for d in documentos_lista if d.visibilidad == "Interno")
+
+        return render_template(
+            "documentos/index.html",
+            documentos=documentos_lista,
+            expedientes_select=expedientes_select,
+            clientes_select=clientes_select,
+            tipos_documentos=tipos_documentos,
+            expediente_id=expediente_id,
+            cliente_id=cliente_id,
+            expediente_preseleccionado=expediente_preseleccionado,
+            q=q,
+            tipo_filtro=tipo_filtro,
+            visibilidad_filtro=visibilidad_filtro,
+            
+            # Auditoría
+            audit_logs=audit_logs,
+            usuarios_audit_select=usuarios_audit_select,
+            audit_doc=audit_doc,
+            audit_action=audit_action,
+            audit_user=audit_user,
+            audit_desde=audit_desde,
+            audit_hasta=audit_hasta,
+
+            total_docs=total_docs,
+            compartidos_docs=compartidos_docs,
+            internos_docs=internos_docs,
+            usuario=current_user,
+            current_date=datetime.now()
+        )
+
+    @app.route("/documentos/subir", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def subir_documento():
+        expediente_id = request.form.get("expediente_id", type=int)
+        tipo_documento_id = request.form.get("tipo_documento_id", type=int)
+        visibilidad = request.form.get("visibilidad", "Interno")
+        descripcion = request.form.get("descripcion", "").strip()
+
+        if "archivo" not in request.files:
+            flash("No se seleccionó ningún archivo.", "danger")
+            return redirect(url_for("documentos"))
+
+        archivo = request.files["archivo"]
+        if archivo.filename == "":
+            flash("El nombre de archivo está vacío.", "danger")
+            return redirect(url_for("documentos"))
+
+        # Validaciones de relaciones
+        exp = Expediente.query.get(expediente_id)
+        if not exp:
+            flash("El expediente seleccionado no existe.", "danger")
+            return redirect(url_for("documentos"))
+
+        tipo = TipoDocumento.query.get(tipo_documento_id)
+        if not tipo:
+            flash("El tipo de documento seleccionado no existe.", "danger")
+            return redirect(url_for("documentos"))
+
+        try:
+            # Nombre físico único
+            sec_filename = secure_filename(archivo.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{sec_filename}"
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], unique_filename)
+            
+            # Guardar archivo físico
+            archivo.save(filepath)
+            tamano = os.path.getsize(filepath)
+
+            # Crear Documento lógico
+            nuevo_doc = Documento(
+                expediente_id=expediente_id,
+                tipo_documento_id=tipo_documento_id,
+                visibilidad=visibilidad
+            )
+            db.session.add(nuevo_doc)
+            db.session.flush() # Para obtener el ID del documento lógico
+
+            # Crear primera VersionDocumento
+            nueva_version = VersionDocumento(
+                documento_id=nuevo_doc.id,
+                usuario_id=current_user.id,
+                version_numero="1.0",
+                descripcion=descripcion or f"Carga inicial de {sec_filename}",
+                tamano_bytes=tamano,
+                ruta_almacenamiento=unique_filename,
+                es_firmado=False
+            )
+            db.session.add(nueva_version)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Carga Documento",
+                detalles=f"Subió el documento '{sec_filename}' para el expediente '{exp.nombre_caso}'. Visibilidad: {visibilidad}.",
+                expediente_id=exp.id,
+                cliente_id=exp.cliente_id
+            )
+
+            flash(f"Documento '{sec_filename}' subido exitosamente como versión 1.0.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al subir el archivo: {str(e)}", "danger")
+
+        # Mantener los filtros de contexto si existían
+        return redirect(url_for("documentos", expediente_id=expediente_id))
+
+    @app.route("/documentos/<int:documento_id>/nueva_version", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def nueva_version_documento(documento_id):
+        doc = Documento.query.get_or_404(documento_id)
+        version_input = request.form.get("version_numero", "").strip()
+        descripcion = request.form.get("descripcion", "").strip()
+
+        if "archivo" not in request.files:
+            flash("No se seleccionó ningún archivo.", "danger")
+            return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+        archivo = request.files["archivo"]
+        if archivo.filename == "":
+            flash("El nombre de archivo está vacío.", "danger")
+            return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+        try:
+            # Obtener última versión para auto-calcular si no se provee
+            ult_version = VersionDocumento.query.filter_by(documento_id=doc.id).order_by(VersionDocumento.fecha_carga.desc()).first()
+            if not version_input:
+                if ult_version:
+                    try:
+                        v_num = float(ult_version.version_numero)
+                        version_input = f"{v_num + 0.1:.1f}"
+                    except ValueError:
+                        version_input = "2.0"
+                else:
+                    version_input = "1.0"
+
+            sec_filename = secure_filename(archivo.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{sec_filename}"
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], unique_filename)
+            
+            # Guardar archivo físico
+            archivo.save(filepath)
+            tamano = os.path.getsize(filepath)
+
+            # Crear nueva VersionDocumento
+            nueva_version = VersionDocumento(
+                documento_id=doc.id,
+                usuario_id=current_user.id,
+                version_numero=version_input,
+                descripcion=descripcion or f"Actualización a versión {version_input}",
+                tamano_bytes=tamano,
+                ruta_almacenamiento=unique_filename,
+                es_firmado=False
+            )
+            db.session.add(nueva_version)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Nueva Versión",
+                detalles=f"Subió la versión {version_input} del documento ID {doc.id} ({sec_filename}).",
+                expediente_id=doc.expediente_id,
+                cliente_id=doc.expediente.cliente_id
+            )
+
+            flash(f"Nueva versión {version_input} del documento cargada con éxito.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al subir la versión: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+    @app.route("/documentos/descargar/<int:version_id>")
+    @login_required
+    def descargar_documento(version_id):
+        version = VersionDocumento.query.get_or_404(version_id)
+        doc = version.documento_maestro
+
+        # Permisos
+        if current_user.rol == "Cliente":
+            cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+            if not cliente_db or doc.expediente.cliente_id != cliente_db.id or doc.visibilidad != "Compartido":
+                flash("No tiene permisos para descargar este documento.", "danger")
+                return redirect(url_for("dashboard"))
+
+        # Reconstruir nombre de descarga original quitando el UUID prefijo
+        orig_filename = version.ruta_almacenamiento.split("_", 1)[-1] if "_" in version.ruta_almacenamiento else version.ruta_almacenamiento
+
+        # Auditoría
+        registrar_auditoria(
+            usuario_id=current_user.id,
+            accion="Descarga",
+            detalles=f"Descargó el documento '{orig_filename}' (versión {version.version_numero}).",
+            expediente_id=doc.expediente_id,
+            cliente_id=doc.expediente.cliente_id
+        )
+
+        return send_from_directory(
+            current_app.config["UPLOAD_FOLDER"],
+            version.ruta_almacenamiento,
+            as_attachment=True,
+            download_name=orig_filename
+        )
+
+    @app.route("/documentos/<int:documento_id>/cambiar_visibilidad", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def cambiar_visibilidad_documento(documento_id):
+        doc = Documento.query.get_or_404(documento_id)
+        nueva_vis = request.form.get("visibilidad", "Interno")
+        
+        if nueva_vis not in ["Interno", "Compartido"]:
+            flash("Visibilidad inválida.", "danger")
+            return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+        vis_anterior = doc.visibilidad
+        doc.visibilidad = nueva_vis
+        try:
+            db.session.commit()
+            
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Editar Visibilidad",
+                detalles=f"Cambió la visibilidad del documento ID {doc.id} de '{vis_anterior}' a '{nueva_vis}'.",
+                expediente_id=doc.expediente_id,
+                cliente_id=doc.expediente.cliente_id
+            )
+            flash(f"La visibilidad del documento se cambió a {nueva_vis}.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al cambiar la visibilidad: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+    @app.route("/documentos/<int:documento_id>/eliminar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def eliminar_documento(documento_id):
+        doc = Documento.query.get_or_404(documento_id)
+        exp_id = doc.expediente_id
+        cli_id = doc.expediente.cliente_id
+        
+        razon = request.form.get("razon_eliminacion", "").strip()
+        if not razon:
+            flash("Debe proporcionar una razón para eliminar el documento.", "danger")
+            return redirect(url_for("documentos", expediente_id=exp_id))
+
+        # Eliminar archivos físicos asociados
+        for version in doc.versiones:
+            try:
+                filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                # Loggear y continuar para evitar atascar la base de datos
+                print(f"Error al eliminar archivo físico {version.ruta_almacenamiento}: {str(e)}")
+
+        try:
+            db.session.delete(doc)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Eliminar Documento",
+                detalles=f"Eliminó permanentemente el documento ID {documento_id}. Razón: {razon}",
+                expediente_id=exp_id,
+                cliente_id=cli_id
+            )
+            flash("Documento eliminado correctamente del sistema.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al eliminar el documento: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=exp_id))
