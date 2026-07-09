@@ -115,6 +115,17 @@
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de cliente:</span><span class="fw-semibold text-dark" id="detType">—</span></div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Ley 172-13:</span><span class="fw-semibold text-success" id="detConsentimiento">—</span></div>
                             <div class="d-flex justify-content-between py-2" id="detRazonDesactivacionContainer" style="display: none !important;"><span class="text-muted">Razón de inactividad:</span><span class="fw-semibold text-danger" id="detRazonDesactivacion">—</span></div>
+                            
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Acceso al Portal</div>
+                            <div class="border-bottom py-2 d-flex flex-column gap-2" id="portalAccessContainer">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted">Estado del Acceso:</span>
+                                    <span class="fw-bold" id="detPortalStatus">—</span>
+                                </div>
+                                <div id="portalAccessActions" class="w-100 mt-1">
+                                    <!-- Botones inyectados vía JS -->
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Pestaña Auditoría -->
@@ -144,6 +155,20 @@
         </div>
     </div>
 </main>
+
+<!-- FORMULARIOS OCULTOS DE CONTROL DE PORTAL DE CLIENTE -->
+<form id="formHabilitarAcceso" method="POST" action="" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="formDesactivarAcceso" method="POST" action="" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="formReactivarAcceso" method="POST" action="" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="formRestablecerClave" method="POST" action="" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
 
 <!-- MODAL AGREGAR CLIENTE -->
 <div class="modal fade" id="modalAgregarCliente" tabindex="-1" aria-hidden="true">
@@ -422,6 +447,43 @@
                 // Renderizar auditoría
                 renderAuditorias(c.auditorias);
 
+                // Renderizar Acceso al Portal
+                const portalStatus = document.getElementById('detPortalStatus');
+                const portalActions = document.getElementById('portalAccessActions');
+                portalActions.innerHTML = '';
+
+                if (c.usuario_info) {
+                    if (c.usuario_info.activo) {
+                        portalStatus.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Habilitado</span>';
+                        portalActions.innerHTML = `
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-white text-danger border border-danger btn-sm flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('desactivar', ${c.id})">
+                                    <i class="bi bi-shield-slash-fill me-1"></i>Suspender
+                                </button>
+                                <button type="button" class="btn btn-white text-warning border border-warning flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('restablecer', ${c.id})">
+                                    <i class="bi bi-key-fill me-1"></i>Reiniciar Clave
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        portalStatus.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Suspendido</span>';
+                        portalActions.innerHTML = `
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-white text-success border border-success btn-sm flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('reactivar', ${c.id})">
+                                    <i class="bi bi-shield-check-fill me-1"></i>Reactivar
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    portalStatus.innerHTML = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Sin Acceso</span>';
+                    portalActions.innerHTML = `
+                        <button type="button" class="btn btn-white text-primary border border-primary w-100 fw-semibold btn-sm py-1" onclick="ejecutarAccionPortal('habilitar', ${c.id}, '${c.email_contacto}', '${c.rnc_cedula}')">
+                            <i class="bi bi-shield-plus me-1"></i>Habilitar Acceso al Portal
+                        </button>
+                    `;
+                }
+
                 // Habilitar y llenar Modal de Edición
                 const btnVerDocs = document.getElementById('btnVerDocumentosPanel');
                 btnVerDocs.classList.remove('disabled');
@@ -508,6 +570,42 @@
             `;
             container.appendChild(div);
         });
+    }
+
+    function ejecutarAccionPortal(accion, clienteId, email = '', rnc = '') {
+        if (accion === 'habilitar') {
+            if (!email) {
+                alert("Error: El cliente no tiene configurado un correo electrónico de contacto.");
+                return;
+            }
+            if (!rnc) {
+                alert("Error: El cliente debe tener una cédula o RNC para usar de contraseña inicial.");
+                return;
+            }
+            if (confirm(`¿Desea habilitar el acceso al portal para este cliente?\n\nUsuario: ${email}\nContraseña inicial: ${rnc}`)) {
+                const form = document.getElementById('formHabilitarAcceso');
+                form.action = `/clientes/${clienteId}/habilitar_acceso`;
+                form.submit();
+            }
+        } else if (accion === 'desactivar') {
+            if (confirm("¿Está seguro de suspender temporalmente el acceso del cliente al portal?")) {
+                const form = document.getElementById('formDesactivarAcceso');
+                form.action = `/clientes/${clienteId}/desactivar_acceso`;
+                form.submit();
+            }
+        } else if (accion === 'reactivar') {
+            if (confirm("¿Desea reactivar el acceso al portal para este cliente?")) {
+                const form = document.getElementById('formReactivarAcceso');
+                form.action = `/clientes/${clienteId}/reactivar_acceso`;
+                form.submit();
+            }
+        } else if (accion === 'restablecer') {
+            if (confirm("¿Está seguro de restablecer la contraseña del cliente a su cédula/RNC inicial?")) {
+                const form = document.getElementById('formRestablecerClave');
+                form.action = `/clientes/${clienteId}/restablecer_clave_acceso`;
+                form.submit();
+            }
+        }
     }
 
     const debouncedBuscar = debounce(buscarClientes, 300);

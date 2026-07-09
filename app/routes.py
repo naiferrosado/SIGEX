@@ -25,6 +25,7 @@ from app.models import (
     Cliente,
     Documento,
     TipoDocumento,
+    Carpeta,
     Expediente,
     ExpedienteAdministrativo,
     ExpedienteJudicial,
@@ -33,6 +34,16 @@ from app.models import (
     VersionDocumento,
     rd_now,
 )
+
+ALLOWED_EXTENSIONS = {
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "txt", "rtf", "odt", "png", "jpg", "jpeg", "gif", "webp",
+    "zip", "rar", "7z", "tar", "gz"
+}
+
+def allowed_file(filename):
+    return "." in filename and \
+           filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def _serialize_clientes(clientes):
@@ -531,12 +542,24 @@ def register_routes(app):
                     )
 
                 documentos_compartidos = []
-                if exp_ids:
-                    documentos_compartidos = (
-                        Documento.query.filter(Documento.expediente_id.in_(exp_ids))
-                        .filter_by(visibilidad="Compartido")
-                        .all()
-                    )
+                if cliente_db:
+                    if exp_ids:
+                        documentos_compartidos = (
+                            Documento.query.filter(Documento.visibilidad == "Compartido")
+                            .filter(
+                                db.or_(
+                                    Documento.expediente_id.in_(exp_ids),
+                                    Documento.cliente_id == cliente_db.id
+                                )
+                            ).all()
+                        )
+                    else:
+                        documentos_compartidos = (
+                            Documento.query.filter_by(
+                                visibilidad="Compartido",
+                                cliente_id=cliente_db.id
+                            ).all()
+                        )
 
                 alertas_recientes = []
                 if exp_ids:
@@ -686,7 +709,18 @@ def register_routes(app):
             for log in auditorias_db
         ]
 
-        # 3. Retornar detalles con auditorías
+        # 3. Obtener información de usuario vinculado
+        usuario_info = None
+        if cliente.usuario_id:
+            user = Usuario.query.get(cliente.usuario_id)
+            if user:
+                usuario_info = {
+                    "id": user.id,
+                    "email": user.email,
+                    "activo": user.activo
+                }
+
+        # 4. Retornar detalles con auditorías
         return jsonify(
             {
                 "id": cliente.id,
@@ -704,8 +738,165 @@ def register_routes(app):
                 else "",
                 "razon_desactivacion": cliente.razon_desactivacion or "",
                 "auditorias": auditorias_data,
+                "usuario_info": usuario_info,
             }
         )
+
+    @app.route("/clientes/<int:cliente_id>/habilitar_acceso", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def habilitar_acceso_cliente(cliente_id):
+        cliente = Cliente.query.get_or_404(cliente_id)
+        if cliente.usuario_id:
+            flash("El cliente ya posee una cuenta de acceso vinculada.", "warning")
+            return redirect(url_for("clientes"))
+
+        email_limpio = cliente.email_contacto.strip().lower()
+        if not email_limpio:
+            flash("El cliente debe tener un correo de contacto configurado para habilitar acceso.", "danger")
+            return redirect(url_for("clientes"))
+
+        existente = Usuario.query.filter_by(email=email_limpio).first()
+        if existente:
+            if existente.rol == "Cliente":
+                cliente.usuario_id = existente.id
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Activación",
+                    detalles=f"Vinculó la cuenta de acceso existente del cliente {cliente.nombre_completo}.",
+                    cliente_id=cliente.id
+                )
+                flash("Cuenta de acceso existente vinculada con éxito.", "success")
+            else:
+                flash(f"El correo electrónico '{email_limpio}' ya está en uso por un miembro de la firma.", "danger")
+            return redirect(url_for("clientes"))
+
+        clave_inicial = cliente.rnc_cedula.strip()
+        if not clave_inicial:
+            flash("El cliente debe poseer cédula o RNC para usar de contraseña inicial.", "danger")
+            return redirect(url_for("clientes"))
+
+        nuevo_usuario = Usuario(
+            nombre=cliente.nombre_completo,
+            email=email_limpio,
+            rol="Cliente",
+            password_hash=generate_password_hash(clave_inicial),
+            activo=True,
+            requiere_cambio_password=True
+        )
+
+        try:
+            db.session.add(nuevo_usuario)
+            db.session.flush()
+            cliente.usuario_id = nuevo_usuario.id
+            db.session.commit()
+
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Creación",
+                detalles=f"Habilitó acceso al portal del cliente. Creada cuenta de usuario '{email_limpio}' con clave inicial.",
+                cliente_id=cliente.id
+            )
+            flash("Acceso al portal habilitado con éxito para este cliente.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al crear el usuario de acceso: {str(e)}", "danger")
+
+        return redirect(url_for("clientes"))
+
+    @app.route("/clientes/<int:cliente_id>/desactivar_acceso", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def desactivar_acceso_cliente(cliente_id):
+        cliente = Cliente.query.get_or_404(cliente_id)
+        if not cliente.usuario_id:
+            flash("El cliente no tiene una cuenta de acceso vinculada.", "warning")
+            return redirect(url_for("clientes"))
+
+        user = Usuario.query.get(cliente.usuario_id)
+        if user:
+            user.activo = False
+            try:
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Desactivación",
+                    detalles=f"Desactivó la cuenta de acceso del cliente ({user.email}).",
+                    cliente_id=cliente.id
+                )
+                flash("Acceso al portal desactivado temporalmente para este cliente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al suspender cuenta de acceso: {str(e)}", "danger")
+        else:
+            flash("No se encontró la cuenta de acceso.", "danger")
+
+        return redirect(url_for("clientes"))
+
+    @app.route("/clientes/<int:cliente_id>/reactivar_acceso", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def reactivar_acceso_cliente(cliente_id):
+        cliente = Cliente.query.get_or_404(cliente_id)
+        if not cliente.usuario_id:
+            flash("El cliente no tiene una cuenta de acceso vinculada.", "warning")
+            return redirect(url_for("clientes"))
+
+        user = Usuario.query.get(cliente.usuario_id)
+        if user:
+            user.activo = True
+            try:
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Activación",
+                    detalles=f"Reactivó la cuenta de acceso del cliente ({user.email}).",
+                    cliente_id=cliente.id
+                )
+                flash("Acceso al portal reactivado con éxito para este cliente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al reactivar cuenta de acceso: {str(e)}", "danger")
+        else:
+            flash("No se encontró la cuenta de acceso.", "danger")
+
+        return redirect(url_for("clientes"))
+
+    @app.route("/clientes/<int:cliente_id>/restablecer_clave_acceso", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def restablecer_clave_acceso_cliente(cliente_id):
+        cliente = Cliente.query.get_or_404(cliente_id)
+        if not cliente.usuario_id:
+            flash("El cliente no tiene una cuenta de acceso vinculada.", "warning")
+            return redirect(url_for("clientes"))
+
+        user = Usuario.query.get(cliente.usuario_id)
+        if user:
+            clave_inicial = cliente.rnc_cedula.strip()
+            if not clave_inicial:
+                flash("El cliente debe poseer cédula o RNC para restablecer la contraseña.", "danger")
+                return redirect(url_for("clientes"))
+
+            user.password_hash = generate_password_hash(clave_inicial)
+            user.requiere_cambio_password = True
+            try:
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Edición",
+                    detalles=f"Restableció la contraseña de acceso del cliente a su cédula/RNC inicial.",
+                    cliente_id=cliente.id
+                )
+                flash("Contraseña restablecida con éxito a la cédula/RNC del cliente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al restablecer contraseña: {str(e)}", "danger")
+        else:
+            flash("No se encontró la cuenta de acceso.", "danger")
+
+        return redirect(url_for("clientes"))
 
     @app.route("/clientes/agregar", methods=["POST"])
     @login_required
@@ -1587,6 +1778,9 @@ def register_routes(app):
         cliente_id = request.args.get("cliente_id", type=int)
         
         rol = current_user.rol
+        if rol == "Cliente":
+            flash("Acceso denegado. No tiene permisos para acceder al gestor documental.", "danger")
+            return redirect(url_for("dashboard"))
         
         # Cargar lista de expedientes para el selector
         expedientes_select = []
@@ -1625,12 +1819,38 @@ def register_routes(app):
         audit_desde = ""
         audit_hasta = ""
 
+        carpeta_filtro = request.args.get("carpeta_id", "")
+        carpetas = []
+
         # Solo si se ha seleccionado un expediente, cargar documentos y bitácora
         if expediente_preseleccionado:
+            carpetas = Carpeta.query.filter_by(expediente_id=expediente_id).order_by(Carpeta.nombre.asc()).all()
             query = Documento.query.filter_by(expediente_id=expediente_id)
 
+            # Filtro por carpeta
+            if carpeta_filtro != "" and carpeta_filtro is not None:
+                if carpeta_filtro == "0":
+                    query = query.filter(Documento.carpeta_id == None)
+                else:
+                    try:
+                        c_id = int(carpeta_filtro)
+                        query = query.filter(Documento.carpeta_id == c_id)
+                    except ValueError:
+                        pass
+
             if rol == "Cliente":
-                query = query.filter_by(visibilidad="Compartido")
+                cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+                if cliente_db:
+                    query = query.filter(
+                        Documento.visibilidad == "Compartido"
+                    ).filter(
+                        db.or_(
+                            Documento.cliente_id == None,
+                            Documento.cliente_id == cliente_db.id
+                        )
+                    )
+                else:
+                    query = query.filter(False)
 
             if q:
                 search_pattern = f"%{q}%"
@@ -1705,6 +1925,16 @@ def register_routes(app):
         compartidos_docs = sum(1 for d in documentos_lista if d.visibilidad == "Compartido")
         internos_docs = sum(1 for d in documentos_lista if d.visibilidad == "Interno")
 
+        # Conteos no filtrados para el listado de carpetas
+        unfiltered_total_docs = 0
+        unfiltered_raiz_docs = 0
+        if expediente_preseleccionado:
+            base_q = Documento.query.filter_by(expediente_id=expediente_id)
+            if rol == "Cliente":
+                base_q = base_q.filter_by(visibilidad="Compartido")
+            unfiltered_total_docs = base_q.count()
+            unfiltered_raiz_docs = base_q.filter(Documento.carpeta_id == None).count()
+
         return render_template(
             "documentos/index.html",
             documentos=documentos_lista,
@@ -1730,6 +1960,10 @@ def register_routes(app):
             total_docs=total_docs,
             compartidos_docs=compartidos_docs,
             internos_docs=internos_docs,
+            unfiltered_total_docs=unfiltered_total_docs,
+            unfiltered_raiz_docs=unfiltered_raiz_docs,
+            carpetas=carpetas,
+            carpeta_filtro=carpeta_filtro,
             usuario=current_user,
             current_date=datetime.now()
         )
@@ -1742,6 +1976,15 @@ def register_routes(app):
         tipo_documento_id = request.form.get("tipo_documento_id", type=int)
         visibilidad = request.form.get("visibilidad", "Interno")
         descripcion = request.form.get("descripcion", "").strip()
+        carpeta_id = request.form.get("carpeta_id", type=int)
+        compartir_cliente_id = request.form.get("compartir_cliente_id", type=int)
+
+        # Validar si el cliente existe si se especificó
+        if visibilidad == "Compartido" and compartir_cliente_id:
+            dest_cliente = Cliente.query.get(compartir_cliente_id)
+            if not dest_cliente:
+                flash("El cliente seleccionado no existe.", "danger")
+                return redirect(url_for("documentos", expediente_id=expediente_id))
 
         if "archivo" not in request.files:
             flash("No se seleccionó ningún archivo.", "danger")
@@ -1750,7 +1993,11 @@ def register_routes(app):
         archivo = request.files["archivo"]
         if archivo.filename == "":
             flash("El nombre de archivo está vacío.", "danger")
-            return redirect(url_for("documentos"))
+            return redirect(url_for("documentos", expediente_id=expediente_id))
+
+        if not allowed_file(archivo.filename):
+            flash("Extensión de archivo no permitida. Solo se admiten documentos estándar, imágenes y comprimidos.", "danger")
+            return redirect(url_for("documentos", expediente_id=expediente_id))
 
         # Validaciones de relaciones
         exp = Expediente.query.get(expediente_id)
@@ -1773,11 +2020,20 @@ def register_routes(app):
             archivo.save(filepath)
             tamano = os.path.getsize(filepath)
 
+            # Validar carpeta si se seleccionó una
+            if carpeta_id:
+                carpeta = Carpeta.query.get(carpeta_id)
+                if not carpeta or carpeta.expediente_id != expediente_id:
+                    flash("La carpeta seleccionada no es válida para este expediente.", "danger")
+                    return redirect(url_for("documentos", expediente_id=expediente_id))
+
             # Crear Documento lógico
             nuevo_doc = Documento(
                 expediente_id=expediente_id,
                 tipo_documento_id=tipo_documento_id,
-                visibilidad=visibilidad
+                visibilidad=visibilidad,
+                carpeta_id=carpeta_id if carpeta_id else None,
+                cliente_id=compartir_cliente_id if (visibilidad == "Compartido" and compartir_cliente_id) else None
             )
             db.session.add(nuevo_doc)
             db.session.flush() # Para obtener el ID del documento lógico
@@ -1827,6 +2083,10 @@ def register_routes(app):
         archivo = request.files["archivo"]
         if archivo.filename == "":
             flash("El nombre de archivo está vacío.", "danger")
+            return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+        if not allowed_file(archivo.filename):
+            flash("Extensión de archivo no permitida. Solo se admiten documentos estándar, imágenes y comprimidos.", "danger")
             return redirect(url_for("documentos", expediente_id=doc.expediente_id))
 
         try:
@@ -1888,7 +2148,12 @@ def register_routes(app):
         # Permisos
         if current_user.rol == "Cliente":
             cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
-            if not cliente_db or doc.expediente.cliente_id != cliente_db.id or doc.visibilidad != "Compartido":
+            if not cliente_db or doc.visibilidad != "Compartido":
+                flash("No tiene permisos para descargar este documento.", "danger")
+                return redirect(url_for("dashboard"))
+            
+            tiene_acceso = (doc.expediente.cliente_id == cliente_db.id) or (doc.cliente_id == cliente_db.id)
+            if not tiene_acceso:
                 flash("No tiene permisos para descargar este documento.", "danger")
                 return redirect(url_for("dashboard"))
 
@@ -1911,19 +2176,63 @@ def register_routes(app):
             download_name=orig_filename
         )
 
+    @app.route("/documentos/ver/<int:version_id>")
+    @login_required
+    def ver_documento(version_id):
+        version = VersionDocumento.query.get_or_404(version_id)
+        doc = version.documento_maestro
+
+        # Permisos
+        if current_user.rol == "Cliente":
+            cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+            if not cliente_db or doc.visibilidad != "Compartido":
+                flash("No tiene permisos para ver este documento.", "danger")
+                return redirect(url_for("dashboard"))
+
+            tiene_acceso = (doc.expediente.cliente_id == cliente_db.id) or (doc.cliente_id == cliente_db.id)
+            if not tiene_acceso:
+                flash("No tiene permisos para ver este documento.", "danger")
+                return redirect(url_for("dashboard"))
+
+        # Reconstruir nombre de descarga original quitando el UUID prefijo
+        orig_filename = version.ruta_almacenamiento.split("_", 1)[-1] if "_" in version.ruta_almacenamiento else version.ruta_almacenamiento
+
+        # Auditoría
+        registrar_auditoria(
+            usuario_id=current_user.id,
+            accion="Visualización",
+            detalles=f"Visualizó el documento '{orig_filename}' (versión {version.version_numero}).",
+            expediente_id=doc.expediente_id,
+            cliente_id=doc.expediente.cliente_id
+        )
+
+        return send_from_directory(
+            current_app.config["UPLOAD_FOLDER"],
+            version.ruta_almacenamiento,
+            as_attachment=False
+        )
+
     @app.route("/documentos/<int:documento_id>/cambiar_visibilidad", methods=["POST"])
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def cambiar_visibilidad_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
         nueva_vis = request.form.get("visibilidad", "Interno")
-        
+        compartir_cliente_id = request.form.get("compartir_cliente_id", type=int)
+
         if nueva_vis not in ["Interno", "Compartido"]:
             flash("Visibilidad inválida.", "danger")
             return redirect(url_for("documentos", expediente_id=doc.expediente_id))
 
+        if nueva_vis == "Compartido" and compartir_cliente_id:
+            dest_cliente = Cliente.query.get(compartir_cliente_id)
+            if not dest_cliente:
+                flash("El cliente seleccionado no existe.", "danger")
+                return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
         vis_anterior = doc.visibilidad
         doc.visibilidad = nueva_vis
+        doc.cliente_id = compartir_cliente_id if (nueva_vis == "Compartido" and compartir_cliente_id) else None
         try:
             db.session.commit()
             
@@ -1983,3 +2292,270 @@ def register_routes(app):
             flash(f"Error al eliminar el documento: {str(e)}", "danger")
 
         return redirect(url_for("documentos", expediente_id=exp_id))
+
+    @app.route("/documentos/tipologias", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def listar_tipologias():
+        tipologias = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
+        return render_template(
+            "documentos/tipologias.html",
+            tipologias=tipologias,
+            usuario=current_user
+        )
+
+    @app.route("/documentos/tipologias/crear", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def crear_tipologia():
+        nombre_tipo = request.form.get("nombre_tipo", "").strip()
+        if not nombre_tipo:
+            flash("El nombre de la tipología no puede estar vacío.", "danger")
+            return redirect(url_for("listar_tipologias"))
+
+        # Validar si ya existe
+        existente = TipoDocumento.query.filter(TipoDocumento.nombre_tipo.ilike(nombre_tipo)).first()
+        if existente:
+            flash(f"La tipología '{nombre_tipo}' ya existe.", "danger")
+            return redirect(url_for("listar_tipologias"))
+
+        try:
+            nueva_tipologia = TipoDocumento(nombre_tipo=nombre_tipo)
+            db.session.add(nueva_tipologia)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Crear Tipología",
+                detalles=f"Creó la tipología de documento '{nombre_tipo}'."
+            )
+            flash(f"Tipología '{nombre_tipo}' creada con éxito.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al crear la tipología: {str(e)}", "danger")
+
+        return redirect(url_for("listar_tipologias"))
+
+    @app.route("/documentos/tipologias/<int:tipo_id>/editar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def editar_tipologia(tipo_id):
+        tipologia = TipoDocumento.query.get_or_404(tipo_id)
+        nombre_tipo = request.form.get("nombre_tipo", "").strip()
+        if not nombre_tipo:
+            flash("El nombre de la tipología no puede estar vacío.", "danger")
+            return redirect(url_for("listar_tipologias"))
+
+        # Validar si ya existe otra con el mismo nombre
+        existente = TipoDocumento.query.filter(
+            TipoDocumento.nombre_tipo.ilike(nombre_tipo), 
+            TipoDocumento.id != tipo_id
+        ).first()
+        if existente:
+            flash(f"Ya existe otra tipología con el nombre '{nombre_tipo}'.", "danger")
+            return redirect(url_for("listar_tipologias"))
+
+        nombre_anterior = tipologia.nombre_tipo
+        tipologia.nombre_tipo = nombre_tipo
+        try:
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Editar Tipología",
+                detalles=f"Modificó la tipología ID {tipo_id} de '{nombre_anterior}' a '{nombre_tipo}'."
+            )
+            flash(f"Tipología modificada a '{nombre_tipo}' con éxito.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al editar la tipología: {str(e)}", "danger")
+
+        return redirect(url_for("listar_tipologias"))
+
+    @app.route("/documentos/tipologias/<int:tipo_id>/eliminar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def eliminar_tipologia(tipo_id):
+        tipologia = TipoDocumento.query.get_or_404(tipo_id)
+        
+        # Validar si hay documentos asociados
+        documentos_asociados = Documento.query.filter_by(tipo_documento_id=tipo_id).count()
+        if documentos_asociados > 0:
+            flash(f"No se puede eliminar la tipología '{tipologia.nombre_tipo}' porque tiene {documentos_asociados} documentos asociados.", "danger")
+            return redirect(url_for("listar_tipologias"))
+
+        nombre_tipo = tipologia.nombre_tipo
+        try:
+            db.session.delete(tipologia)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Eliminar Tipología",
+                detalles=f"Eliminó la tipología de documento '{nombre_tipo}' (ID {tipo_id})."
+            )
+            flash(f"Tipología '{nombre_tipo}' eliminada correctamente.", "success")
+        except Exception as e:
+            flash(f"Error al eliminar la tipología: {str(e)}", "danger")
+
+        return redirect(url_for("listar_tipologias"))
+
+    @app.route("/documentos/carpetas/crear", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def crear_carpeta():
+        expediente_id = request.form.get("expediente_id", type=int)
+        nombre = request.form.get("nombre", "").strip()
+
+        if not nombre:
+            flash("El nombre de la carpeta no puede estar vacío.", "danger")
+            return redirect(url_for("documentos", expediente_id=expediente_id))
+
+        exp = Expediente.query.get_or_404(expediente_id)
+
+        # Validar duplicados
+        existente = Carpeta.query.filter(
+            Carpeta.expediente_id == expediente_id,
+            Carpeta.nombre.ilike(nombre)
+        ).first()
+
+        if existente:
+            flash(f"Ya existe una carpeta con el nombre '{nombre}' en este expediente.", "danger")
+            return redirect(url_for("documentos", expediente_id=expediente_id))
+
+        try:
+            nueva_carpeta = Carpeta(nombre=nombre, expediente_id=expediente_id)
+            db.session.add(nueva_carpeta)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Crear Carpeta",
+                detalles=f"Creó la carpeta '{nombre}' para el expediente '{exp.codigo_firma}'.",
+                expediente_id=expediente_id,
+                cliente_id=exp.cliente_id
+            )
+            flash(f"Carpeta '{nombre}' creada con éxito.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al crear la carpeta: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=expediente_id))
+
+    @app.route("/documentos/carpetas/<int:carpeta_id>/editar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def editar_carpeta(carpeta_id):
+        carpeta = Carpeta.query.get_or_404(carpeta_id)
+        nombre = request.form.get("nombre", "").strip()
+
+        if not nombre:
+            flash("El nombre de la carpeta no puede estar vacío.", "danger")
+            return redirect(url_for("documentos", expediente_id=carpeta.expediente_id))
+
+        # Validar duplicados
+        existente = Carpeta.query.filter(
+            Carpeta.expediente_id == carpeta.expediente_id,
+            Carpeta.nombre.ilike(nombre),
+            Carpeta.id != carpeta_id
+        ).first()
+
+        if existente:
+            flash(f"Ya existe otra carpeta con el nombre '{nombre}' en este expediente.", "danger")
+            return redirect(url_for("documentos", expediente_id=carpeta.expediente_id))
+
+        nombre_anterior = carpeta.nombre
+        try:
+            carpeta.nombre = nombre
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Editar Carpeta",
+                detalles=f"Modificó el nombre de la carpeta de '{nombre_anterior}' a '{nombre}' (Carpeta ID {carpeta_id}).",
+                expediente_id=carpeta.expediente_id,
+                cliente_id=carpeta.expediente.cliente_id
+            )
+            flash(f"Carpeta renombrada a '{nombre}' con éxito.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al renombrar la carpeta: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=carpeta.expediente_id))
+
+    @app.route("/documentos/carpetas/<int:carpeta_id>/eliminar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def eliminar_carpeta(carpeta_id):
+        carpeta = Carpeta.query.get_or_404(carpeta_id)
+        expediente_id = carpeta.expediente_id
+        nombre = carpeta.nombre
+
+        try:
+            db.session.delete(carpeta)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Eliminar Carpeta",
+                detalles=f"Eliminó la carpeta '{nombre}' (ID {carpeta_id}). Los documentos asociados fueron movidos a la raíz.",
+                expediente_id=expediente_id,
+                cliente_id=carpeta.expediente.cliente_id
+            )
+            flash(f"Carpeta '{nombre}' eliminada con éxito. Los documentos contenidos fueron movidos a la raíz.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al eliminar la carpeta: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=expediente_id))
+
+    @app.route("/documentos/<int:documento_id>/mover", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def mover_documento(documento_id):
+        doc = Documento.query.get_or_404(documento_id)
+        carpeta_id = request.form.get("carpeta_id")
+
+        if carpeta_id == "" or carpeta_id == "0" or carpeta_id is None:
+            c_id = None
+            dest_nombre = "Raíz"
+        else:
+            try:
+                c_id = int(carpeta_id)
+                carpeta = Carpeta.query.get_or_404(c_id)
+                if carpeta.expediente_id != doc.expediente_id:
+                    flash("La carpeta seleccionada no pertenece al expediente de este documento.", "danger")
+                    return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+                dest_nombre = carpeta.nombre
+            except ValueError:
+                flash("Carpeta de destino no válida.", "danger")
+                return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+        try:
+            doc.carpeta_id = c_id
+            db.session.commit()
+
+            # Obtener nombre original
+            ult_version = doc.versiones[0] if doc.versiones else None
+            orig_filename = ult_version.ruta_almacenamiento.split("_", 1)[-1] if ult_version and "_" in ult_version.ruta_almacenamiento else (ult_version.ruta_almacenamiento if ult_version else "Documento")
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Mover Documento",
+                detalles=f"Movió el documento '{orig_filename}' a la carpeta '{dest_nombre}'.",
+                expediente_id=doc.expediente_id,
+                cliente_id=doc.expediente.cliente_id
+            )
+            flash(f"Documento movido a '{dest_nombre}' con éxito.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al mover el documento: {str(e)}", "danger")
+
+        return redirect(url_for("documentos", expediente_id=doc.expediente_id))

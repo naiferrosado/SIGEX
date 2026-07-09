@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa; min-height: 100vh;">
+    
+    <!-- Fila de Encabezado Superior -->
+    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-3">
+        <div>
+            <h3 class="fw-bold mb-0 text-dark" style="font-family: 'Segoe UI', system-ui; letter-spacing: -0.5px;">
+                Tipologías de Documentos
+            </h3>
+            <p class="text-muted small mb-0">Configuración de las tipologías y categorías de documentos en el sistema.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('documentos') }}" class="btn btn-white btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm" style="border-radius: 8px;">
+                <i class="bi bi-arrow-left text-primary"></i> Volver a Documentos
+            </a>
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#modalAgregarTipologia">
+                <i class="bi bi-plus-lg"></i> Nueva Tipología
+            </button>
+        </div>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{{ url_for('expedientes') }}" class="text-decoration-none text-muted">Expedientes</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('documentos') }}" class="text-decoration-none text-muted">Documentos</a></li>
+            <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">Tipologías</li>
+        </ol>
+    </nav>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Navegación por pestañas -->
+    <ul class="nav nav-tabs border-bottom mb-4" style="gap: 1.5rem;">
+        <li class="nav-item">
+            <a class="nav-link py-2 px-1 text-muted" href="{{ url_for('documentos') }}">Documentos</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link py-2 px-1 text-muted" href="#" onclick="alert('Funcionalidad de Carpetas próximamente.')">Carpetas</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link py-2 px-1 text-muted" href="#" onclick="alert('Funcionalidad de Plantillas próximamente.')">Plantillas</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active py-2 px-1 text-primary border-bottom border-primary fw-bold" href="{{ url_for('listar_tipologias') }}" style="border-width: 3px !important;">Tipologías</a>
+        </li>
+    </ul>
+
+    <!-- Contenedor Principal (Flexbox para Tabla e Historial lateral) -->
+    <div class="row g-4 mb-4">
+        <!-- Columna de la Tabla de Tipologías -->
+        <div class="col-xl-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-muted fw-semibold">
+                            <tr class="border-bottom text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
+                                <th class="ps-4 py-3">ID</th>
+                                <th class="py-3">Nombre de la Tipología</th>
+                                <th class="py-3 text-center">Documentos Asociados</th>
+                                <th class="py-3 pe-4 text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if tipologias %}
+                                {% for tipo in tipologias %}
+                                    <tr id="tipo-row-{{ tipo.id }}" class="tipo-table-row cursor-pointer" 
+                                        data-id="{{ tipo.id }}" 
+                                        data-nombre="{{ tipo.nombre_tipo }}" 
+                                        data-count="{{ tipo.documentos | length }}"
+                                        onclick="seleccionarTipologiaFromElement(this)">
+                                        <td class="ps-4 py-3 fw-semibold text-secondary">#{{ tipo.id }}</td>
+                                        <td class="py-3">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-tag-fill text-primary me-2 fs-5"></i>
+                                                <span class="fw-semibold text-dark">{{ tipo.nombre_tipo }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 text-center fw-semibold text-muted">
+                                            {{ tipo.documentos | length }}
+                                        </td>
+                                        <td class="pe-4 text-end" onclick="event.stopPropagation();">
+                                            <div class="d-inline-flex gap-2">
+                                                <button class="btn btn-link p-0 text-secondary hover-text-primary" 
+                                                        title="Editar" 
+                                                        data-id="{{ tipo.id }}" 
+                                                        data-nombre="{{ tipo.nombre_tipo }}"
+                                                        onclick="abrirModalEditarFromElement(this)">
+                                                    <i class="bi bi-pencil-square fs-5"></i>
+                                                </button>
+                                                {% if usuario.rol in ['Socio', 'Administrador'] %}
+                                                <form method="POST" action="{{ url_for('eliminar_tipologia', tipo_id=tipo.id) }}" onsubmit="return confirm('¿Confirma que desea eliminar la tipología \'{{ tipo.nombre_tipo }}\'?');" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-link p-0 text-secondary hover-text-danger" title="Eliminar">
+                                                        <i class="bi bi-trash fs-5"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <i class="bi bi-tag fs-1 d-block mb-2 text-muted"></i>
+                                        No hay tipologías de documentos configuradas en el sistema.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white border-top-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">Total de tipologías registradas: {{ tipologias | length }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna del Detalle (Panel Derecho) -->
+        <div class="col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4 position-sticky" style="top: 20px;" id="detailsPanel">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h6 class="mb-0 fw-bold" style="color: #071c4d;">
+                        <i class="bi bi-info-circle-fill me-2 text-primary"></i>Detalle de Tipología
+                    </h6>
+                </div>
+                
+                <div class="card-body p-4 text-center" id="panelVacio">
+                    <i class="bi bi-tag text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="fw-bold mt-3 mb-1 text-dark">Seleccione una tipología</h5>
+                    <p class="text-muted small mb-0">Haga clic en una fila de la tabla para ver más información y opciones disponibles.</p>
+                </div>
+
+                <div class="card-body p-4 text-center d-none" id="panelInfo">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 text-primary shadow-sm" style="width: 65px; height: 65px;">
+                        <i class="bi bi-tag-fill fs-2"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1 text-dark" id="detNombre">Tipología</h5>
+                    <p class="text-muted small mb-2">ID: #<span id="detId">0</span></p>
+
+                    <div class="text-start small mt-4">
+                        <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Resumen de uso</div>
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted">Documentos cargados:</span>
+                            <span class="fw-bold text-dark" id="detDocsCount">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2">
+                            <span class="text-muted">Estado de eliminación:</span>
+                            <span class="fw-semibold" id="detEliminable">Permitido</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-none gap-2" id="panelActions">
+                    <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Modificar</button>
+                    {% if usuario.rol in ['Socio', 'Administrador'] %}
+                    <form method="POST" action="" id="formEliminarPanel" style="flex: 1;" onsubmit="return confirm('¿Confirma que desea eliminar permanentemente esta tipología?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold" id="btnEliminarPanel"><i class="bi bi-trash me-1"></i> Eliminar</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Modal Agregar Tipología -->
+<div class="modal fade" id="modalAgregarTipologia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-tag-fill text-primary me-2"></i>Nueva Tipología</h5>
+                    <p class="text-muted small mb-0">Cree un nuevo tipo de documento para clasificar los archivos del gestor documental.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form method="POST" action="{{ url_for('crear_tipologia') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Nombre de la Tipología <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre_tipo" class="form-control form-control-sm" placeholder="Ej. Acta de Acuerdo, Recibo, Contrato de Alquiler" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold" style="background-color: #00409A; border-color: #00409A;">Guardar Tipología</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Tipología -->
+<div class="modal fade" id="modalEditarTipologia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-pencil-square text-primary me-2"></i>Modificar Tipología</h5>
+                    <p class="text-muted small mb-0">Edite el nombre de la tipología seleccionada.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form method="POST" action="" id="formEditarModal">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Nombre de la Tipología <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre_tipo" id="inputEditarNombre" class="form-control form-control-sm" placeholder="Ej. Acta Notarial" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold" style="background-color: #00409A; border-color: #00409A;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeId = null;
+    let activeNombre = "";
+
+    function seleccionarTipologiaFromElement(el) {
+        const id = parseInt(el.getAttribute('data-id'), 10);
+        const nombre = el.getAttribute('data-nombre');
+        const count = parseInt(el.getAttribute('data-count'), 10);
+        seleccionarTipologia(id, nombre, count);
+    }
+
+    function abrirModalEditarFromElement(el) {
+        const id = parseInt(el.getAttribute('data-id'), 10);
+        const nombre = el.getAttribute('data-nombre');
+        abrirModalEditar(id, nombre);
+    }
+
+    function seleccionarTipologia(id, nombre, count) {
+        activeId = id;
+        activeNombre = nombre;
+
+        // Remover clase active de todas las filas y añadir a la seleccionada
+        document.querySelectorAll('.tipo-table-row').forEach(row => {
+            row.classList.remove('table-primary');
+        });
+        const selectedRow = document.getElementById(`tipo-row-${id}`);
+        if (selectedRow) {
+            selectedRow.classList.add('table-primary');
+        }
+
+        // Mostrar panel de detalles
+        document.getElementById('panelVacio').classList.add('d-none');
+        document.getElementById('panelInfo').classList.remove('d-none');
+        document.getElementById('panelActions').classList.remove('d-none');
+        document.getElementById('panelActions').style.display = 'flex';
+
+        // Rellenar datos
+        document.getElementById('detId').innerText = id;
+        document.getElementById('detNombre').innerText = nombre;
+        document.getElementById('detDocsCount').innerText = count;
+
+        const elimSpan = document.getElementById('detEliminable');
+        const btnElim = document.getElementById('btnEliminarPanel');
+        
+        if (count > 0) {
+            elimSpan.innerText = "Bloqueado (Tiene documentos)";
+            elimSpan.className = "fw-bold text-danger";
+            if (btnElim) {
+                btnElim.disabled = true;
+                btnElim.title = "No se puede eliminar porque tiene documentos asociados.";
+            }
+        } else {
+            elimSpan.innerText = "Disponible";
+            elimSpan.className = "fw-bold text-success";
+            if (btnElim) {
+                btnElim.disabled = false;
+                btnElim.title = "Eliminar esta tipología.";
+            }
+        }
+
+        // Configurar botones del panel
+        document.getElementById('btnEditarPanel').onclick = function() {
+            abrirModalEditar(id, nombre);
+        };
+
+        const formElim = document.getElementById('formEliminarPanel');
+        if (formElim) {
+            formElim.action = `/documentos/tipologias/${id}/eliminar`;
+        }
+    }
+
+    function abrirModalEditar(id, nombre) {
+        document.getElementById('inputEditarNombre').value = nombre;
+        document.getElementById('formEditarModal').action = `/documentos/tipologias/${id}/editar`;
+        
+        // Mostrar Modal
+        const editModal = new bootstrap.Modal(document.getElementById('modalEditarTipologia'));
+        editModal.show();
+    }
+</script>
+{% endblock %}

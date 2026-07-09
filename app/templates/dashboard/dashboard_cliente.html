@@ -50,19 +50,17 @@
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
-            <a href="{{ url_for('documentos') }}" class="text-decoration-none h-100 d-block">
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="bg-success bg-opacity-10 p-3 rounded-3 text-success me-3">
-                            <i class="bi bi-file-earmark-arrow-down fs-4"></i>
-                        </div>
-                        <div>
-                            <div class="text-muted small fw-semibold">Documentos Disponibles</div>
-                            <h3 class="fw-bold mb-0 text-dark">{{ estadisticas.documentos_disponibles_count }}</h3>
-                        </div>
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 p-3 rounded-3 text-success me-3">
+                        <i class="bi bi-file-earmark-arrow-down fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-semibold">Documentos Disponibles</div>
+                        <h3 class="fw-bold mb-0 text-dark">{{ estadisticas.documentos_disponibles_count }}</h3>
                     </div>
                 </div>
-            </a>
+            </div>
         </div>
         <div class="col-md-6 col-lg-2">
             <div class="card border-0 shadow-sm rounded-4 h-100">
@@ -216,7 +214,13 @@
                         {% if ultima_version %}
                         <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="fw-bold mb-0 small text-dark">{{ doc.categoria.nombre_tipo }}</h6>
+                                <h6 class="fw-bold mb-0 small text-dark">
+                                    {% if doc.categoria %}
+                                        {{ doc.categoria.nombre_tipo }}
+                                    {% else %}
+                                        Documento
+                                    {% endif %}
+                                </h6>
                                 <span class="small text-muted" style="font-size: 0.75rem;">
                                     {% if '_' in ultima_version.ruta_almacenamiento %}
                                         {{ ultima_version.ruta_almacenamiento.split('_', 1)[-1] }}
@@ -225,9 +229,17 @@
                                     {% endif %} (v{{ ultima_version.version_numero }})
                                 </span>
                             </div>
-                            <a href="{{ url_for('descargar_documento', version_id=ultima_version.id) }}" class="btn btn-outline-success btn-xs d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; padding: 0;" title="Descargar">
-                                <i class="bi bi-download"></i>
-                            </a>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-outline-primary btn-xs d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; padding: 0;" title="Visualizar"
+                                    data-id="{{ ultima_version.id }}"
+                                    data-filename="{% if '_' in ultima_version.ruta_almacenamiento %}{{ ultima_version.ruta_almacenamiento.split('_', 1)[-1] }}{% else %}{{ ultima_version.ruta_almacenamiento }}{% endif %}"
+                                    onclick="abrirVistaPrevia(this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <a href="{{ url_for('descargar_documento', version_id=ultima_version.id) }}" class="btn btn-outline-success btn-xs d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; padding: 0;" title="Descargar">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
                         </div>
                         {% endif %}
                         {% endfor %}
@@ -240,4 +252,73 @@
         </div>
     </div>
 </main>
+
+<!-- MODAL DE VISTA PREVIA -->
+<div class="modal fade" id="modalVistaPrevia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 85%; height: 85vh;">
+        <div class="modal-content h-100 bg-dark text-white border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+            <div class="modal-header border-0 d-flex justify-content-between align-items-center px-4 py-3 bg-black bg-opacity-25" style="z-index: 10;">
+                <div>
+                    <h6 class="modal-title fw-bold mb-0 text-white" id="previewFileName">Vista Previa de Documento</h6>
+                    <span class="text-white-50 small" style="font-size: 0.7rem;" id="previewFileInfo">Formato: Desconocido</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="" id="btnDescargarPreview" class="btn btn-xs btn-outline-light fw-semibold py-1 px-2 text-decoration-none"><i class="bi bi-download me-1"></i>Descargar</a>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center h-100 bg-dark position-relative" id="previewContainer" style="min-height: 400px;">
+                <!-- Se inyecta la vista previa dinámicamente -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirVistaPrevia(el) {
+        const versionId = el.getAttribute('data-id');
+        const filename = el.getAttribute('data-filename');
+        const container = document.getElementById('previewContainer');
+        const fileInfoEl = document.getElementById('previewFileInfo');
+        const downloadBtn = document.getElementById('btnDescargarPreview');
+        const titleEl = document.getElementById('previewFileName');
+
+        titleEl.innerText = filename;
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <div class="spinner-border text-light" role="status">
+                    <span class="visually-hidden">Cargando vista previa...</span>
+                </div>
+                <p class="text-white-50 small mt-2">Generando vista previa del documento...</p>
+            </div>
+        `;
+        fileInfoEl.innerText = 'Cargando...';
+        downloadBtn.href = `/documentos/descargar/${versionId}`;
+
+        const fileExt = filename.split('.').pop().toLowerCase();
+        fileInfoEl.innerText = `Formato: ${fileExt.toUpperCase()}`;
+
+        const previewModal = new bootstrap.Modal(document.getElementById('modalVistaPrevia'));
+        previewModal.show();
+
+        const previewUrl = `/documentos/ver/${versionId}`;
+
+        setTimeout(() => {
+            if (['pdf', 'txt', 'html', 'htm'].includes(fileExt)) {
+                container.innerHTML = `<iframe src="${previewUrl}" class="w-100 h-100 border-0" style="background-color: white;"></iframe>`;
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(fileExt)) {
+                container.innerHTML = `<img src="${previewUrl}" class="img-fluid" style="max-height: 100%; object-fit: contain; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" alt="${filename}">`;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center p-4">
+                        <i class="bi bi-file-earmark-lock-fill text-warning mb-3" style="font-size: 4rem;"></i>
+                        <h5 class="fw-bold mb-2">Vista previa no disponible</h5>
+                        <p class="text-white-50 small mb-3">Este formato de archivo (.${fileExt}) no se puede visualizar directamente en el navegador.</p>
+                        <a href="${downloadBtn.href}" class="btn btn-outline-light btn-sm fw-semibold"><i class="bi bi-download me-1"></i> Descargar para visualizar</a>
+                    </div>
+                `;
+            }
+        }, 300);
+    }
+</script>
 {% endblock %}

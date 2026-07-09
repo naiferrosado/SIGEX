@@ -5,7 +5,7 @@
 {% include 'components/sidebar.html' %}
 
 <main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa; min-height: 100vh;">
-    
+
     <!-- Fila de Encabezado Superior con Autocómpleto de Búsqueda -->
     <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-3">
         <div>
@@ -13,28 +13,37 @@
                 <h3 class="fw-bold mb-0 text-dark" style="font-family: 'Segoe UI', system-ui; letter-spacing: -0.5px;">
                     Gestor Documental
                 </h3>
-                
+
                 <!-- Buscador Autocómpleto Flotante -->
                 <div class="position-relative" style="width: 320px;">
-                    <div class="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded-3 shadow-sm border" style="height: 38px;">
+                    <div class="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded-3 shadow-sm border"
+                        style="height: 38px;">
                         <i class="bi bi-search text-muted"></i>
-                        <input type="text" id="headerSearchExpediente" class="form-control form-control-sm border-0 p-0 shadow-none fw-semibold" placeholder="Buscar expediente..." autocomplete="off" value="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.codigo_firma }}{% endif %}">
+                        <input type="text" id="headerSearchExpediente"
+                            class="form-control form-control-sm border-0 p-0 shadow-none fw-semibold"
+                            placeholder="Buscar expediente..." autocomplete="off"
+                            value="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.codigo_firma }}{% endif %}">
                         {% if expediente_preseleccionado %}
-                        <button class="btn btn-link p-0 text-muted" onclick="window.location.href='/documentos'" title="Limpiar selección"><i class="bi bi-x-circle-fill"></i></button>
+                        <button class="btn btn-link p-0 text-muted" onclick="window.location.href='/documentos'"
+                            title="Limpiar selección"><i class="bi bi-x-circle-fill"></i></button>
                         {% endif %}
                     </div>
                     <!-- Lista flotante de resultados -->
-                    <div class="dropdown-menu shadow border-0 mt-1 w-100 p-0 overflow-auto" id="headerSearchExpedienteResults" style="max-height: 250px; display: none; position: absolute; z-index: 1050; border-radius: 8px;">
+                    <div class="dropdown-menu shadow border-0 mt-1 w-100 p-0 overflow-auto"
+                        id="headerSearchExpedienteResults"
+                        style="max-height: 250px; display: none; position: absolute; z-index: 1050; border-radius: 8px;">
                         <!-- JS inyectará los resultados aquí -->
                     </div>
                 </div>
             </div>
-            
+
             <nav aria-label="breadcrumb" class="mt-1">
                 <ol class="breadcrumb mb-0 small">
-                    <li class="breadcrumb-item"><a href="{{ url_for('expedientes') }}" class="text-decoration-none text-muted">Expedientes</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('expedientes') }}"
+                            class="text-decoration-none text-muted">Expedientes</a></li>
                     {% if expediente_preseleccionado %}
-                    <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">{{ expediente_preseleccionado.codigo_firma }}</li>
+                    <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">{{
+                        expediente_preseleccionado.codigo_firma }}</li>
                     {% endif %}
                     <li class="breadcrumb-item active text-muted" aria-current="page">Documentos</li>
                 </ol>
@@ -42,11 +51,15 @@
         </div>
         <div class="d-flex gap-2">
             {% if expediente_preseleccionado %}
-            <a href="{{ url_for('expedientes') }}?id={{ expediente_preseleccionado.id }}" class="btn btn-white btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm" style="border-radius: 8px;">
+            <a href="{{ url_for('expedientes') }}?id={{ expediente_preseleccionado.id }}"
+                class="btn btn-white btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm"
+                style="border-radius: 8px;">
                 <i class="bi bi-arrow-left text-primary"></i> Volver al expediente
             </a>
             {% if usuario.rol != 'Cliente' %}
-            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#modalSubirDocumento">
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm"
+                style="background-color: #00409A; border-color: #00409A; border-radius: 8px;" data-bs-toggle="modal"
+                data-bs-target="#modalSubirDocumento">
                 <i class="bi bi-plus-lg"></i> Subir documento
             </button>
             {% endif %}
@@ -56,15 +69,18 @@
 
     <!-- Alertas Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mt-3 mb-1" role="alert" style="border-radius: 8px;">
-                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mt-3 mb-1" role="alert"
+        style="border-radius: 8px;">
+        <i
+            class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"
+            style="padding: 0.8rem;"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
     {% endwith %}
 
     <!-- Tarjeta de Contexto del Expediente (Light Blue Card - Siempre visible) -->
@@ -72,51 +88,58 @@
         <div class="card-body py-3 px-4">
             <div class="row align-items-center justify-content-between g-2 text-dark small">
                 <div class="col-md-3 d-flex align-items-center">
-                    <div class="bg-white p-2 rounded-3 text-primary shadow-sm me-3 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                    <div class="bg-white p-2 rounded-3 text-primary shadow-sm me-3 d-flex align-items-center justify-content-center"
+                        style="width: 38px; height: 38px;">
                         <i class="bi bi-folder2-open fs-5"></i>
                     </div>
                     <div>
-                        <span class="text-muted d-block" style="font-size: 0.7rem; font-weight: 600; text-uppercase: true;">Expediente</span>
+                        <span class="text-muted d-block"
+                            style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Expediente</span>
                         <span class="fw-bold text-primary">
                             {% if expediente_preseleccionado %}
-                                {{ expediente_preseleccionado.codigo_firma }}
+                            {{ expediente_preseleccionado.codigo_firma }}
                             {% else %}
-                                <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">Sin seleccionar</span>
+                            <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">Sin
+                                seleccionar</span>
                             {% endif %}
                         </span>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <span class="text-muted d-block" style="font-size: 0.7rem; font-weight: 600; text-uppercase: true;">Caso</span>
-                    <span class="fw-bold text-truncate d-block" style="max-width: 250px;" title="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.nombre_caso }}{% endif %}">
+                    <span class="text-muted d-block"
+                        style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Caso</span>
+                    <span class="fw-bold text-truncate d-block" style="max-width: 250px;"
+                        title="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.nombre_caso }}{% endif %}">
                         {% if expediente_preseleccionado %}
-                            {{ expediente_preseleccionado.nombre_caso }}
+                        {{ expediente_preseleccionado.nombre_caso }}
                         {% else %}
-                            <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">--</span>
+                        <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">--</span>
                         {% endif %}
                     </span>
                 </div>
                 <div class="col-md-3">
-                    <span class="text-muted d-block" style="font-size: 0.7rem; font-weight: 600; text-uppercase: true;">Cliente</span>
+                    <span class="text-muted d-block"
+                        style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Cliente</span>
                     <span class="fw-bold text-truncate d-block" style="max-width: 220px;">
                         {% if expediente_preseleccionado %}
-                            {{ expediente_preseleccionado.cliente.nombre_completo }}
+                        {{ expediente_preseleccionado.cliente.nombre_completo }}
                         {% else %}
-                            <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">--</span>
+                        <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">--</span>
                         {% endif %}
                     </span>
                 </div>
                 <div class="col-md-3">
-                    <span class="text-muted d-block" style="font-size: 0.7rem; font-weight: 600; text-uppercase: true;">Tipo</span>
+                    <span class="text-muted d-block"
+                        style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Tipo</span>
                     <span class="fw-bold">
                         {% if expediente_preseleccionado %}
-                            {% if expediente_preseleccionado.tipo_tramite == 'Judicial' %}
-                                Vía Jurisdiccional / Litigio
-                            {% else %}
-                                Vía Administrativa / Consultoría
-                            {% endif %}
+                        {% if expediente_preseleccionado.tipo_tramite == 'Judicial' %}
+                        Vía Jurisdiccional / Litigio
                         {% else %}
-                            <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">--</span>
+                        Vía Administrativa / Consultoría
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted fw-normal" style="font-size: 0.8rem; font-style: italic;">--</span>
                         {% endif %}
                     </span>
                 </div>
@@ -127,15 +150,150 @@
     <!-- Navegación por pestañas -->
     <ul class="nav nav-tabs border-bottom mb-3" style="gap: 1.5rem;">
         <li class="nav-item">
-            <a class="nav-link active py-2 px-1 text-primary border-bottom border-primary fw-bold" href="#" style="border-width: 3px !important;">Documentos</a>
+            <a class="nav-link active py-2 px-1 text-primary border-bottom border-primary fw-bold"
+                href="{{ url_for('documentos') }}" style="border-width: 3px !important;">Documentos</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link py-2 px-1 text-muted" href="#" onclick="alert('Funcionalidad de Carpetas próximamente.')">Carpetas</a>
+            <a class="nav-link py-2 px-1 text-muted" href="#seccion-carpetas"
+                onclick="const el = document.getElementById('seccion-carpetas'); if(el) el.scrollIntoView({behavior: 'smooth'}); return false;">Carpetas</a>
         </li>
+        {% if usuario.rol in ['Socio', 'Asociado', 'Paralegal', 'Administrador'] %}
         <li class="nav-item">
-            <a class="nav-link py-2 px-1 text-muted" href="#" onclick="alert('Funcionalidad de Plantillas próximamente.')">Plantillas</a>
+            <a class="nav-link py-2 px-1 text-muted" href="{{ url_for('listar_tipologias') }}">Tipologías</a>
         </li>
+        {% endif %}
     </ul>
+
+    <style>
+        .card-folder {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-folder:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
+        }
+    </style>
+
+    {% if expediente_preseleccionado %}
+    <!-- SECCIÓN DE CARPETAS -->
+    <div id="seccion-carpetas" class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold text-dark mb-0 d-flex align-items-center" style="font-size: 0.95rem;">
+                <i class="bi bi-folder2-open text-primary me-2 fs-5"></i>
+                Carpetas del Expediente
+            </h6>
+            {% if usuario.rol != 'Cliente' %}
+            <button class="btn btn-sm btn-outline-primary fw-semibold rounded-3 px-3 py-1.5"
+                onclick="abrirModalCrearCarpeta()">
+                <i class="bi bi-folder-plus me-1"></i> Nueva Carpeta
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Folder Cards List -->
+        <div class="row g-3">
+            <!-- Carpeta Especial: Todos -->
+            <div class="col-6 col-md-3 col-lg-2">
+                <a href="{{ url_for('documentos', expediente_id=expediente_preseleccionado.id) }}"
+                    class="card h-100 border-0 shadow-sm rounded-3 p-3 text-decoration-none transition-all card-folder {% if not carpeta_filtro or carpeta_filtro == '' %}bg-primary text-white shadow{% else %}bg-white text-dark border{% endif %}"
+                    style="cursor: pointer;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i
+                            class="bi bi-grid-fill fs-3 {% if not carpeta_filtro or carpeta_filtro == '' %}text-white{% else %}text-primary{% endif %}"></i>
+                        <span
+                            class="badge rounded-pill {% if not carpeta_filtro or carpeta_filtro == '' %}bg-white text-primary{% else %}bg-primary bg-opacity-10 text-primary{% endif %} fw-bold"
+                            style="font-size: 0.75rem;">
+                            {{ unfiltered_total_docs }}
+                        </span>
+                    </div>
+                    <div class="fw-bold text-truncate" style="font-size: 0.85rem;">Todos los docs</div>
+                    <div class="small {% if not carpeta_filtro or carpeta_filtro == '' %}text-white-50{% else %}text-muted{% endif %}"
+                        style="font-size: 0.7rem;">Expediente entero</div>
+                </a>
+            </div>
+
+            <!-- Carpeta Especial: Raíz (Sin Carpeta) -->
+            <div class="col-6 col-md-3 col-lg-2">
+                <a href="{{ url_for('documentos', expediente_id=expediente_preseleccionado.id, carpeta_id=0) }}"
+                    class="card h-100 border-0 shadow-sm rounded-3 p-3 text-decoration-none transition-all card-folder {% if carpeta_filtro == '0' %}bg-primary text-white shadow{% else %}bg-white text-dark border{% endif %}"
+                    style="cursor: pointer;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i
+                            class="bi bi-folder-fill fs-3 {% if carpeta_filtro == '0' %}text-white{% else %}text-secondary{% endif %}"></i>
+                        <span
+                            class="badge rounded-pill {% if carpeta_filtro == '0' %}bg-white text-primary{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %} fw-bold"
+                            style="font-size: 0.75rem;">
+                            {{ unfiltered_raiz_docs }}
+                        </span>
+                    </div>
+                    <div class="fw-bold text-truncate" style="font-size: 0.85rem;">Raíz / Sin carpeta</div>
+                    <div class="small {% if carpeta_filtro == '0' %}text-white-50{% else %}text-muted{% endif %}"
+                        style="font-size: 0.7rem;">Archivos sueltos</div>
+                </a>
+            </div>
+
+            <!-- Carpetas dinámicas -->
+            {% for carp in carpetas %}
+            {% set active_c = (carpeta_filtro == carp.id|string) %}
+            <div class="col-6 col-md-3 col-lg-2">
+                <div
+                    class="card h-100 border-0 shadow-sm rounded-3 p-3 card-folder position-relative transition-all {% if active_c %}bg-primary text-white shadow{% else %}bg-white text-dark border{% endif %}">
+                    <!-- Enlace de filtrado -->
+                    <a href="{{ url_for('documentos', expediente_id=expediente_preseleccionado.id, carpeta_id=carp.id) }}"
+                        class="stretched-link text-decoration-none text-reset"></a>
+
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i
+                            class="bi bi-folder-fill fs-3 {% if active_c %}text-white{% else %}text-warning{% endif %}"></i>
+                        <div class="d-flex align-items-center gap-1" style="z-index: 5;">
+                            <span
+                                class="badge rounded-pill {% if active_c %}bg-white text-primary{% else %}bg-warning bg-opacity-10 text-warning{% endif %} fw-bold"
+                                style="font-size: 0.75rem;">
+                                {{ carp.documentos | length }}
+                            </span>
+                            {% if usuario.rol != 'Cliente' %}
+                            <!-- Menú de opciones de carpeta -->
+                            <div class="dropdown">
+                                <button class="btn btn-link p-0 text-reset" type="button" data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical" style="font-size: 0.9rem;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2 small"
+                                    style="border-radius: 8px;">
+                                    <li>
+                                        <button class="dropdown-item py-2 px-3 fw-medium" data-id="{{ carp.id }}"
+                                            data-nombre="{{ carp.nombre }}"
+                                            onclick="abrirModalEditarCarpetaFromElement(this)">
+                                            <i class="bi bi-pencil me-2 text-primary"></i> Renombrar
+                                        </button>
+                                    </li>
+                                    {% if usuario.rol in ['Socio', 'Administrador'] %}
+                                    <li>
+                                        <button class="dropdown-item py-2 px-3 text-danger fw-semibold"
+                                            data-id="{{ carp.id }}" data-nombre="{{ carp.nombre }}"
+                                            onclick="abrirModalEliminarCarpetaFromElement(this)">
+                                            <i class="bi bi-trash-fill me-2"></i> Eliminar
+                                        </button>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="fw-bold text-truncate" style="font-size: 0.85rem;" title="{{ carp.nombre }}">{{
+                        carp.nombre }}</div>
+                    <div class="small {% if active_c %}text-white-50{% else %}text-muted{% endif %}"
+                        style="font-size: 0.7rem;">
+                        {{ carp.fecha_creacion.strftime('%d/%m/%Y') }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Contenedor Principal (Flexbox para Tabla e Historial lateral) -->
     <div class="row g-4 mb-4">
@@ -157,142 +315,187 @@
                         </thead>
                         <tbody>
                             {% if expediente_preseleccionado %}
-                                {% if documentos %}
-                                    {% for doc in documentos %}
-                                        <!-- Obtener la última versión de este documento lógico -->
-                                        {% set ultima_version = doc.versiones | sort(attribute='fecha_carga', reverse=true) | first %}
-                                        {% if ultima_version %}
-                                            {% set file_name = ultima_version.ruta_almacenamiento.split('_', 1)[-1] if '_' in ultima_version.ruta_almacenamiento else ultima_version.ruta_almacenamiento %}
-                                            <tr id="doc-row-{{ doc.id }}" class="doc-table-row">
-                                                <!-- Nombre del documento -->
-                                                <td class="ps-4 py-3">
-                                                    <div class="d-flex align-items-center">
-                                                        <!-- Icono según tipo de archivo -->
-                                                        {% if file_name.endswith('.pdf') %}
-                                                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i>
-                                                        {% elif file_name.endswith('.docx') or file_name.endswith('.doc') or file_name.endswith('.txt') %}
-                                                            <i class="bi bi-file-earmark-word-fill text-primary fs-5 me-2"></i>
-                                                        {% elif file_name.endswith('.xlsx') or file_name.endswith('.xls') or file_name.endswith('.csv') %}
-                                                            <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i>
-                                                        {% else %}
-                                                            <i class="bi bi-file-earmark-text-fill text-secondary fs-5 me-2"></i>
-                                                        {% endif %}
-                                                        <span class="fw-semibold text-dark text-hover-underline cursor-pointer" onclick="seleccionarDocumento({{ doc.id }}, '{{ file_name }}', '{{ doc.categoria.nombre_tipo }}')">
-                                                            {{ file_name }}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <!-- Tipo (Badges coloreadas) -->
-                                                <td>
-                                                    {% if doc.categoria.nombre_tipo == 'Demanda' %}
-                                                        <span class="badge rounded-pill fw-semibold" style="background-color: #fde8e8; color: #e02424; border: 1px solid #fbd5d5;">Demanda</span>
-                                                    {% elif doc.categoria.nombre_tipo == 'Contrato' %}
-                                                        <span class="badge rounded-pill fw-semibold" style="background-color: #def7ec; color: #03543f; border: 1px solid #bcf0da;">Contrato</span>
-                                                    {% elif doc.categoria.nombre_tipo == 'Poder de Representación' or doc.categoria.nombre_tipo == 'Poder' %}
-                                                        <span class="badge rounded-pill fw-semibold" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Poder</span>
-                                                    {% elif doc.categoria.nombre_tipo == 'Sentencia' %}
-                                                        <span class="badge rounded-pill fw-semibold" style="background-color: #e1effe; color: #1e40af; border: 1px solid #bfdbfe;">Sentencia</span>
-                                                    {% elif doc.categoria.nombre_tipo == 'Instancia' %}
-                                                        <span class="badge rounded-pill fw-semibold" style="background-color: #edf2f7; color: #4a5568; border: 1px solid #e2e8f0;">Instancia</span>
-                                                    {% else %}
-                                                        <span class="badge rounded-pill fw-semibold" style="background-color: #f3f4f6; color: #374151; border: 1px solid #e5e7eb;">{{ doc.categoria.nombre_tipo }}</span>
-                                                    {% endif %}
-                                                </td>
-                                                <!-- Versión -->
-                                                <td class="text-center fw-semibold text-muted">
-                                                    {{ ultima_version.version_numero }}
-                                                </td>
-                                                <!-- Fecha de carga -->
-                                                <td class="text-muted">
-                                                    {{ ultima_version.fecha_carga.strftime('%d/%m/%Y %H:%M') }}
-                                                </td>
-                                                <!-- Cargado por -->
-                                                <td class="fw-semibold text-dark">
-                                                    {{ ultima_version.cargador.nombre if ultima_version.cargador else 'Firma Staff' }}
-                                                </td>
-                                                <!-- Visibilidad -->
-                                                <td>
-                                                    {% if doc.visibilidad == 'Compartido' %}
-                                                        <span class="badge rounded-pill fw-semibold px-2" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">Compartido</span>
-                                                    {% else %}
-                                                        <span class="badge rounded-pill fw-semibold px-2" style="background-color: #def7ec; color: #03543f; border: 1px solid #bcf0da;">Interno</span>
-                                                    {% endif %}
-                                                </td>
-                                                <!-- Acciones -->
-                                                <td class="pe-4 text-end">
-                                                    <div class="d-inline-flex gap-2">
-                                                        <!-- Visualizar -->
-                                                        <a href="{{ url_for('descargar_documento', version_id=ultima_version.id) }}" class="btn btn-link p-0 text-secondary hover-text-primary" title="Visualizar documento">
-                                                            <i class="bi bi-eye fs-5"></i>
-                                                        </a>
-                                                        <!-- Historial (Reloj) -->
-                                                        <button class="btn btn-link p-0 text-secondary hover-text-primary" title="Historial de versiones" onclick="seleccionarDocumento({{ doc.id }}, '{{ file_name }}', '{{ doc.categoria.nombre_tipo }}')">
-                                                            <i class="bi bi-clock-history fs-5"></i>
-                                                        </button>
-                                                        <!-- Descargar -->
-                                                        <a href="{{ url_for('descargar_documento', version_id=ultima_version.id) }}" class="btn btn-link p-0 text-secondary hover-text-primary" title="Descargar archivo">
-                                                            <i class="bi bi-download fs-5"></i>
-                                                        </a>
-                                                        {% if usuario.rol != 'Cliente' %}
-                                                        <!-- Dropdown -->
-                                                        <div class="dropdown d-inline">
-                                                            <button class="btn btn-link p-0 text-secondary hover-text-primary" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                                <i class="bi bi-three-dots-vertical fs-5"></i>
-                                                            </button>
-                                                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2 small" style="border-radius: 8px;">
-                                                                <li>
-                                                                    <form method="POST" action="{{ url_for('cambiar_visibilidad_documento', documento_id=doc.id) }}">
-                                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                                        <input type="hidden" name="visibilidad" value="{% if doc.visibilidad == 'Compartido' %}Interno{% else %}Compartido{% endif %}">
-                                                                        <button type="submit" class="dropdown-item py-2 px-3 fw-medium">
-                                                                            <i class="bi {% if doc.visibilidad == 'Compartido' %}bi-eye-slash-fill{% else %}bi-eye-fill{% endif %} me-2 text-warning"></i> 
-                                                                            Hacer {% if doc.visibilidad == 'Compartido' %}Interno{% else %}Compartido{% endif %}
-                                                                        </button>
-                                                                    </form>
-                                                                </li>
-                                                                <li><hr class="dropdown-divider"></li>
-                                                                <li>
-                                                                    <form method="POST" action="{{ url_for('eliminar_documento', documento_id=doc.id) }}" onsubmit="return confirm('¿Eliminar permanentemente este documento y todas sus versiones?')">
-                                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                                        <button type="submit" class="dropdown-item py-2 px-3 text-danger fw-semibold">
-                                                                            <i class="bi bi-trash-fill me-2"></i> Eliminar documento
-                                                                        </button>
-                                                                    </form>
-                                                                </li>
-                                                            </ul>
-                                                        </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                            {% if documentos %}
+                            {% for doc in documentos %}
+                            <!-- Obtener la última versión de este documento lógico -->
+                            {% set ultima_version = doc.versiones | sort(attribute='fecha_carga', reverse=true) | first
+                            %}
+                            {% if ultima_version %}
+                            {% set file_name = ultima_version.ruta_almacenamiento.split('_', 1)[-1] if '_' in
+                            ultima_version.ruta_almacenamiento else ultima_version.ruta_almacenamiento %}
+                            <tr id="doc-row-{{ doc.id }}" class="doc-table-row">
+                                <!-- Nombre del documento -->
+                                <td class="ps-4 py-3">
+                                    <div class="d-flex align-items-center">
+                                        <!-- Icono según tipo de archivo -->
+                                        {% if file_name.endswith('.pdf') %}
+                                        <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i>
+                                        {% elif file_name.endswith('.docx') or file_name.endswith('.doc') or
+                                        file_name.endswith('.txt') %}
+                                        <i class="bi bi-file-earmark-word-fill text-primary fs-5 me-2"></i>
+                                        {% elif file_name.endswith('.xlsx') or file_name.endswith('.xls') or
+                                        file_name.endswith('.csv') %}
+                                        <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i>
+                                        {% else %}
+                                        <i class="bi bi-file-earmark-text-fill text-secondary fs-5 me-2"></i>
                                         {% endif %}
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="7" class="text-center py-5 text-muted">
-                                            <i class="bi bi-folder-x fs-1 d-block mb-2 text-muted"></i>
-                                            No hay documentos registrados para este expediente en este momento.
-                                        </td>
-                                    </tr>
-                                {% endif %}
+                                        <span class="fw-semibold text-dark text-hover-underline cursor-pointer"
+                                            data-id="{{ doc.id }}" data-filename="{{ file_name }}"
+                                            data-category="{{ doc.categoria.nombre_tipo if doc.categoria else 'Sin categoria' }}"
+                                            onclick="seleccionarDocumentoFromElement(this)">
+                                            {{ file_name }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <!-- Tipo (Badges coloreadas) -->
+                                <td>
+                                    {% if doc.categoria and doc.categoria.nombre_tipo == 'Demanda' %}
+                                    <span class="badge rounded-pill fw-semibold"
+                                        style="background-color: #fde8e8; color: #e02424; border: 1px solid #fbd5d5;">Demanda</span>
+                                    {% elif doc.categoria and doc.categoria.nombre_tipo == 'Contrato' %}
+                                    <span class="badge rounded-pill fw-semibold"
+                                        style="background-color: #def7ec; color: #03543f; border: 1px solid #bcf0da;">Contrato</span>
+                                    {% elif doc.categoria and (doc.categoria.nombre_tipo == 'Poder de Representación' or
+                                    doc.categoria.nombre_tipo == 'Poder') %}
+                                    <span class="badge rounded-pill fw-semibold"
+                                        style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Poder</span>
+                                    {% elif doc.categoria and doc.categoria.nombre_tipo == 'Sentencia' %}
+                                    <span class="badge rounded-pill fw-semibold"
+                                        style="background-color: #e1effe; color: #1e40af; border: 1px solid #bfdbfe;">Sentencia</span>
+                                    {% elif doc.categoria and doc.categoria.nombre_tipo == 'Instancia' %}
+                                    <span class="badge rounded-pill fw-semibold"
+                                        style="background-color: #edf2f7; color: #4a5568; border: 1px solid #e2e8f0;">Instancia</span>
+                                    {% else %}
+                                    <span class="badge rounded-pill fw-semibold"
+                                        style="background-color: #f3f4f6; color: #374151; border: 1px solid #e5e7eb;">{{
+                                        doc.categoria.nombre_tipo if doc.categoria else 'General' }}</span>
+                                    {% endif %}
+                                </td>
+                                <!-- Versión -->
+                                <td class="text-center fw-semibold text-muted">
+                                    {{ ultima_version.version_numero }}
+                                </td>
+                                <!-- Fecha de carga -->
+                                <td class="text-muted">
+                                    {{ ultima_version.fecha_carga.strftime('%d/%m/%Y %H:%M') }}
+                                </td>
+                                <!-- Cargado por -->
+                                <td class="fw-semibold text-dark">
+                                    {{ ultima_version.cargador.nombre if ultima_version.cargador else 'Firma Staff' }}
+                                </td>
+                                <!-- Visibilidad -->
+                                <td>
+                                    {% if doc.visibilidad == 'Compartido' %}
+                                    <span class="badge rounded-pill fw-semibold px-2"
+                                        style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">Compartido</span>
+                                    {% else %}
+                                    <span class="badge rounded-pill fw-semibold px-2"
+                                        style="background-color: #def7ec; color: #03543f; border: 1px solid #bcf0da;">Interno</span>
+                                    {% endif %}
+                                </td>
+                                <!-- Acciones -->
+                                <td class="pe-4 text-end">
+                                    <div class="d-inline-flex gap-2">
+                                        <!-- Visualizar -->
+                                        <button class="btn btn-link p-0 text-secondary hover-text-primary"
+                                            title="Visualizar documento" data-version-id="{{ ultima_version.id }}"
+                                            data-filename="{{ file_name }}" onclick="abrirVistaPreviaFromElement(this)">
+                                            <i class="bi bi-eye fs-5"></i>
+                                        </button>
+                                        <!-- Historial (Reloj) -->
+                                        <button class="btn btn-link p-0 text-secondary hover-text-primary"
+                                            title="Historial de versiones" data-id="{{ doc.id }}"
+                                            data-filename="{{ file_name }}"
+                                            data-category="{{ doc.categoria.nombre_tipo if doc.categoria else 'Sin categoria' }}"
+                                            onclick="seleccionarDocumentoFromElement(this)">
+                                            <i class="bi bi-clock-history fs-5"></i>
+                                        </button>
+                                        <!-- Descargar -->
+                                        <a href="{{ url_for('descargar_documento', version_id=ultima_version.id) }}"
+                                            class="btn btn-link p-0 text-secondary hover-text-primary"
+                                            title="Descargar archivo">
+                                            <i class="bi bi-download fs-5"></i>
+                                        </a>
+                                        {% if usuario.rol != 'Cliente' %}
+                                        <!-- Dropdown -->
+                                        <div class="dropdown d-inline">
+                                            <button class="btn btn-link p-0 text-secondary hover-text-primary"
+                                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-three-dots-vertical fs-5"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2 small"
+                                                style="border-radius: 8px;">
+                                                <li>
+                                                    <button type="button" class="dropdown-item py-2 px-3 fw-medium"
+                                                        data-id="{{ doc.id }}"
+                                                        data-filename="{{ file_name }}"
+                                                        data-visibilidad="{{ doc.visibilidad }}"
+                                                        data-cliente-id="{{ doc.cliente_id or '' }}"
+                                                        onclick="abrirModalVisibilidad(this)">
+                                                        <i class="bi {% if doc.visibilidad == 'Compartido' %}bi-eye-slash-fill{% else %}bi-eye-fill{% endif %} me-2 text-warning"></i>
+                                                        Visibilidad / Compartir
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <hr class="dropdown-divider">
+                                                </li>
+                                                <li>
+                                                    <button class="dropdown-item py-2 px-3 fw-medium"
+                                                        data-id="{{ doc.id }}" data-filename="{{ file_name }}"
+                                                        data-carpeta-id="{{ doc.carpeta_id or '0' }}"
+                                                        onclick="abrirModalMoverDocumento(this)">
+                                                        <i class="bi bi-folder-symlink me-2 text-info"></i> Mover a
+                                                        carpeta
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <hr class="dropdown-divider">
+                                                </li>
+                                                <li>
+                                                    <button class="dropdown-item py-2 px-3 text-danger fw-semibold"
+                                                        data-id="{{ doc.id }}" data-filename="{{ file_name }}"
+                                                        onclick="confirmarEliminarDocumento(this)">
+                                                        <i class="bi bi-trash-fill me-2"></i> Eliminar documento
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
                             {% else %}
-                                <tr>
-                                    <td colspan="7" class="text-center py-5 text-muted bg-white">
-                                        <i class="bi bi-search fs-2 d-block mb-2 text-primary"></i>
-                                        Por favor, busque y seleccione un expediente en la barra de búsqueda superior para consultar las documentaciones.
-                                    </td>
-                                </tr>
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted">
+                                    <i class="bi bi-folder-x fs-1 d-block mb-2 text-muted"></i>
+                                    No hay documentos registrados para este expediente en este momento.
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted bg-white">
+                                    <i class="bi bi-search fs-2 d-block mb-2 text-primary"></i>
+                                    Por favor, busque y seleccione un expediente en la barra de búsqueda superior para
+                                    consultar las documentaciones.
+                                </td>
+                            </tr>
                             {% endif %}
                         </tbody>
                     </table>
                 </div>
-                <div class="card-footer bg-white border-top-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                <div
+                    class="card-footer bg-white border-top-0 py-3 px-4 d-flex justify-content-between align-items-center">
                     <span class="text-muted small">Mostrando 1 a {{ total_docs }} de {{ total_docs }} documentos</span>
                     <nav aria-label="Navegación de documentos">
                         <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item disabled"><a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#"><i
+                                        class="bi bi-chevron-left"></i></a></li>
                             <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item disabled"><a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#"><i
+                                        class="bi bi-chevron-right"></i></a></li>
                         </ul>
                     </nav>
                 </div>
@@ -302,9 +505,12 @@
         <!-- Columna del Historial de Versiones (Panel Derecho Colapsable) -->
         <div class="col-lg-4 d-none" id="versionsSidebarColumn">
             <div class="card border-0 shadow-sm rounded-4 h-100" style="position: sticky; top: 20px;">
-                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
-                    <h6 class="fw-bold mb-0 text-dark" style="font-family: 'Segoe UI', system-ui;"><i class="bi bi-clock-history me-2 text-primary"></i>Historial de versiones</h6>
-                    <button type="button" class="btn-close small" aria-label="Close" onclick="cerrarSidebarVersiones()"></button>
+                <div
+                    class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark" style="font-family: 'Segoe UI', system-ui;"><i
+                            class="bi bi-clock-history me-2 text-primary"></i>Historial de versiones</h6>
+                    <button type="button" class="btn-close small" aria-label="Close"
+                        onclick="cerrarSidebarVersiones()"></button>
                 </div>
                 <div class="card-body px-4 pt-0 overflow-auto" style="max-height: calc(100vh - 250px);">
                     <!-- Detalle del documento seleccionado -->
@@ -313,8 +519,10 @@
                             <i class="bi bi-file-earmark-text-fill fs-4"></i>
                         </div>
                         <div class="overflow-hidden">
-                            <h6 class="fw-bold text-dark mb-0 text-truncate" id="sidebarFileName" style="font-size: 0.9rem;">Documento.pdf</h6>
-                            <span class="text-muted text-truncate d-block" id="sidebarFilePath" style="font-size: 0.7rem; font-weight: 500;">Ruta: /Expediente/Documentos/</span>
+                            <h6 class="fw-bold text-dark mb-0 text-truncate" id="sidebarFileName"
+                                style="font-size: 0.9rem;">Documento.pdf</h6>
+                            <span class="text-muted text-truncate d-block" id="sidebarFilePath"
+                                style="font-size: 0.7rem; font-weight: 500;">Ruta: /Expediente/Documentos/</span>
                         </div>
                     </div>
 
@@ -325,7 +533,8 @@
                 </div>
                 {% if expediente_preseleccionado and usuario.rol != 'Cliente' %}
                 <div class="card-footer bg-white border-top-0 py-3 px-4 text-center">
-                    <button class="btn btn-outline-primary btn-sm w-100 fw-semibold py-2" style="border-radius: 8px; border-color: #00409A; color: #00409A;" id="btnSidebarNuevaVersion">
+                    <button class="btn btn-outline-primary btn-sm w-100 fw-semibold py-2"
+                        style="border-radius: 8px; border-color: #00409A; color: #00409A;" id="btnSidebarNuevaVersion">
                         + Cargar nueva versión
                     </button>
                 </div>
@@ -336,16 +545,21 @@
 
     <!-- SECCIÓN INFERIOR: Bitácora de Auditoría (Siempre visible) -->
     <div class="card border-0 shadow-sm rounded-4 mt-5">
-        <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div
+            class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>Bitácora de Auditoría – Accesos a Documentos</h6>
-                <span class="text-muted small" style="font-size: 0.75rem;">Registro inmutable de todas las acciones realizadas en los documentos del sistema.</span>
+                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>Bitácora de
+                    Auditoría – Accesos a Documentos</h6>
+                <span class="text-muted small" style="font-size: 0.75rem;">Registro inmutable de todas las acciones
+                    realizadas en los documentos del sistema.</span>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2 small d-flex align-items-center gap-1">
+                <span
+                    class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2 small d-flex align-items-center gap-1">
                     <i class="bi bi-lock-fill"></i> Modo solo lectura (Inmutable)
                 </span>
-                <button class="btn btn-white btn-sm d-flex align-items-center gap-1 border shadow-sm" {% if not expediente_preseleccionado %}disabled{% endif %} onclick="alert('Exportando registros a CSV...')">
+                <button class="btn btn-white btn-sm d-flex align-items-center gap-1 border shadow-sm" {% if not
+                    expediente_preseleccionado %}disabled{% endif %} onclick="alert('Exportando registros a CSV...')">
                     <i class="bi bi-download"></i> Exportar
                 </button>
             </div>
@@ -356,37 +570,52 @@
                 <div class="col-lg-3 border-end p-4 bg-light bg-opacity-25" style="min-height: 300px;">
                     <h6 class="fw-bold text-dark small mb-3">Filtros de búsqueda</h6>
                     <form method="GET" action="{{ url_for('documentos') }}">
-                        <input type="hidden" name="expediente_id" value="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.id }}{% endif %}">
-                        
+                        <input type="hidden" name="expediente_id"
+                            value="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.id }}{% endif %}">
+
                         <!-- Filtro Documento -->
                         <div class="mb-3">
-                            <label class="form-label small text-muted mb-1" style="font-size: 0.75rem; font-weight: 600;">Documento</label>
-                            <input type="text" name="audit_doc" value="{{ audit_doc or '' }}" class="form-control form-control-sm bg-white" placeholder="Nombre de archivo..." {% if not expediente_preseleccionado %}disabled{% endif %}>
+                            <label class="form-label small text-muted mb-1"
+                                style="font-size: 0.75rem; font-weight: 600;">Documento</label>
+                            <input type="text" name="audit_doc" value="{{ audit_doc or '' }}"
+                                class="form-control form-control-sm bg-white" placeholder="Nombre de archivo..." {% if
+                                not expediente_preseleccionado %}disabled{% endif %}>
                         </div>
-                        
+
                         <!-- Filtro Acción -->
                         <div class="mb-3">
-                            <label class="form-label small text-muted mb-1" style="font-size: 0.75rem; font-weight: 600;">Tipo de acción</label>
-                            <select name="audit_action" class="form-select form-select-sm bg-white" {% if not expediente_preseleccionado %}disabled{% endif %}>
-                                <option value="Todos" {% if audit_action == 'Todos' %}selected{% endif %}>Todos</option>
-                                <option value="Visualización" {% if audit_action == 'Visualización' %}selected{% endif %}>Visualización</option>
-                                <option value="Descarga" {% if audit_action == 'Descarga' %}selected{% endif %}>Descarga</option>
-                                <option value="Carga Documento" {% if audit_action == 'Carga Documento' %}selected{% endif %}>Carga</option>
-                                <option value="Nueva Versión" {% if audit_action == 'Nueva Versión' %}selected{% endif %}>Nueva Versión</option>
-                                <option value="Editar Visibilidad" {% if audit_action == 'Editar Visibilidad' %}selected{% endif %}>Edición Visibilidad</option>
-                                <option value="Eliminar Documento" {% if audit_action == 'Eliminar Documento' %}selected{% endif %}>Eliminación</option>
+                            <label class="form-label small text-muted mb-1"
+                                style="font-size: 0.75rem; font-weight: 600;">Tipo de acción</label>
+                            <select name="audit_action" class="form-select form-select-sm bg-white" {% if not
+                                expediente_preseleccionado %}disabled{% endif %}>
+                                <option value="Todos" {% if audit_action=='Todos' %}selected{% endif %}>Todos</option>
+                                <option value="Visualización" {% if audit_action=='Visualización' %}selected{% endif %}>
+                                    Visualización</option>
+                                <option value="Descarga" {% if audit_action=='Descarga' %}selected{% endif %}>Descarga
+                                </option>
+                                <option value="Carga Documento" {% if audit_action=='Carga Documento' %}selected{% endif
+                                    %}>Carga</option>
+                                <option value="Nueva Versión" {% if audit_action=='Nueva Versión' %}selected{% endif %}>
+                                    Nueva Versión</option>
+                                <option value="Editar Visibilidad" {% if audit_action=='Editar Visibilidad' %}selected{%
+                                    endif %}>Edición Visibilidad</option>
+                                <option value="Eliminar Documento" {% if audit_action=='Eliminar Documento' %}selected{%
+                                    endif %}>Eliminación</option>
                             </select>
                         </div>
 
                         <!-- Filtro Usuario -->
                         <div class="mb-3">
-                            <label class="form-label small text-muted mb-1" style="font-size: 0.75rem; font-weight: 600;">Usuario</label>
-                            <select name="audit_user" class="form-select form-select-sm bg-white" {% if not expediente_preseleccionado %}disabled{% endif %}>
-                                <option value="Todos" {% if audit_user == 'Todos' %}selected{% endif %}>Todos</option>
+                            <label class="form-label small text-muted mb-1"
+                                style="font-size: 0.75rem; font-weight: 600;">Usuario</label>
+                            <select name="audit_user" class="form-select form-select-sm bg-white" {% if not
+                                expediente_preseleccionado %}disabled{% endif %}>
+                                <option value="Todos" {% if audit_user=='Todos' %}selected{% endif %}>Todos</option>
                                 {% if usuarios_audit_select %}
-                                    {% for u in usuarios_audit_select %}
-                                    <option value="{{ u.id }}" {% if audit_user == u.id|string %}selected{% endif %}>{{ u.nombre }} ({{ u.rol }})</option>
-                                    {% endfor %}
+                                {% for u in usuarios_audit_select %}
+                                <option value="{{ u.id }}" {% if audit_user==u.id|string %}selected{% endif %}>{{
+                                    u.nombre }} ({{ u.rol }})</option>
+                                {% endfor %}
                                 {% endif %}
                             </select>
                         </div>
@@ -394,16 +623,25 @@
                         <!-- Filtro Fechas -->
                         <div class="row g-2 mb-4">
                             <div class="col-6">
-                                <label class="form-label small text-muted mb-1" style="font-size: 0.75rem; font-weight: 600;">Fecha desde</label>
-                                <input type="date" name="audit_desde" value="{{ audit_desde or '' }}" class="form-control form-control-sm bg-white" {% if not expediente_preseleccionado %}disabled{% endif %}>
+                                <label class="form-label small text-muted mb-1"
+                                    style="font-size: 0.75rem; font-weight: 600;">Fecha desde</label>
+                                <input type="date" name="audit_desde" value="{{ audit_desde or '' }}"
+                                    class="form-control form-control-sm bg-white" {% if not expediente_preseleccionado
+                                    %}disabled{% endif %}>
                             </div>
                             <div class="col-6">
-                                <label class="form-label small text-muted mb-1" style="font-size: 0.75rem; font-weight: 600;">Fecha hasta</label>
-                                <input type="date" name="audit_hasta" value="{{ audit_hasta or '' }}" class="form-control form-control-sm bg-white" {% if not expediente_preseleccionado %}disabled{% endif %}>
+                                <label class="form-label small text-muted mb-1"
+                                    style="font-size: 0.75rem; font-weight: 600;">Fecha hasta</label>
+                                <input type="date" name="audit_hasta" value="{{ audit_hasta or '' }}"
+                                    class="form-control form-control-sm bg-white" {% if not expediente_preseleccionado
+                                    %}disabled{% endif %}>
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold py-2 d-flex justify-content-center align-items-center gap-2" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;" {% if not expediente_preseleccionado %}disabled{% endif %}>
+                        <button type="submit"
+                            class="btn btn-primary btn-sm w-100 fw-semibold py-2 d-flex justify-content-center align-items-center gap-2"
+                            style="background-color: #00409A; border-color: #00409A; border-radius: 8px;" {% if not
+                            expediente_preseleccionado %}disabled{% endif %}>
                             <i class="bi bi-search"></i> Aplicar filtros
                         </button>
                     </form>
@@ -414,7 +652,9 @@
                     <table class="table table-hover align-middle mb-0 small" style="font-size: 0.75rem;">
                         <thead class="table-light text-muted fw-semibold">
                             <tr class="text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">
-                                <th class="ps-4 py-3" style="width: 40px;"><input type="checkbox" class="form-check-input" {% if not expediente_preseleccionado %}disabled{% endif %}></th>
+                                <th class="ps-4 py-3" style="width: 40px;"><input type="checkbox"
+                                        class="form-check-input" {% if not expediente_preseleccionado %}disabled{% endif
+                                        %}></th>
                                 <th class="py-3">Fecha y hora</th>
                                 <th class="py-3">Usuario</th>
                                 <th class="py-3">Rol</th>
@@ -426,87 +666,112 @@
                         </thead>
                         <tbody>
                             {% if expediente_preseleccionado %}
-                                {% if audit_logs %}
-                                    {% for log in audit_logs %}
-                                        <tr class="{% if loop.index > 1 %}audit-row-collapsible d-none{% endif %}">
-                                            <td class="ps-4"><input type="checkbox" class="form-check-input"></td>
-                                            <td class="fw-semibold text-dark">{{ log.fecha_hora.strftime('%d/%m/%Y %H:%M:%S') }}</td>
-                                            <td class="fw-semibold text-dark">{{ log.usuario.nombre if log.usuario else 'Desconocido' }}</td>
-                                            <td class="text-muted">{{ log.usuario.rol if log.usuario else 'Desconocido' }}</td>
-                                            <td>
-                                                {% if 'Carga' in log.accion_realizada or 'Cargó' in log.accion_realizada or 'Nueva' in log.accion_realizada %}
-                                                    <span class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold" style="background-color: #7c3aed; color: #7c3aed !important; border-color: #c084fc;">Carga</span>
-                                                {% elif 'Descarga' in log.accion_realizada %}
-                                                    <span class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold" style="background-color: #2563eb; color: #2563eb !important; border-color: #93c5fd;">Descarga</span>
-                                                {% elif 'Eliminar' in log.accion_realizada or 'Eliminó' in log.accion_realizada %}
-                                                    <span class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold" style="background-color: #dc2626; color: #dc2626 !important; border-color: #fca5a5;">Eliminación</span>
-                                                {% elif 'Edición' in log.accion_realizada or 'Cambió' in log.accion_realizada or 'Editar' in log.accion_realizada %}
-                                                    <span class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold" style="background-color: #ea580c; color: #ea580c !important; border-color: #fdba74;">Edición</span>
-                                                {% else %}
-                                                    <span class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold" style="background-color: #16a34a; color: #16a34a !important; border-color: #86efac;">Visualización</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <div class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ log.detalles_tecnicos }}">
-                                                    {% if 'para el expediente' in log.detalles_tecnicos %}
-                                                        {{ log.detalles_tecnicos.split("'", 2)[1] if "'" in log.detalles_tecnicos else 'Archivo' }}
-                                                    {% elif 'documento ID' in log.detalles_tecnicos and '(' in log.detalles_tecnicos %}
-                                                        {{ log.detalles_tecnicos.split("(", 1)[1].split(")", 1)[0] if '(' in log.detalles_tecnicos else 'Archivo' }}
-                                                    {% else %}
-                                                        Documento
-                                                    {% endif %}
-                                                </div>
-                                                <span class="text-muted d-block" style="font-size: 0.65rem;">
-                                                    {% if 'versión' in log.detalles_tecnicos %}
-                                                        Versión {{ log.detalles_tecnicos.split("versión")[-1].strip().split(")")[0] }}
-                                                    {% else %}
-                                                        Versión 1.0
-                                                    {% endif %}
-                                                </span>
-                                            </td>
-                                            <td class="text-muted">{{ log.detalles_tecnicos }}</td>
-                                            <td class="text-muted" style="font-size: 0.65rem;">
-                                                <div>{{ log.ip_direccion }}</div>
-                                                <div class="text-truncate" style="max-width: 100px;">{{ log.dispositivo_info.split()[0] if '/' in log.dispositivo_info else 'Chrome/Windows' }}</div>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">
-                                            No hay registros de auditoría que coincidan con la búsqueda.
-                                        </td>
-                                    </tr>
-                                {% endif %}
+                            {% if audit_logs %}
+                            {% for log in audit_logs %}
+                            <tr class="{% if loop.index > 1 %}audit-row-collapsible d-none{% endif %}">
+                                <td class="ps-4"><input type="checkbox" class="form-check-input"></td>
+                                <td class="fw-semibold text-dark">{{ log.fecha_hora.strftime('%d/%m/%Y %H:%M:%S') }}
+                                </td>
+                                <td class="fw-semibold text-dark">{{ log.usuario.nombre if log.usuario else
+                                    'Desconocido' }}</td>
+                                <td class="text-muted">{{ log.usuario.rol if log.usuario else 'Desconocido' }}</td>
+                                <td>
+                                    {% if 'Carga' in log.accion_realizada or 'Cargó' in log.accion_realizada or 'Nueva'
+                                    in log.accion_realizada %}
+                                    <span
+                                        class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold"
+                                        style="background-color: #7c3aed; color: white !important; border-color: #c084fc;">Carga</span>
+                                    {% elif 'Descarga' in log.accion_realizada %}
+                                    <span
+                                        class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold"
+                                        style="background-color: #2563eb; color: white !important; border-color: #93c5fd;">Descarga</span>
+                                    {% elif 'Eliminar' in log.accion_realizada or 'Eliminó' in log.accion_realizada %}
+                                    <span
+                                        class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold"
+                                        style="background-color: #dc2626; color: white !important; border-color: #fca5a5;">Eliminación</span>
+                                    {% elif 'Edición' in log.accion_realizada or 'Cambió' in log.accion_realizada or
+                                    'Editar' in log.accion_realizada %}
+                                    <span
+                                        class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold"
+                                        style="background-color: #ea580c; color: white !important; border-color: #fdba74;">Edición</span>
+                                    {% else %}
+                                    <span
+                                        class="badge bg-opacity-10 text-white border border-opacity-10 px-2 py-1 rounded-3 fw-bold"
+                                        style="background-color: #16a34a; color: white !important; border-color: #86efac;">Visualización</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark text-truncate" style="max-width: 150px;"
+                                        title="{{ log.detalles_tecnicos }}">
+                                        {% if 'para el expediente' in log.detalles_tecnicos %}
+                                        {{ log.detalles_tecnicos.split("'", 2)[1] if "'" in log.detalles_tecnicos else
+                                        'Archivo' }}
+                                        {% elif 'documento ID' in log.detalles_tecnicos and '(' in log.detalles_tecnicos
+                                        %}
+                                        {{ log.detalles_tecnicos.split("(", 1)[1].split(")", 1)[0] if '(' in
+                                        log.detalles_tecnicos else 'Archivo' }}
+                                        {% else %}
+                                        Documento
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-muted d-block" style="font-size: 0.65rem;">
+                                        {% if 'versión' in log.detalles_tecnicos %}
+                                        Versión {{ log.detalles_tecnicos.split("versión")[-1].strip().split(")")[0] }}
+                                        {% else %}
+                                        Versión 1.0
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-muted">{{ log.detalles_tecnicos }}</td>
+                                <td class="text-muted" style="font-size: 0.65rem;">
+                                    <div>{{ log.ip_direccion }}</div>
+                                    <div class="text-truncate" style="max-width: 100px;">{{
+                                        log.dispositivo_info.split()[0] if '/' in log.dispositivo_info else
+                                        'Chrome/Windows' }}</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
                             {% else %}
-                                <tr>
-                                    <td colspan="8" class="text-center py-5 text-muted bg-white">
-                                        <i class="bi bi-search fs-3 d-block mb-2 text-primary"></i>
-                                        Por favor, busque y seleccione un expediente en la barra de búsqueda superior para consultar el historial de auditoría.
-                                    </td>
-                                </tr>
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    No hay registros de auditoría que coincidan con la búsqueda.
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted bg-white">
+                                    <i class="bi bi-search fs-3 d-block mb-2 text-primary"></i>
+                                    Por favor, busque y seleccione un expediente en la barra de búsqueda superior para
+                                    consultar el historial de auditoría.
+                                </td>
+                            </tr>
                             {% endif %}
                         </tbody>
                     </table>
-                    
+
                     <div class="py-3 px-4 d-flex justify-content-between align-items-center bg-white border-top">
                         <span class="text-muted small" id="auditCountText">
                             {% if audit_logs|length > 1 %}
-                                Mostrando 1 de {{ audit_logs|length }} registros
+                            Mostrando 1 de {{ audit_logs|length }} registros
                             {% else %}
-                                Mostrando {{ audit_logs|length }} de {{ audit_logs|length }} registros
+                            Mostrando {{ audit_logs|length }} de {{ audit_logs|length }} registros
                             {% endif %}
                         </span>
                         {% if audit_logs|length > 1 %}
-                        <button id="btnShowAllAudit" class="btn btn-light btn-sm border fw-semibold px-3 py-1.5" style="border-radius: 8px;" onclick="toggleAuditLogs()">
+                        <button id="btnShowAllAudit" class="btn btn-light btn-sm border fw-semibold px-3 py-1.5"
+                            style="border-radius: 8px;" onclick="toggleAuditLogs()">
                             <i class="bi bi-chevron-down me-1"></i> Mostrar más
                         </button>
                         {% endif %}
-                        <nav aria-label="Navegación de auditoría" class="{% if audit_logs|length > 1 %}d-none{% endif %}" id="auditPagination">
+                        <nav aria-label="Navegación de auditoría"
+                            class="{% if audit_logs|length > 1 %}d-none{% endif %}" id="auditPagination">
                             <ul class="pagination pagination-sm mb-0">
-                                <li class="page-item disabled"><a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a></li>
+                                <li class="page-item disabled"><a class="page-link" href="#"><i
+                                            class="bi bi-chevron-left"></i></a></li>
                                 <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                                <li class="page-item disabled"><a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a></li>
+                                <li class="page-item disabled"><a class="page-link" href="#"><i
+                                            class="bi bi-chevron-right"></i></a></li>
                             </ul>
                         </nav>
                     </div>
@@ -523,55 +788,91 @@
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-bottom border-light p-4">
                 <div>
-                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-cloud-upload-fill text-primary me-2"></i>Subir nuevo documento</h5>
-                    <p class="text-muted small mb-0">Llena los detalles requeridos para registrar el archivo digitalizado.</p>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i
+                            class="bi bi-cloud-upload-fill text-primary me-2"></i>Subir nuevo documento</h5>
+                    <p class="text-muted small mb-0">Llena los detalles requeridos para registrar el archivo
+                        digitalizado.</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ url_for('subir_documento') }}" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="expediente_id" value="{{ expediente_preseleccionado.id }}">
-                
+
                 <div class="modal-body p-4">
                     <!-- Tipo Documento select -->
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Tipo de Documento <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Tipo de Documento <span
+                                class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" name="tipo_documento_id" required>
                             <option value="">Seleccione una categoría...</option>
                             {% if tipos_documentos %}
-                                {% for t in tipos_documentos %}
-                                <option value="{{ t.id }}">{{ t.nombre_tipo }}</option>
-                                {% endfor %}
+                            {% for t in tipos_documentos %}
+                            <option value="{{ t.id }}">{{ t.nombre_tipo }}</option>
+                            {% endfor %}
                             {% endif %}
                         </select>
                     </div>
 
                     <!-- Visibilidad -->
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Visibilidad / Acceso <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm" name="visibilidad" required>
+                        <label class="form-label small fw-semibold">Visibilidad / Acceso <span
+                                class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" name="visibilidad" id="uploadVisibilidad" onchange="toggleUploadClienteSelect()" required>
                             <option value="Interno" selected>Uso Interno de la Firma</option>
                             <option value="Compartido">Compartir con Cliente</option>
+                        </select>
+                    </div>
+
+                    <!-- Compartir con Cliente -->
+                    <div class="mb-3 d-none" id="uploadClienteWrapper">
+                        <label class="form-label small fw-semibold">Compartir con Cliente Específico <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" name="compartir_cliente_id" id="uploadCompartirCliente">
+                            <option value="">-- Seleccione un cliente --</option>
+                            {% if clientes_select %}
+                            {% for c in clientes_select %}
+                            <option value="{{ c.id }}">{{ c.nombre_completo }} ({{ c.rnc_cedula }})</option>
+                            {% endfor %}
+                            {% endif %}
+                        </select>
+                        <span class="text-muted small" style="font-size: 0.7rem;">El cliente seleccionado podrá ver este documento en su portal.</span>
+                    </div>
+
+                    <!-- Carpeta Destino -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Carpeta de Destino (Opcional)</label>
+                        <select class="form-select form-select-sm" name="carpeta_id">
+                            <option value="0" selected>Raíz / Sin carpeta (Archivos sueltos)</option>
+                            {% if carpetas %}
+                            {% for c in carpetas %}
+                            <option value="{{ c.id }}">{{ c.nombre }}</option>
+                            {% endfor %}
+                            {% endif %}
                         </select>
                     </div>
 
                     <!-- Descripción -->
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Descripción del documento</label>
-                        <textarea class="form-control form-control-sm" name="descripcion" rows="3" placeholder="Detalla de qué trata este documento legal..."></textarea>
+                        <textarea class="form-control form-control-sm" name="descripcion" rows="3"
+                            placeholder="Detalla de qué trata este documento legal..."></textarea>
                     </div>
 
                     <!-- Archivo físico -->
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Archivo digitalizado <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Archivo digitalizado <span
+                                class="text-danger">*</span></label>
                         <input class="form-control form-control-sm" type="file" name="archivo" required>
-                        <span class="text-muted small" style="font-size: 0.7rem;">Soporta formatos estándar (PDF, DOCX, PNG, JPG, etc.). Tamaño máx. 16 MB.</span>
+                        <span class="text-muted small" style="font-size: 0.7rem;">Soporta formatos estándar (PDF, DOCX,
+                            PNG, JPG, etc.). Tamaño máx. 16 MB.</span>
                     </div>
                 </div>
 
                 <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
-                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3" style="background-color: #00409A;">Cargar Archivo</button>
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3"
+                        style="background-color: #00409A;">Cargar Archivo</button>
                 </div>
             </form>
         </div>
@@ -584,37 +885,45 @@
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-bottom border-light p-4">
                 <div>
-                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-file-earmark-plus-fill text-success me-2"></i>Nueva Versión Documental</h5>
-                    <p class="text-muted small mb-0">Carga una versión actualizada del archivo para el documento: <strong id="lblCategoriaDoc"></strong></p>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i
+                            class="bi bi-file-earmark-plus-fill text-success me-2"></i>Nueva Versión Documental</h5>
+                    <p class="text-muted small mb-0">Carga una versión actualizada del archivo para el documento:
+                        <strong id="lblCategoriaDoc"></strong></p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" id="formNuevaVersion" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
+
                 <div class="modal-body p-4">
                     <!-- Número de versión (opcional) -->
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Número de versión (Opcional)</label>
-                        <input type="text" class="form-control form-control-sm" name="version_numero" placeholder="Ej. 1.1, 2.0 (Dejar en blanco para autoincrementar en +0.1)">
+                        <input type="text" class="form-control form-control-sm" name="version_numero"
+                            placeholder="Ej. 1.1, 2.0 (Dejar en blanco para autoincrementar en +0.1)">
                     </div>
 
                     <!-- Descripción de los cambios -->
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Cambios en esta versión <span class="text-danger">*</span></label>
-                        <textarea class="form-control form-control-sm" name="descripcion" rows="3" required placeholder="Describe brevemente las modificaciones realizadas en este archivo..."></textarea>
+                        <label class="form-label small fw-semibold">Cambios en esta versión <span
+                                class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" name="descripcion" rows="3" required
+                            placeholder="Describe brevemente las modificaciones realizadas en este archivo..."></textarea>
                     </div>
 
                     <!-- Archivo físico -->
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Nuevo archivo <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Nuevo archivo <span
+                                class="text-danger">*</span></label>
                         <input class="form-control form-control-sm" type="file" name="archivo" required>
-                        <span class="text-muted small" style="font-size: 0.7rem;">Soporta formatos estándar (PDF, DOCX, PNG, JPG, etc.). Tamaño máx. 16 MB.</span>
+                        <span class="text-muted small" style="font-size: 0.7rem;">Soporta formatos estándar (PDF, DOCX,
+                            PNG, JPG, etc.). Tamaño máx. 16 MB.</span>
                     </div>
                 </div>
 
                 <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
-                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-sm btn-success fw-semibold px-3">Cargar Nueva Versión</button>
                 </div>
             </form>
@@ -622,6 +931,296 @@
     </div>
 </div>
 {% endif %}
+
+<!-- MODAL: CREAR CARPETA -->
+<div class="modal fade" id="modalCrearCarpeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i
+                            class="bi bi-folder-plus text-primary me-2"></i>Nueva Carpeta</h5>
+                    <p class="text-muted small mb-0">Crea una carpeta para organizar los documentos de este expediente.
+                    </p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('crear_carpeta') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="expediente_id"
+                    value="{{ expediente_preseleccionado.id if expediente_preseleccionado else '' }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nombre de la carpeta <span
+                                class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="nombre"
+                            placeholder="Ej. Escritos de Defensa, Pruebas..." required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3"
+                        style="background-color: #00409A;">Crear Carpeta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: EDITAR CARPETA (RENOMBRAR) -->
+<div class="modal fade" id="modalEditarCarpeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i
+                            class="bi bi-pencil-square text-primary me-2"></i>Renombrar Carpeta</h5>
+                    <p class="text-muted small mb-0">Modifica el nombre de la carpeta seleccionada.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formEditarCarpeta">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nombre de la carpeta <span
+                                class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="nombre"
+                            id="txtEditarCarpetaNombre" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3"
+                        style="background-color: #00409A;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ELIMINAR CARPETA -->
+<div class="modal fade" id="modalEliminarCarpeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold text-danger"><i
+                            class="bi bi-exclamation-triangle-fill me-2"></i>Eliminar Carpeta</h5>
+                    <p class="text-muted small mb-0">¿Estás seguro de eliminar esta carpeta?</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formEliminarCarpeta">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="mb-3 text-dark">
+                        Se eliminará la carpeta <strong id="lblEliminarCarpetaNombre"></strong>. Los documentos
+                        contenidos dentro de esta carpeta no se perderán, sino que serán movidos a la sección de
+                        archivos sueltos (Raíz).
+                    </p>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold px-3">Eliminar Carpeta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: MOVER DOCUMENTO -->
+<div class="modal fade" id="modalMoverDocumento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i
+                            class="bi bi-folder-symlink text-primary me-2"></i>Mover Documento</h5>
+                    <p class="text-muted small mb-0">Mueve el documento a una carpeta del expediente o a la raíz.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formMoverDocumento">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Documento</label>
+                        <input type="text" id="lblMoverDocumentoName" class="form-control form-control-sm bg-light"
+                            disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Carpeta de Destino</label>
+                        <select class="form-select form-select-sm" name="carpeta_id" id="selMoverDocumentoCarpeta">
+                            <option value="0">Raíz / Sin carpeta (Archivos sueltos)</option>
+                            {% if carpetas %}
+                            {% for c in carpetas %}
+                            <option value="{{ c.id }}">{{ c.nombre }}</option>
+                            {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3"
+                        style="background-color: #00409A;">Mover Documento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CAMBIAR VISIBILIDAD -->
+<div class="modal fade" id="modalVisibilidadDocumento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-eye-fill text-primary me-2"></i>Visibilidad del Documento</h5>
+                    <p class="text-muted small mb-0">Modifica los permisos de acceso y visibilidad de este archivo legal.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formVisibilidadDocumento">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nombre del Documento</label>
+                        <input type="text" id="lblVisibilidadDocName" class="form-control form-control-sm bg-light" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nivel de Acceso / Visibilidad <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" name="visibilidad" id="visSelect" onchange="toggleVisClienteSelect()" required>
+                            <option value="Interno">Uso Interno de la Firma</option>
+                            <option value="Compartido">Compartir con Cliente</option>
+                        </select>
+                    </div>
+                    <!-- Cliente dropdown -->
+                    <div class="mb-3 d-none" id="visClienteWrapper">
+                        <label class="form-label small fw-semibold">Compartir con Cliente Específico <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" name="compartir_cliente_id" id="visCompartirCliente">
+                            <option value="">-- Seleccione un cliente --</option>
+                            {% if clientes_select %}
+                                {% for c in clientes_select %}
+                                <option value="{{ c.id }}">{{ c.nombre_completo }} ({{ c.rnc_cedula }})</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                        <span class="text-muted small" style="font-size: 0.7rem;">El cliente seleccionado podrá ver este documento en su portal.</span>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold px-3" style="background-color: #00409A;">Actualizar Visibilidad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CONFIRMAR ELIMINACIÓN DE DOCUMENTO -->
+<div class="modal fade" id="modalEliminarDocumento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold text-danger"><i
+                            class="bi bi-exclamation-triangle-fill me-2"></i>Eliminar Documento</h5>
+                    <p class="text-muted small mb-0">Esta acción es irreversible y eliminará el documento y todas sus
+                        versiones físicas del servidor.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form method="POST" action="" id="formEliminarDocumento">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nombre del archivo a eliminar</label>
+                        <input type="text" id="lblEliminarFileName" class="form-control form-control-sm bg-light"
+                            disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Razón de la eliminación <span
+                                class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" name="razon_eliminacion" id="txtRazonEliminacion"
+                            rows="3" placeholder="Especifique el motivo de la eliminación (ej. duplicado, erróneo)..."
+                            required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold px-3"><i
+                            class="bi bi-trash-fill me-1"></i> Confirmar Eliminación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: VISTA PREVIA DE DOCUMENTO -->
+<div class="modal fade" id="modalVistaPrevia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-3">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark mb-0"><i class="bi bi-eye-fill text-primary me-2"></i>Vista
+                        Previa: <span id="previewTitle" class="text-secondary fw-semibold"></span></h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 d-flex justify-content-center align-items-center bg-dark"
+                style="min-height: 500px; height: calc(100vh - 200px);">
+                <div id="previewContainer"
+                    class="w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white p-4">
+                    <!-- Inyectado dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-2 d-flex justify-content-between">
+                <span class="text-muted small ms-2" id="previewFileTypeInfo"></span>
+                <div>
+                    <button type="button" class="btn btn-sm btn-secondary fw-semibold me-2"
+                        data-bs-dismiss="modal">Cerrar</button>
+                    <a href="#" id="previewDownloadBtn" class="btn btn-sm btn-primary fw-semibold"
+                        style="background-color: #00409A; border-color: #00409A;"><i class="bi bi-download me-1"></i>
+                        Descargar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="documentos-versiones-data" type="application/json">
+{
+  {% if documentos %}
+    {% for d in documentos %}
+      "{{ d.id }}": [
+        {% for v in d.versiones | sort(attribute='fecha_carga', reverse=true) %}
+          {
+            "id": {{ v.id }},
+            "filename": "{{ v.ruta_almacenamiento.split('_', 1)[-1] if '_' in v.ruta_almacenamiento else v.ruta_almacenamiento }}",
+            "version_numero": "{{ v.version_numero }}",
+            "descripcion": {{ (v.descripcion or '') | tojson }},
+            "fecha": "{{ v.fecha_carga.strftime('%d/%m/%Y %H:%M') }}",
+            "cargador": "{{ v.cargador.nombre if v.cargador else 'Staff' }}",
+            "tamano": {% if v.tamano_bytes >= 1048576 %}
+                        "{{ '%.2f' | format(v.tamano_bytes / 1048576) }} MB"
+                      {% else %}
+                        "{{ '%.1f' | format(v.tamano_bytes / 1024) }} KB"
+                      {% endif %}
+          }{{ ',' if not loop.last }}
+        {% endfor %}
+      ]{{ ',' if not loop.last }}
+    {% endfor %}
+  {% endif %}
+}
+</script>
 
 <script>
     let currentDocumentoId = null;
@@ -635,7 +1234,7 @@
         searchInput.addEventListener('input', () => {
             clearTimeout(searchDebounceTimer);
             const query = searchInput.value.trim();
-            
+
             if (query.length === 0) {
                 searchResults.style.display = 'none';
                 return;
@@ -676,7 +1275,7 @@
                 searchResults.style.display = 'none';
             }
         });
-        
+
         // Mostrar resultados de nuevo al enfocar si hay texto
         searchInput.addEventListener('focus', () => {
             if (searchInput.value.trim().length > 0) {
@@ -687,7 +1286,7 @@
 
     function seleccionarDocumento(docId, fileName, category) {
         currentDocumentoId = docId;
-        
+
         // Remover clase activa de cualquier fila y añadirla a la seleccionada
         document.querySelectorAll('.doc-table-row').forEach(row => row.classList.remove('table-primary'));
         const row = document.getElementById(`doc-row-${docId}`);
@@ -696,7 +1295,7 @@
         // Mostrar columna de historial
         const mainTableColumn = document.getElementById('mainTableColumn');
         const versionsSidebarColumn = document.getElementById('versionsSidebarColumn');
-        
+
         if (mainTableColumn && versionsSidebarColumn) {
             mainTableColumn.className = 'col-lg-8 transition-all duration-300';
             versionsSidebarColumn.classList.remove('d-none');
@@ -705,7 +1304,7 @@
         // Llenar datos básicos del documento seleccionado en el sidebar
         document.getElementById('sidebarFileName').innerText = fileName;
         document.getElementById('sidebarFilePath').innerText = `Ruta: /Expediente/${category}/`;
-        
+
         // Cargar icono correcto en el sidebar
         const sidebarIcon = document.getElementById('sidebarFileIcon');
         if (sidebarIcon) {
@@ -727,6 +1326,13 @@
         renderVersiones(docId, category);
     }
 
+    function seleccionarDocumentoFromElement(el) {
+        const docId = parseInt(el.getAttribute('data-id'), 10);
+        const fileName = el.getAttribute('data-filename');
+        const category = el.getAttribute('data-category');
+        seleccionarDocumento(docId, fileName, category);
+    }
+
     function cerrarSidebarVersiones() {
         document.getElementById('versionsSidebarColumn').classList.add('d-none');
         document.getElementById('mainTableColumn').className = 'col transition-all duration-300';
@@ -734,36 +1340,15 @@
     }
 
     // Datos de versiones generados por Jinja
-    const documentosVersionesData = {
-        {% if documentos %}
-            {% for d in documentos %}
-                "{{ d.id }}": [
-                    {% for v in d.versiones | sort(attribute='fecha_carga', reverse=true) %}
-                        {
-                            "id": {{ v.id }},
-                            "version_numero": "{{ v.version_numero }}",
-                            "descripcion": "{{ v.descripcion | replace('"', '\\"') | replace('\n', ' ') }}",
-                            "fecha": "{{ v.fecha_carga.strftime('%d/%m/%Y %H:%M') }}",
-                            "cargador": "{{ v.cargador.nombre if v.cargador else 'Staff' }}",
-                            "tamano": {% if v.tamano_bytes >= 1048576 %}
-                                        "{{ "%.2f" | format(v.tamano_bytes / 1048576) }} MB"
-                                      {% else %}
-                                        "{{ "%.1f" | format(v.tamano_bytes / 1024) }} KB"
-                                      {% endif %}
-                        },
-                    {% endfor %}
-                ],
-            {% endfor %}
-        {% endif %}
-    };
+    const documentosVersionesData = JSON.parse(document.getElementById('documentos-versiones-data').textContent || '{}');
 
     function renderVersiones(docId, category) {
         const container = document.getElementById('versionsListContainer');
         if (!container) return;
         container.innerHTML = '';
-        
+
         const versiones = documentosVersionesData[docId] || [];
-        
+
         if (versiones.length === 0) {
             container.innerHTML = '<div class="text-muted text-center py-4">No hay versiones registradas.</div>';
             return;
@@ -778,7 +1363,10 @@
             card.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="fw-bold text-dark" style="font-size: 0.85rem;">Versión ${v.version_numero} ${isActual ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 ms-1">Actual</span>' : ''}</span>
-                    <a href="/documentos/descargar/${v.id}" class="text-secondary hover-text-primary" title="Descargar esta versión"><i class="bi bi-download"></i></a>
+                    <div class="d-inline-flex gap-2">
+                        <button class="btn btn-link p-0 text-secondary hover-text-primary" data-version-id="${v.id}" data-filename="${v.filename}" onclick="abrirVistaPreviaFromElement(this)" title="Visualizar esta versión"><i class="bi bi-eye"></i></button>
+                        <a href="/documentos/descargar/${v.id}" class="text-secondary hover-text-primary" title="Descargar esta versión"><i class="bi bi-download"></i></a>
+                    </div>
                 </div>
                 <p class="text-muted mb-2 small" style="font-size: 0.75rem;">${v.descripcion || 'Sin comentarios'}</p>
                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem; font-weight: 500;">
@@ -810,10 +1398,10 @@
         const btn = document.getElementById('btnShowAllAudit');
         const countText = document.getElementById('auditCountText');
         const pag = document.getElementById('auditPagination');
-        
+
         const collapsibleRows = document.querySelectorAll('.audit-row-collapsible');
         const isCollapsed = collapsibleRows[0]?.classList.contains('d-none');
-        
+
         if (isCollapsed) {
             collapsibleRows.forEach(row => row.classList.remove('d-none'));
             if (btn) btn.innerHTML = '<i class="bi bi-chevron-up me-1"></i> Mostrar menos';
@@ -825,6 +1413,147 @@
             if (countText) countText.innerText = 'Mostrando 1 de {{ audit_logs|length }} registros';
             if (pag) pag.classList.add('d-none');
         }
+    }
+
+    function abrirVistaPreviaFromElement(el) {
+        const versionId = el.getAttribute('data-version-id');
+        const filename = el.getAttribute('data-filename');
+        abrirVistaPrevia(versionId, filename);
+    }
+
+    function abrirVistaPrevia(versionId, filename) {
+        const titleEl = document.getElementById('previewTitle');
+        const container = document.getElementById('previewContainer');
+        const fileInfoEl = document.getElementById('previewFileTypeInfo');
+        const downloadBtn = document.getElementById('previewDownloadBtn');
+
+        if (!titleEl || !container) return;
+
+        titleEl.innerText = filename;
+        downloadBtn.href = `/documentos/descargar/${versionId}`;
+        container.innerHTML = '<div class="text-white"><div class="spinner-border text-light me-2" role="status"></div> Cargando vista previa...</div>';
+
+        const fileExt = filename.split('.').pop().toLowerCase();
+        fileInfoEl.innerText = `Formato: ${fileExt.toUpperCase()}`;
+
+        // Mostrar el modal
+        const previewModal = new bootstrap.Modal(document.getElementById('modalVistaPrevia'));
+        previewModal.show();
+
+        const previewUrl = `/documentos/ver/${versionId}`;
+
+        // Determinar cómo visualizar según la extensión
+        setTimeout(() => {
+            if (['pdf', 'txt', 'html', 'htm'].includes(fileExt)) {
+                container.innerHTML = `<iframe src="${previewUrl}" class="w-100 h-100 border-0" style="background-color: white;"></iframe>`;
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(fileExt)) {
+                container.innerHTML = `<img src="${previewUrl}" class="img-fluid" style="max-height: 100%; object-fit: contain; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" alt="${filename}">`;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center p-4">
+                        <i class="bi bi-file-earmark-lock-fill text-warning mb-3" style="font-size: 4rem;"></i>
+                        <h5 class="fw-bold mb-2">Vista previa no disponible</h5>
+                        <p class="text-white-50 small mb-3">Este formato de archivo (.${fileExt}) no se puede visualizar directamente en el navegador.</p>
+                        <a href="${downloadBtn.href}" class="btn btn-outline-light btn-sm fw-semibold"><i class="bi bi-download me-1"></i> Descargar para visualizar</a>
+                    </div>
+                `;
+            }
+        }, 300);
+    }
+
+    function confirmarEliminarDocumento(el) {
+        const id = el.getAttribute('data-id');
+        const filename = el.getAttribute('data-filename');
+
+        document.getElementById('lblEliminarFileName').value = filename;
+        document.getElementById('txtRazonEliminacion').value = '';
+        document.getElementById('formEliminarDocumento').action = `/documentos/${id}/eliminar`;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEliminarDocumento'));
+        modal.show();
+    }
+
+    function abrirModalCrearCarpeta() {
+        const modal = new bootstrap.Modal(document.getElementById('modalCrearCarpeta'));
+        modal.show();
+    }
+
+    function abrirModalEditarCarpetaFromElement(el) {
+        const id = el.getAttribute('data-id');
+        const nombre = el.getAttribute('data-nombre');
+
+        document.getElementById('txtEditarCarpetaNombre').value = nombre;
+        document.getElementById('formEditarCarpeta').action = `/documentos/carpetas/${id}/editar`;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEditarCarpeta'));
+        modal.show();
+    }
+
+    function abrirModalEliminarCarpetaFromElement(el) {
+        const id = el.getAttribute('data-id');
+        const nombre = el.getAttribute('data-nombre');
+
+        document.getElementById('lblEliminarCarpetaNombre').innerText = nombre;
+        document.getElementById('formEliminarCarpeta').action = `/documentos/carpetas/${id}/eliminar`;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEliminarCarpeta'));
+        modal.show();
+    }
+
+    function abrirModalMoverDocumento(el) {
+        const id = el.getAttribute('data-id');
+        const filename = el.getAttribute('data-filename');
+        const carpetaId = el.getAttribute('data-carpeta-id');
+
+        document.getElementById('lblMoverDocumentoName').value = filename;
+        document.getElementById('selMoverDocumentoCarpeta').value = carpetaId ? carpetaId : "0";
+        document.getElementById('formMoverDocumento').action = `/documentos/${id}/mover`;
+
+    }
+
+    function toggleUploadClienteSelect() {
+        const vis = document.getElementById('uploadVisibilidad').value;
+        const wrapper = document.getElementById('uploadClienteWrapper');
+        const select = document.getElementById('uploadCompartirCliente');
+        if (vis === 'Compartido') {
+            wrapper.classList.remove('d-none');
+            select.required = true;
+        } else {
+            wrapper.classList.add('d-none');
+            select.required = false;
+            select.value = '';
+        }
+    }
+
+    function toggleVisClienteSelect() {
+        const vis = document.getElementById('visSelect').value;
+        const wrapper = document.getElementById('visClienteWrapper');
+        const select = document.getElementById('visCompartirCliente');
+        if (vis === 'Compartido') {
+            wrapper.classList.remove('d-none');
+            select.required = true;
+        } else {
+            wrapper.classList.add('d-none');
+            select.required = false;
+            select.value = '';
+        }
+    }
+
+    function abrirModalVisibilidad(el) {
+        const id = el.getAttribute('data-id');
+        const filename = el.getAttribute('data-filename');
+        const visibilidad = el.getAttribute('data-visibilidad');
+        const clienteId = el.getAttribute('data-cliente-id');
+        
+        document.getElementById('lblVisibilidadDocName').value = filename;
+        document.getElementById('visSelect').value = visibilidad;
+        document.getElementById('visCompartirCliente').value = clienteId && clienteId !== 'None' ? clienteId : '';
+        document.getElementById('formVisibilidadDocumento').action = `/documentos/${id}/cambiar_visibilidad`;
+        
+        toggleVisClienteSelect();
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalVisibilidadDocumento'));
+        modal.show();
     }
 </script>
 {% endblock %}

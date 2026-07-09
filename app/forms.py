@@ -56,8 +56,7 @@ class UsuarioForm(FlaskForm):
         ('Administrador', 'Administrador'),
         ('Socio', 'Socio'),
         ('Asociado', 'Asociado'),
-        ('Paralegal', 'Paralegal'),
-        ('Cliente', 'Cliente')
+        ('Paralegal', 'Paralegal')
     ])
     # Opcional en el form. La ruta de "agregar" validará si está vacío.
     password = PasswordField('Contraseña', validators=[Optional(), Length(min=6, message="La clave debe tener al menos 6 caracteres.")])

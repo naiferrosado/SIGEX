@@ -16,3 +16,6 @@ __pycache__/
 # Archivos de sistema operativo
 .DS_Store
 Thumbs.db
+
+# Directorio de subidas (Uploads)
+uploads/

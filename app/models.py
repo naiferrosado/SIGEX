@@ -207,6 +207,18 @@ class TipoDocumento(db.Model):
     documentos = db.relationship('Documento', backref='categoria', lazy=True)
 
 
+class Carpeta(db.Model):
+    __tablename__ = 'carpetas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), nullable=False)
+    fecha_creacion = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+
+    # Relaciones
+    documentos = db.relationship('Documento', backref='carpeta', lazy=True)
+
+
 class Documento(db.Model):
     __tablename__ = 'documentos'
 
@@ -216,9 +228,16 @@ class Documento(db.Model):
     # ON DELETE RESTRICT: No se puede borrar un tipo si hay documentos usándolo
     tipo_documento_id = db.Column(db.Integer, db.ForeignKey('tipos_documentos.id', ondelete='RESTRICT'), nullable=False)
     visibilidad = db.Column(db.String(30), nullable=False, default='Interno') # 'Interno', 'Compartido'
+    
+    # Relación a carpeta (opcional)
+    carpeta_id = db.Column(db.Integer, db.ForeignKey('carpetas.id', ondelete='SET NULL'), nullable=True)
+
+    # Compartir con cliente específico (opcional)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='SET NULL'), nullable=True)
 
     # Relaciones
     versiones = db.relationship('VersionDocumento', backref='documento_maestro', lazy=True, cascade="all, delete-orphan")
+    cliente = db.relationship('Cliente', backref=db.backref('documentos_compartidos_directo', lazy=True))
 
 
 class VersionDocumento(db.Model):
