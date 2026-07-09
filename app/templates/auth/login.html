@@ -63,7 +63,7 @@
                             <div class="mb-3">
                                 <label for="email" class="form-label text-secondary small fw-bold mb-1" style="font-size: 0.85rem;">Correo Institucional</label>
                                 <div class="position-relative">
-                                    {{ form.email(class="form-control pe-5 py-2", placeholder="naiferrosado@rosadomendez.com", id="email", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem; background-color: #ffffff;") }}
+                                    {{ form.email(class="form-control pe-5 py-2", placeholder="usuario@rosadomendez.com", id="email", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem; background-color: #ffffff;") }}
                                     <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-secondary fs-5" style="pointer-events: none; font-weight: 500; font-family: sans-serif;">@</span>
                                 </div>
                                 {% if form.email.errors %}
@@ -76,7 +76,7 @@
                             <div class="mb-4">
                                 <label for="password" class="form-label text-secondary small fw-bold mb-1" style="font-size: 0.85rem;">Contraseña</label>
                                 <div class="position-relative">
-                                    {{ form.password(class="form-control pe-5 py-2", placeholder="naiferrosado123", id="password", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem; background-color: #ffffff;") }}
+                                    {{ form.password(class="form-control pe-5 py-2", placeholder="micontraseña123", id="password", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem; background-color: #ffffff;") }}
                                     <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock-fill" style="font-size: 1.1rem; color: #4a5568;"></i></span>
                                 </div>
                                 {% if form.password.errors %}

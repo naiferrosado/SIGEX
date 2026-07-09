@@ -59,11 +59,7 @@
                         <thead class="table-light text-muted fw-semibold">
                             <tr>
                                 <th class="ps-4 py-3">Código</th>
-                                <th class="py-3">Cliente</th>
                                 <th class="py-3">Caso</th>
-                                <th class="py-3">Responsable</th>
-                                <th class="py-3">Tipo</th>
-                                <th class="py-3">Estado</th>
                                 <th class="py-3 pe-4 text-end">Acciones</th>
                             </tr>
                         </thead>
@@ -74,14 +70,17 @@
                 </div>
 
                 <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center rounded-bottom-4 text-muted small">
-                    <span id="paginationInfo">Mostrando registros...</span>
+                    <span id="paginationInfo">Sin búsqueda activa</span>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-light border disabled">1</button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- COLUMNA DERECHA: Panel de Detalles -->
         <div class="col-xl-4">
-            <div class="card border-0 shadow-sm rounded-4 position-sticky" style="top: 20px;" id="detailsPanel">
+            <div class="card border-0 shadow-sm rounded-4 position-sticky shadow-sm" style="top: 20px;" id="detailsPanel">
                 <div class="card-header bg-white border-bottom p-3">
                     <h6 class="mb-0 fw-bold" style="color: #071c4d;"><i class="bi bi-eye-fill me-2 text-primary"></i>Detalle del expediente</h6>
                 </div>
@@ -96,8 +95,15 @@
                     </div>
                     
                     <ul class="nav nav-tabs justify-content-center mb-3 small" role="tablist">
-                        <li class="nav-item"><a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general">General</a></li>
-                        <li class="nav-item"><a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-detalle">Detalles Técnicos</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general" id="tabGeneralLink">General</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-detalle" id="tabDetalleLink">Detalles Técnicos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
+                        </li>
                     </ul>
 
                     <div class="tab-content text-start small">
@@ -110,7 +116,8 @@
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rol de la Firma:</span><span class="fw-semibold text-dark" id="detRolFirma">—</span></div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de Trámite:</span><span class="fw-semibold text-dark" id="detTipoTramite">—</span></div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Apertura:</span><span class="fw-semibold text-dark" id="detApertura">—</span></div>
-                            <div class="d-flex justify-content-between py-2"><span class="text-muted">Fecha Cierre:</span><span class="fw-semibold text-dark" id="detCierre">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Cierre:</span><span class="fw-semibold text-dark" id="detCierre">—</span></div>
+                            <div class="d-flex justify-content-between py-2" id="detRazonEstadoContainer" style="display: none !important;"><span class="text-muted">Justificación estado:</span><span class="fw-semibold text-danger" id="detRazonEstado">—</span></div>
                         </div>
 
                         <!-- Pestaña de Detalles Técnicos -->
@@ -148,6 +155,14 @@
                                 <div class="py-2"><span class="text-muted d-block mb-1">Descripción:</span><p class="fw-medium text-dark bg-light p-2 rounded-2 text-start mb-0" id="detAdmDesc" style="white-space: pre-line; max-height: 120px; overflow-y: auto;">—</p></div>
                             </div>
                         </div>
+
+                        <!-- Pestaña Auditoría -->
+                        <div class="tab-pane fade" id="tab-auditoria">
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Historial de Auditoría</div>
+                            <div id="auditLogList" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                                <div class="text-muted text-center py-3">No hay registros de auditoría.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -160,17 +175,17 @@
                     
                     <div class="d-flex gap-2">
                         <!-- Suspender / Reanudar -->
-                        <form method="POST" action="" id="formSuspender" style="flex: 1;" onsubmit="return confirm('¿Está seguro de que desea cambiar el estado de este expediente?');">
+                        <form method="POST" action="" id="formSuspender" style="flex: 1;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnSuspender">
+                            <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnSuspender">
                                 <i class="bi bi-pause-fill me-1"></i> Suspender
                             </button>
                         </form>
                         
                         <!-- Archivar / Reabrir -->
-                        <form method="POST" action="" id="formArchivar" style="flex: 1;" onsubmit="return confirm('¿Está seguro de que desea cambiar el estado de archivo de este expediente?');">
+                        <form method="POST" action="" id="formArchivar" style="flex: 1;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnArchivar">
+                            <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnArchivar">
                                 <i class="bi bi-archive-fill me-1"></i> Archivar
                             </button>
                         </form>
@@ -178,9 +193,9 @@
 
                     <!-- Eliminar Expediente (Solo para Socios/Admin) -->
                     {% if current_user.rol in ['Socio', 'Administrador'] %}
-                    <form method="POST" action="" id="formEliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar permanentemente este expediente del sistema? Esta acción no se puede deshacer.');">
+                    <form method="POST" action="" id="formEliminar">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-white border border-danger text-danger w-100 fw-semibold disabled" id="btnEliminar">
+                        <button type="button" class="btn btn-sm btn-white border border-danger text-danger w-100 fw-semibold disabled" id="btnEliminar">
                             <i class="bi bi-trash3-fill me-1"></i> Eliminar Expediente
                         </button>
                     </form>
@@ -191,65 +206,98 @@
     </div>
 </main>
 
-<div id="expedientes-data" data-expedientes='{{ expedientes_data | tojson | safe }}' hidden></div>
+<!-- MODAL PARA ESPECIFICAR RAZÓN DE CAMBIO DE ESTADO -->
+<div class="modal fade" id="modalCambiarEstadoReason" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-info-circle-fill text-primary me-2"></i>Justificar Cambio de Estado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formCambiarEstadoAction">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="text-muted small">Por favor, especifique la razón de este cambio de estado. Esta justificación quedará registrada en la bitácora de auditoría.</p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Razón / Justificación <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" name="razon" id="estadoRazon" rows="3" required placeholder="Ej. Solicitud de la contraparte, falta de documentación, caso cerrado formalmente, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold">Confirmar Cambio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA ESPECIFICAR RAZÓN DE ELIMINACIÓN -->
+<div class="modal fade" id="modalEliminarExpedienteReason" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Eliminar Expediente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formEliminarExpedienteAction">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="text-danger small fw-semibold">ATENCIÓN: Esta acción es irreversible y eliminará el expediente permanentemente del sistema.</p>
+                    <p class="text-muted small">Por favor, especifique la razón de la eliminación para fines de auditoría forense.</p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Razón de eliminación <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" name="razon" id="eliminarRazon" rows="3" required placeholder="Ej. Registro duplicado, error en los datos de ingreso, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold">Eliminar Permanentemente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
-    const expedientes = JSON.parse(document.getElementById('expedientes-data').dataset.expedientes || '[]');
+    let expedientes = [];
     let seleccionadoId = null;
+    let debounceTimer = null;
+
+    // Función debounce para retrasar la búsqueda mientras se escribe
+    function debounce(func, delay) {
+        return function(...args) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
 
     function renderTable() {
         const tbody = document.getElementById('expTableBody');
-        const searchVal = document.getElementById('searchInput').value.toLowerCase();
-        const statusFilter = document.getElementById('statusFilter').value;
-        const typeFilter = document.getElementById('typeFilter').value;
-
-        const filtrados = expedientes.filter(e => {
-            const matchesSearch = e.codigo_firma.toLowerCase().includes(searchVal) 
-                || e.nombre_caso.toLowerCase().includes(searchVal) 
-                || e.cliente_nombre.toLowerCase().includes(searchVal)
-                || e.abogado_responsable_nombre.toLowerCase().includes(searchVal);
-            
-            const matchesStatus = statusFilter === 'Todos' || e.estado === statusFilter;
-            const matchesType = typeFilter === 'Todos' || e.tipo_tramite === typeFilter;
-
-            return matchesSearch && matchesStatus && matchesType;
-        });
-
-        document.getElementById('paginationInfo').innerText = `Mostrando ${filtrados.length} de ${expedientes.length} expedientes encontrados`;
         tbody.innerHTML = '';
-
-        if (filtrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron registros que coincidan con los filtros.</td></tr>';
+        
+        const q = document.getElementById('searchInput').value.trim();
+        if (!q) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>Ingrese un término de búsqueda para consultar expedientes.</td></tr>';
+            document.getElementById('paginationInfo').innerText = 'Sin búsqueda activa';
             return;
         }
 
-        filtrados.forEach(e => {
+        document.getElementById('paginationInfo').innerText = `Mostrando ${expedientes.length} resultados`;
+
+        if (expedientes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron expedientes que coincidan con la búsqueda.</td></tr>';
+            return;
+        }
+
+        expedientes.forEach(e => {
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
             if (e.id === seleccionadoId) tr.classList.add('table-primary');
 
-            // Badges para estados
-            let badgeEstado = '';
-            if (e.estado === 'Abierto') {
-                badgeEstado = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Abierto</span>';
-            } else if (e.estado === 'Suspendido') {
-                badgeEstado = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">Suspendido</span>';
-            } else if (e.estado === 'Archivado') {
-                badgeEstado = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Archivado</span>';
-            }
-
-            // Badges para tipos
-            const badgeTipo = e.tipo_tramite === 'Judicial'
-                ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-1 px-2"><i class="bi bi-balance-scale me-1"></i>Judicial</span>'
-                : '<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2"><i class="bi bi-folder-check me-1"></i>Admin</span>';
-
             tr.innerHTML = `
                 <td class="ps-4 fw-bold text-dark">${e.codigo_firma}</td>
-                <td class="fw-semibold text-dark">${e.cliente_nombre}</td>
                 <td>${e.nombre_caso}</td>
-                <td class="text-muted">${e.abogado_responsable_nombre}</td>
-                <td>${badgeTipo}</td>
-                <td>${badgeEstado}</td>
                 <td class="pe-4 text-end">
                     <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
                 </td>
@@ -257,7 +305,51 @@
 
             tr.onclick = () => {
                 seleccionadoId = e.id;
+                document.querySelectorAll('#expTableBody tr').forEach(row => row.classList.remove('table-primary'));
+                tr.classList.add('table-primary');
+                
+                cargarDetalleExpediente(e.id);
+            };
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    function buscarExpedientes() {
+        const q = document.getElementById('searchInput').value.trim();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const typeFilter = document.getElementById('typeFilter').value;
+
+        if (!q) {
+            expedientes = [];
+            renderTable();
+            return;
+        }
+
+        fetch(`/expedientes/buscar?q=${encodeURIComponent(q)}&status=${encodeURIComponent(statusFilter)}&tipo=${encodeURIComponent(typeFilter)}`)
+            .then(res => res.json())
+            .then(data => {
+                expedientes = data;
                 renderTable();
+            })
+            .catch(err => {
+                console.error("Error al buscar expedientes:", err);
+            });
+    }
+
+    function cargarDetalleExpediente(id) {
+        fetch(`/expedientes/${id}/detalle`)
+            .then(res => res.json())
+            .then(e => {
+                // Badges para estados
+                let badgeEstado = '';
+                if (e.estado === 'Abierto') {
+                    badgeEstado = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Abierto</span>';
+                } else if (e.estado === 'Suspendido') {
+                    badgeEstado = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">Suspendido</span>';
+                } else if (e.estado === 'Archivado') {
+                    badgeEstado = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Archivado</span>';
+                }
 
                 // Cambiar el avatar/icono
                 const detIcon = document.getElementById('detIcon');
@@ -281,6 +373,15 @@
                 document.getElementById('detApertura').innerText = e.fecha_apertura || 'No registrada';
                 document.getElementById('detCierre').innerText = e.fecha_cierre || 'Vigente';
 
+                // Mostrar/ocultar razón de estado
+                const detRazonContainer = document.getElementById('detRazonEstadoContainer');
+                if (e.razon_estado) {
+                    document.getElementById('detRazonEstado').innerText = e.razon_estado;
+                    detRazonContainer.style.setProperty('display', 'flex', 'important');
+                } else {
+                    detRazonContainer.style.setProperty('display', 'none', 'important');
+                }
+
                 // Llenar panel visual - Detalles específicos (Judicial / Admin)
                 if (e.tipo_tramite === 'Judicial') {
                     document.getElementById('det-judicial').style.display = 'block';
@@ -289,7 +390,7 @@
                     document.getElementById('detJudRama').innerText = e.rama_derecho || 'No especificada';
                     document.getElementById('detJudSubCat').innerText = e.sub_categoria || 'No especificada';
                     document.getElementById('detJudAccion').innerText = e.tipo_accion || 'No especificada';
-                    document.getElementById('detJudInstancia').innerText = e.jurisjurisdiccion_actual || e.jurisdiccion_actual || 'No especificada';
+                    document.getElementById('detJudInstancia').innerText = e.jurisdiccion_actual || 'No especificada';
                     document.getElementById('detJudTribunal').innerText = e.tribunal_asignado || 'No asignado';
                     document.getElementById('detJudNroExp').innerText = e.numero_expediente_tribunal || 'No asignado';
                     document.getElementById('detJudJuez').innerText = e.juez_asignado || 'No asignado';
@@ -319,14 +420,14 @@
                     document.getElementById('detAdmDesc').innerText = e.descripcion_tramite || 'Sin descripción';
                 }
 
+                // Renderizar auditoría
+                renderAuditorias(e.auditorias);
+
                 // Configurar Formularios y Botones de Acción
                 const btnEditar = document.getElementById('btnEditar');
                 const btnSuspender = document.getElementById('btnSuspender');
-                const formSuspender = document.getElementById('formSuspender');
                 const btnArchivar = document.getElementById('btnArchivar');
-                const formArchivar = document.getElementById('formArchivar');
                 const btnEliminar = document.getElementById('btnEliminar');
-                const formEliminar = document.getElementById('formEliminar');
 
                 // Habilitar botones
                 btnEditar.classList.remove('disabled');
@@ -335,49 +436,94 @@
                 btnArchivar.classList.remove('disabled');
                 if (btnEliminar) btnEliminar.classList.remove('disabled');
 
+                // Helper para configurar el modal de justificación
+                function bindStateChange(button, targetState) {
+                    button.onclick = () => {
+                        document.getElementById('formCambiarEstadoAction').action = `/expedientes/${e.id}/cambiar_estado/${targetState}`;
+                        document.getElementById('estadoRazon').value = '';
+                        const modal = new bootstrap.Modal(document.getElementById('modalCambiarEstadoReason'));
+                        modal.show();
+                    };
+                }
+
                 // Lógica Suspender / Reanudar
                 if (e.estado === 'Suspendido') {
                     btnSuspender.innerHTML = '<i class="bi bi-play-fill me-1"></i> Reanudar';
                     btnSuspender.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
-                    formSuspender.action = `/expedientes/${e.id}/cambiar_estado/Abierto`;
+                    bindStateChange(btnSuspender, 'Abierto');
                 } else {
                     btnSuspender.innerHTML = '<i class="bi bi-pause-fill me-1"></i> Suspender';
                     btnSuspender.className = 'btn btn-white btn-sm border border-warning text-warning w-100 fw-semibold';
-                    formSuspender.action = `/expedientes/${e.id}/cambiar_estado/Suspendido`;
+                    bindStateChange(btnSuspender, 'Suspendido');
                 }
 
                 // Lógica Archivar / Reabrir
                 if (e.estado === 'Archivado') {
                     btnArchivar.innerHTML = '<i class="bi bi-folder-symlink-fill me-1"></i> Reabrir';
                     btnArchivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
-                    formArchivar.action = `/expedientes/${e.id}/cambiar_estado/Abierto`;
-                    // Desactivar suspender cuando está archivado
+                    bindStateChange(btnArchivar, 'Abierto');
                     btnSuspender.classList.add('disabled');
                 } else {
                     btnArchivar.innerHTML = '<i class="bi bi-archive-fill me-1"></i> Archivar';
                     btnArchivar.className = 'btn btn-white btn-sm border border-secondary text-secondary w-100 fw-semibold';
-                    formArchivar.action = `/expedientes/${e.id}/cambiar_estado/Archivado`;
+                    bindStateChange(btnArchivar, 'Archivado');
                 }
 
                 // Lógica Eliminar
-                if (formEliminar) {
-                    formEliminar.action = `/expedientes/${e.id}/eliminar`;
+                if (btnEliminar) {
+                    btnEliminar.onclick = () => {
+                        document.getElementById('formEliminarExpedienteAction').action = `/expedientes/${e.id}/eliminar`;
+                        document.getElementById('eliminarRazon').value = '';
+                        const modal = new bootstrap.Modal(document.getElementById('modalEliminarExpedienteReason'));
+                        modal.show();
+                    };
                 }
-            };
+            })
+            .catch(err => {
+                console.error("Error al cargar detalles del expediente:", err);
+            });
+    }
 
-            tbody.appendChild(tr);
+    function renderAuditorias(auditorias) {
+        const container = document.getElementById('auditLogList');
+        container.innerHTML = '';
+
+        if (!auditorias || auditorias.length === 0) {
+            container.innerHTML = '<div class="text-muted text-center py-3">No hay registros de auditoría.</div>';
+            return;
+        }
+
+        auditorias.forEach(log => {
+            const div = document.createElement('div');
+            div.className = 'border-bottom py-2';
+            
+            let badgeClass = 'bg-secondary';
+            if (log.accion === 'Creación') badgeClass = 'bg-success';
+            else if (log.accion === 'Edición') badgeClass = 'bg-warning text-dark';
+            else if (log.accion === 'Visualización') badgeClass = 'bg-info text-dark';
+            else if (log.accion === 'Estado cambiado') badgeClass = 'bg-primary';
+            else if (log.accion === 'Eliminación') badgeClass = 'bg-danger';
+
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge ${badgeClass}">${log.accion}</span>
+                    <span class="text-muted" style="font-size: 0.7rem;">${log.fecha_hora}</span>
+                </div>
+                <div class="text-dark fw-semibold" style="font-size: 0.8rem;">${log.usuario}</div>
+                <div class="text-muted small my-1">${log.detalles}</div>
+                <div class="text-muted" style="font-size: 0.65rem;"><i class="bi bi-laptop me-1"></i>${log.ip} | ${log.dispositivo}</div>
+            `;
+            container.appendChild(div);
         });
     }
 
-    document.getElementById('searchInput').addEventListener('input', renderTable);
-    document.getElementById('statusFilter').addEventListener('change', renderTable);
-    document.getElementById('typeFilter').addEventListener('change', renderTable);
+    const debouncedBuscar = debounce(buscarExpedientes, 300);
+    document.getElementById('searchInput').addEventListener('input', debouncedBuscar);
+    document.getElementById('statusFilter').addEventListener('change', buscarExpedientes);
+    document.getElementById('typeFilter').addEventListener('change', buscarExpedientes);
 
     window.onload = () => {
         renderTable();
-        if (expedientes.length > 0) {
-            setTimeout(() => { document.querySelector('#expTableBody tr').click(); }, 50);
-        }
     };
 </script>
 {% endblock %}

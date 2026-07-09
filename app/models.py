@@ -58,6 +58,7 @@ class Cliente(db.Model):
     fecha_consentimiento = db.Column(db.DateTime(timezone=True), nullable=True)
     
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True)
+    razon_desactivacion = db.Column(db.Text, nullable=True)
 
     expedientes = db.relationship(
     'Expediente',
@@ -89,7 +90,8 @@ class Expediente(db.Model):
     estado = db.Column(db.String(20), nullable=False, default='Abierto')
     fecha_apertura = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     fecha_cierre = db.Column(db.DateTime(timezone=True), nullable=True) # Para auditoría
-
+    razon_estado = db.Column(db.Text, nullable=True)
+ 
     # Relaciones base
     documentos = db.relationship('Documento', backref='expediente', lazy=True, cascade="all, delete-orphan")
     tiempos = db.relationship('BitacoraTiempoTarea', backref='expediente', lazy=True)
@@ -107,7 +109,7 @@ class Expediente(db.Model):
 # TABLA HIJA: Vía Jurisdiccional / Litigio
 class ExpedienteJudicial(Expediente):
     __tablename__ = 'expedientes_judiciales'
-    id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True)
+    id = db.Column(db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True)
 
     rama_derecho = db.Column(db.String(100))
     sub_categoria = db.Column(db.String(100))
@@ -141,7 +143,7 @@ class ExpedienteJudicial(Expediente):
 # TABLA HIJA: Vía Administrativa / Consultoría
 class ExpedienteAdministrativo(Expediente):
     __tablename__ = 'expedientes_administrativos'
-    id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True)
+    id = db.Column(db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True)
 
     tipo_proceso = db.Column(db.String(100))  
     sub_proceso = db.Column(db.String(100))   
@@ -276,7 +278,12 @@ class BitacoraAuditoria(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='RESTRICT'), nullable=False)
     # ON DELETE CASCADE
     expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), nullable=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='CASCADE'), nullable=True)
     accion_realizada = db.Column(db.String(50), nullable=False)
     detalles_tecnicos = db.Column(db.Text, nullable=False)
-    ip_direccion = db.Column(db.String(45), nullable=False) # Soporta IPv4 e IPv6 [cite: 231, 275]
+    ip_direccion = db.Column(db.String(45), nullable=False) # Soporta IPv4 e IPv6
     dispositivo_info = db.Column(db.String(255), nullable=False)
+
+    # Relaciones para facilidad de acceso en el backend
+    usuario = db.relationship('Usuario', backref=db.backref('auditorias', lazy=True))
+    cliente_afectado = db.relationship('Cliente', backref=db.backref('auditorias_list', lazy=True, cascade='all, delete-orphan'))

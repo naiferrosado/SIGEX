@@ -58,10 +58,6 @@
                         <thead class="table-light text-muted fw-semibold">
                             <tr>
                                 <th class="ps-4 py-3">Cliente</th>
-                                <th class="py-3">Cédula / RNC</th>
-                                <th class="py-3">Teléfono</th>
-                                <th class="py-3">Correo electrónico</th>
-                                <th class="py-3">Estado</th>
                                 <th class="py-3 pe-4 text-end">Acciones</th>
                             </tr>
                         </thead>
@@ -72,7 +68,7 @@
                 </div>
 
                 <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center rounded-bottom-4 text-muted small">
-                    <span id="paginationInfo">Mostrando registros...</span>
+                    <span id="paginationInfo">Sin búsqueda activa</span>
                     <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-light border disabled">1</button>
                     </div>
@@ -97,11 +93,16 @@
                     </div>
                     
                     <ul class="nav nav-tabs justify-content-center mb-3 small" role="tablist">
-                        <li class="nav-item"><a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general">General</a></li>
-                        <li class="nav-item"><a class="nav-link py-1 px-2 text-muted disabled" href="#">Expedientes</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general" id="tabGeneralLink">General</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-2" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
+                        </li>
                     </ul>
 
                     <div class="tab-content text-start small">
+                        <!-- Pestaña General -->
                         <div class="tab-pane fade show active" id="tab-general">
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Datos Personales</div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Cédula / RNC:</span><span class="fw-semibold text-dark" id="detCedula">—</span></div>
@@ -112,16 +113,25 @@
                             
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Información Adicional</div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de cliente:</span><span class="fw-semibold text-dark" id="detType">—</span></div>
-                            <div class="d-flex justify-content-between py-2"><span class="text-muted">Ley 172-13:</span><span class="fw-semibold text-success" id="detConsentimiento">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Ley 172-13:</span><span class="fw-semibold text-success" id="detConsentimiento">—</span></div>
+                            <div class="d-flex justify-content-between py-2" id="detRazonDesactivacionContainer" style="display: none !important;"><span class="text-muted">Razón de inactividad:</span><span class="fw-semibold text-danger" id="detRazonDesactivacion">—</span></div>
+                        </div>
+
+                        <!-- Pestaña Auditoría -->
+                        <div class="tab-pane fade" id="tab-auditoria">
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Historial de Auditoría</div>
+                            <div id="auditLogList" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                                <div class="text-muted text-center py-3">No hay registros de auditoría.</div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex gap-2">
                     <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold disabled" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Editar</button>
-                    <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;" onsubmit="return confirm('¿Está seguro de que desea cambiar el estado de este cliente?');">
+                    <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-toggle-off me-1"></i> Desactivar</button>
+                        <button type="button" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-toggle-off me-1"></i> Desactivar</button>
                     </form>
                 </div>
             </div>
@@ -212,6 +222,7 @@
             </div>
             <form method="POST" action="" id="formEditarClienteAction">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="consentimiento" id="editConsentimiento" value="">
                 <div class="modal-body p-4 row g-3">
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Nombre(s)</label>
@@ -248,13 +259,6 @@
                         <label class="form-label small fw-semibold">Dirección</label>
                         <textarea class="form-control form-control-sm" name="direccion" id="editDireccion" rows="2"></textarea>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-semibold">Autorización Legal (Ley 172-13)</label>
-                        <select class="form-select form-select-sm" name="consentimiento" id="editConsentimiento">
-                            <option value="on">Concedido (Activo)</option>
-                            <option value="">Revocado (Inactivo)</option>
-                        </select>
-                    </div>
                 </div>
                 <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
                     <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
@@ -265,44 +269,68 @@
     </div>
 </div>
 
-<div id="clientes-data" data-clientes='{{ clientes_data | tojson | safe }}' hidden></div>
+<!-- MODAL PARA ESPECIFICAR RAZÓN DE DESACTIVACIÓN -->
+<div class="modal fade" id="modalDesactivarClienteReason" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Desactivar Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formDesactivarClienteAction">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="text-muted small">Por favor, especifique la razón por la cual está desactivando a este cliente. Esta acción quedará registrada en la bitácora de auditoría.</p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Razón de desactivación <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" name="razon" id="desactivarRazon" rows="3" required placeholder="Ej. Falta de pago, solicitud del cliente, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold">Desactivar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
-    const clientes = JSON.parse(document.getElementById('clientes-data').dataset.clientes || '[]');
+    let clientes = [];
     let seleccionadoId = null;
+    let debounceTimer = null;
+
+    // Función debounce para retrasar la búsqueda mientras se escribe
+    function debounce(func, delay) {
+        return function(...args) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
 
     function renderTable() {
         const tbody = document.getElementById('clientsTableBody');
-        const searchVal = document.getElementById('searchInput').value.toLowerCase();
-        const statusFilter = document.getElementById('statusFilter').value;
-        const typeFilter = document.getElementById('typeFilter').value;
-
-        const filtrados = clientes.filter(c => {
-            const matchesSearch = c.nombre.toLowerCase().includes(searchVal) || c.rnc_cedula.includes(searchVal) || c.email_contacto.toLowerCase().includes(searchVal);
-            const matchesStatus = statusFilter === 'Todos' || (statusFilter === 'Activo' && c.consentimiento_datos) || (statusFilter === 'Inactivo' && !c.consentimiento_datos);
-            // Ahora filtra usando el dato real de la base de datos
-            const matchesType = typeFilter === 'Todos' || c.tipo_cliente === typeFilter;
-            
-            return matchesSearch && matchesStatus && matchesType;
-        });
-
-        document.getElementById('paginationInfo').innerText = `Mostrando ${filtrados.length} de ${clientes.length} clientes encontrados`;
         tbody.innerHTML = '';
-
-        if (filtrados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron registros que coincidan con los filtros.</td></tr>';
+        
+        const q = document.getElementById('searchInput').value.trim();
+        if (!q) {
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>Ingrese un término de búsqueda para consultar clientes.</td></tr>';
+            document.getElementById('paginationInfo').innerText = 'Sin búsqueda activa';
             return;
         }
 
-        filtrados.forEach(c => {
+        document.getElementById('paginationInfo').innerText = `Mostrando ${clientes.length} resultados`;
+
+        if (clientes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron clientes que coincidan con la búsqueda.</td></tr>';
+            return;
+        }
+
+        clientes.forEach(c => {
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
             if (c.id === seleccionadoId) tr.classList.add('table-primary');
 
-            const badge = c.consentimiento_datos 
-                ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Activo</span>' 
-                : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Inactivo</span>';
-            
             const iniciales = c.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
             tr.innerHTML = `
@@ -312,20 +340,53 @@
                         <span class="fw-semibold text-dark">${c.nombre}</span>
                     </div>
                 </td>
-                <td>${c.rnc_cedula}</td>
-                <td>${c.telefono || '<span class="text-muted">—</span>'}</td>
-                <td class="text-muted">${c.email_contacto}</td>
-                <td>${badge}</td>
                 <td class="pe-4 text-end">
                     <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
                 </td>
             `;
 
-            // Lógica al hacer clic en la fila
             tr.onclick = () => {
                 seleccionadoId = c.id;
-                renderTable(); 
+                document.querySelectorAll('#clientsTableBody tr').forEach(row => row.classList.remove('table-primary'));
+                tr.classList.add('table-primary');
                 
+                cargarDetalleCliente(c.id, iniciales);
+            };
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    function buscarClientes() {
+        const q = document.getElementById('searchInput').value.trim();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const typeFilter = document.getElementById('typeFilter').value;
+
+        if (!q) {
+            clientes = [];
+            renderTable();
+            return;
+        }
+
+        fetch(`/clientes/buscar?q=${encodeURIComponent(q)}&status=${encodeURIComponent(statusFilter)}&tipo=${encodeURIComponent(typeFilter)}`)
+            .then(res => res.json())
+            .then(data => {
+                clientes = data;
+                renderTable();
+            })
+            .catch(err => {
+                console.error("Error al buscar clientes:", err);
+            });
+    }
+
+    function cargarDetalleCliente(id, iniciales) {
+        fetch(`/clientes/${id}/detalle`)
+            .then(res => res.json())
+            .then(c => {
+                const badge = c.consentimiento_datos 
+                    ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Activo</span>' 
+                    : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Inactivo</span>';
+
                 document.getElementById('detAvatar').innerText = iniciales;
                 document.getElementById('detAvatar').className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold fs-2 text-white ${c.consentimiento_datos ? 'bg-primary' : 'bg-danger'}`;
                 document.getElementById('detName').innerText = c.nombre;
@@ -343,18 +404,29 @@
                 document.getElementById('detConsentimiento').innerText = c.consentimiento_datos ? 'Concedido y Vigente' : 'Revocado / Ausente';
                 document.getElementById('detConsentimiento').className = c.consentimiento_datos ? 'fw-semibold text-success' : 'fw-semibold text-danger';
 
+                // Mostrar/ocultar deactivation reason
+                const detRazonContainer = document.getElementById('detRazonDesactivacionContainer');
+                if (!c.consentimiento_datos && c.razon_desactivacion) {
+                    document.getElementById('detRazonDesactivacion').innerText = c.razon_desactivacion;
+                    detRazonContainer.style.setProperty('display', 'flex', 'important');
+                } else {
+                    detRazonContainer.style.setProperty('display', 'none', 'important');
+                }
+
+                // Renderizar auditoría
+                renderAuditorias(c.auditorias);
+
                 // Habilitar y llenar Modal de Edición
                 const btnEdit = document.getElementById('btnEditarPanel');
                 btnEdit.classList.remove('disabled');
                 btnEdit.onclick = () => {
-                    const partes = c.nombre.split(' ');
-                    document.getElementById('editNombre').value = partes[0] || '';
-                    document.getElementById('editApellido').value = partes.slice(1).join(' ') || '';
+                    document.getElementById('editNombre').value = c.nombres;
+                    document.getElementById('editApellido').value = c.apellidos;
                     document.getElementById('editCedula').value = c.rnc_cedula;
-                    document.getElementById('editTelefono').value = c.telefono || '';
+                    document.getElementById('editTelefono').value = c.telefono;
                     document.getElementById('editCorreo').value = c.email_contacto;
-                    document.getElementById('editNacimiento').value = c.fecha_nacimiento || '';
-                    document.getElementById('editDireccion').value = c.direccion || '';
+                    document.getElementById('editNacimiento').value = c.fecha_nacimiento;
+                    document.getElementById('editDireccion').value = c.direccion;
                     document.getElementById('editTipo').value = c.tipo_cliente || 'Persona física';
                     document.getElementById('editConsentimiento').value = c.consentimiento_datos ? 'on' : '';
                     
@@ -366,29 +438,75 @@
                 // Habilitar botón de desactivación
                 const btnDesactivar = document.getElementById('btnDesactivarPanel');
                 btnDesactivar.classList.remove('disabled');
+                const formDesactivar = document.getElementById('formDesactivarPanel');
+                
                 if (!c.consentimiento_datos) {
                     btnDesactivar.innerHTML = '<i class="bi bi-toggle-on me-1"></i> Activar';
                     btnDesactivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                    
+                    btnDesactivar.onclick = () => {
+                        if (confirm('¿Está seguro de que desea reactivar este cliente?')) {
+                            formDesactivar.action = `/clientes/${c.id}/desactivar`;
+                            formDesactivar.submit();
+                        }
+                    };
                 } else {
                     btnDesactivar.innerHTML = '<i class="bi bi-toggle-off me-1"></i> Desactivar';
                     btnDesactivar.className = 'btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold';
+                    
+                    btnDesactivar.onclick = () => {
+                        document.getElementById('formDesactivarClienteAction').action = `/clientes/${c.id}/desactivar`;
+                        document.getElementById('desactivarRazon').value = '';
+                        const modal = new bootstrap.Modal(document.getElementById('modalDesactivarClienteReason'));
+                        modal.show();
+                    };
                 }
-                document.getElementById('formDesactivarPanel').action = `/clientes/${c.id}/desactivar`;
-            };
+            })
+            .catch(err => {
+                console.error("Error al cargar detalles del cliente:", err);
+            });
+    }
 
-            tbody.appendChild(tr);
+    function renderAuditorias(auditorias) {
+        const container = document.getElementById('auditLogList');
+        container.innerHTML = '';
+
+        if (!auditorias || auditorias.length === 0) {
+            container.innerHTML = '<div class="text-muted text-center py-3">No hay registros de auditoría.</div>';
+            return;
+        }
+
+        auditorias.forEach(log => {
+            const div = document.createElement('div');
+            div.className = 'border-bottom py-2';
+            
+            let badgeClass = 'bg-secondary';
+            if (log.accion === 'Creación') badgeClass = 'bg-success';
+            else if (log.accion === 'Edición') badgeClass = 'bg-warning text-dark';
+            else if (log.accion === 'Visualización') badgeClass = 'bg-info text-dark';
+            else if (log.accion === 'Desactivación') badgeClass = 'bg-danger';
+            else if (log.accion === 'Activación') badgeClass = 'bg-success';
+
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge ${badgeClass}">${log.accion}</span>
+                    <span class="text-muted" style="font-size: 0.7rem;">${log.fecha_hora}</span>
+                </div>
+                <div class="text-dark fw-semibold" style="font-size: 0.8rem;">${log.usuario}</div>
+                <div class="text-muted small my-1">${log.detalles}</div>
+                <div class="text-muted" style="font-size: 0.65rem;"><i class="bi bi-laptop me-1"></i>${log.ip} | ${log.dispositivo}</div>
+            `;
+            container.appendChild(div);
         });
     }
 
-    document.getElementById('searchInput').addEventListener('input', renderTable);
-    document.getElementById('statusFilter').addEventListener('change', renderTable);
-    document.getElementById('typeFilter').addEventListener('change', renderTable);
+    const debouncedBuscar = debounce(buscarClientes, 300);
+    document.getElementById('searchInput').addEventListener('input', debouncedBuscar);
+    document.getElementById('statusFilter').addEventListener('change', buscarClientes);
+    document.getElementById('typeFilter').addEventListener('change', buscarClientes);
 
     window.onload = () => {
         renderTable();
-        if (clientes.length > 0) {
-            setTimeout(() => { document.querySelector('#clientsTableBody tr').click(); }, 50);
-        }
     };
 </script>
 {% endblock %}

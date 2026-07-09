@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -116,6 +116,27 @@ def _serialize_expedientes(expedientes):
             )
         data.append(item)
     return data
+
+
+def registrar_auditoria(usuario_id, accion, detalles, cliente_id=None, expediente_id=None):
+    try:
+        ip = request.remote_addr or "127.0.0.1"
+        dispositivo = request.user_agent.string[:255] if request.user_agent and request.user_agent.string else "Desconocido"
+        log = BitacoraAuditoria(
+            usuario_id=usuario_id,
+            accion_realizada=accion[:50],
+            detalles_tecnicos=detalles,
+            ip_direccion=ip,
+            dispositivo_info=dispositivo,
+            cliente_id=cliente_id,
+            expediente_id=expediente_id,
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # En caso de error, no interrumpimos la app, solo imprimimos
+        print(f"Error al registrar auditoría: {str(e)}")
 
 
 def roles_permitidos(*roles):
@@ -579,15 +600,108 @@ def register_routes(app):
     def clientes():
         # 1. Instanciamos el formulario vacío para pasarlo a la vista (para el Modal de Agregar)
         form = ClienteForm()
-        clientes_db = Cliente.query.order_by(Cliente.nombres.asc()).all()
-        clientes_data = _serialize_clientes(clientes_db)
         return render_template(
             "clientes/clientes.html",
             form=form,
             usuario=current_user,
-            clientes=clientes_db,
-            clientes_data=clientes_data,
             current_date=datetime.now(),
+        )
+
+    @app.route("/clientes/buscar")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def buscar_clientes():
+        q = request.args.get("q", "").strip()
+        status = request.args.get("status", "Todos").strip()
+        tipo = request.args.get("tipo", "Todos").strip()
+
+        # Si no hay término de búsqueda, no se muestra nada (según requerimiento)
+        if not q:
+            return jsonify([])
+
+        search_pattern = f"%{q}%"
+        query = Cliente.query.filter(
+            db.or_(
+                Cliente.nombres.ilike(search_pattern),
+                Cliente.apellidos.ilike(search_pattern),
+                Cliente.rnc_cedula.ilike(search_pattern),
+                Cliente.email_contacto.ilike(search_pattern),
+            )
+        )
+
+        if status == "Activo":
+            query = query.filter_by(consentimiento_datos=True)
+        elif status == "Inactivo":
+            query = query.filter_by(consentimiento_datos=False)
+
+        if tipo != "Todos":
+            query = query.filter_by(tipo_cliente=tipo)
+
+        clientes_db = query.order_by(Cliente.nombres.asc()).all()
+
+        results = [
+            {
+                "id": c.id,
+                "nombre": f"{c.nombres} {c.apellidos}",
+                "consentimiento_datos": bool(c.consentimiento_datos)
+            }
+            for c in clientes_db
+        ]
+        return jsonify(results)
+
+    @app.route("/clientes/<int:cliente_id>/detalle")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def detalle_cliente(cliente_id):
+        cliente = Cliente.query.get_or_404(cliente_id)
+
+        # 1. Registrar auditoría de visualización
+        registrar_auditoria(
+            usuario_id=current_user.id,
+            accion="Visualización",
+            detalles="Consultó la información detallada del cliente.",
+            cliente_id=cliente.id,
+        )
+
+        # 2. Obtener auditorías asociadas a este cliente
+        auditorias_db = (
+            BitacoraAuditoria.query.filter_by(cliente_id=cliente.id)
+            .order_by(BitacoraAuditoria.fecha_hora.desc())
+            .all()
+        )
+
+        auditorias_data = [
+            {
+                "id": log.id,
+                "fecha_hora": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
+                "usuario": log.usuario.nombre if log.usuario else "Desconocido",
+                "accion": log.accion_realizada,
+                "detalles": log.detalles_tecnicos,
+                "ip": log.ip_direccion,
+                "dispositivo": log.dispositivo_info,
+            }
+            for log in auditorias_db
+        ]
+
+        # 3. Retornar detalles con auditorías
+        return jsonify(
+            {
+                "id": cliente.id,
+                "nombre": f"{cliente.nombres} {cliente.apellidos}",
+                "nombres": cliente.nombres,
+                "apellidos": cliente.apellidos,
+                "rnc_cedula": cliente.rnc_cedula,
+                "telefono": cliente.telefono or "",
+                "email_contacto": cliente.email_contacto,
+                "consentimiento_datos": bool(cliente.consentimiento_datos),
+                "tipo_cliente": cliente.tipo_cliente,
+                "direccion": cliente.direccion or "",
+                "fecha_nacimiento": cliente.fecha_nacimiento.strftime("%Y-%m-%d")
+                if cliente.fecha_nacimiento
+                else "",
+                "razon_desactivacion": cliente.razon_desactivacion or "",
+                "auditorias": auditorias_data,
+            }
         )
 
     @app.route("/clientes/agregar", methods=["POST"])
@@ -620,6 +734,13 @@ def register_routes(app):
             try:
                 db.session.add(cliente)
                 db.session.commit()
+                # Registrar en auditoría
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Creación",
+                    detalles=f"Creó el cliente {cliente.nombre_completo}.",
+                    cliente_id=cliente.id,
+                )
                 flash("Cliente agregado correctamente.", "success")
             except Exception as e:
                 db.session.rollback()
@@ -658,6 +779,13 @@ def register_routes(app):
             cliente.consentimiento_datos = form.consentimiento.data
             try:
                 db.session.commit()
+                # Registrar en auditoría
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Edición",
+                    detalles=f"Modificó los datos del cliente {cliente.nombre_completo}.",
+                    cliente_id=cliente.id,
+                )
                 flash("Datos del cliente actualizados correctamente.", "success")
             except Exception as e:
                 db.session.rollback()
@@ -675,15 +803,46 @@ def register_routes(app):
     def desactivar_cliente(cliente_id):
         cliente = Cliente.query.get_or_404(cliente_id)
 
-        # Alternar el estado lógico
-        cliente.consentimiento_datos = not cliente.consentimiento_datos
-        try:
-            db.session.commit()
-            estado = "reactivado" if cliente.consentimiento_datos else "desactivado"
-            flash(f"Cliente {estado} en el sistema.", "success")
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Error al cambiar el consentimiento del cliente: {str(e)}", "danger")
+        if cliente.consentimiento_datos:
+            # Desactivar requiere razón
+            razon = request.form.get("razon", "").strip()
+            if not razon:
+                flash("Debe especificar una razón para desactivar al cliente.", "danger")
+                return redirect(url_for("clientes"))
+
+            cliente.consentimiento_datos = False
+            cliente.razon_desactivacion = razon
+            try:
+                db.session.commit()
+                # Registrar en auditoría
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Desactivación",
+                    detalles=f"Cliente desactivado. Razón: {razon}",
+                    cliente_id=cliente.id,
+                )
+                flash("Cliente desactivado correctamente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al desactivar el cliente: {str(e)}", "danger")
+        else:
+            # Reactivar
+            cliente.consentimiento_datos = True
+            cliente.razon_desactivacion = None
+            try:
+                db.session.commit()
+                # Registrar en auditoría
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Activación",
+                    detalles="Cliente reactivado en el sistema.",
+                    cliente_id=cliente.id,
+                )
+                flash("Cliente reactivado correctamente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al activar el cliente: {str(e)}", "danger")
+
         return redirect(url_for("clientes"))
 
     @app.route("/logout")
@@ -824,16 +983,132 @@ def register_routes(app):
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def expedientes():
-        # Gracias al polimorfismo, esto trae TODOS los expedientes (Judiciales y Administrativos)
-        lista_expedientes = Expediente.query.order_by(
-            Expediente.fecha_apertura.desc()
-        ).all()
-        expedientes_data = _serialize_expedientes(lista_expedientes)
         return render_template(
             "expedientes/index.html",
-            expedientes=lista_expedientes,
-            expedientes_data=expedientes_data,
+            usuario=current_user,
         )
+
+    @app.route("/expedientes/buscar")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def buscar_expedientes():
+        q = request.args.get("q", "").strip()
+        status = request.args.get("status", "Todos").strip()
+        tipo = request.args.get("tipo", "Todos").strip()
+
+        # Si no hay término de búsqueda, no se muestra nada (según requerimiento)
+        if not q:
+            return jsonify([])
+
+        search_pattern = f"%{q}%"
+        query = Expediente.query.filter(
+            db.or_(
+                Expediente.codigo_firma.ilike(search_pattern),
+                Expediente.nombre_caso.ilike(search_pattern),
+            )
+        )
+
+        if status != "Todos":
+            query = query.filter_by(estado=status)
+
+        if tipo != "Todos":
+            query = query.filter_by(tipo_tramite=tipo)
+
+        lista_exp = query.order_by(Expediente.fecha_apertura.desc()).all()
+
+        results = [
+            {
+                "id": exp.id,
+                "codigo_firma": exp.codigo_firma,
+                "nombre_caso": exp.nombre_caso,
+            }
+            for exp in lista_exp
+        ]
+        return jsonify(results)
+
+    @app.route("/expedientes/<int:expediente_id>/detalle")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def detalle_expediente(expediente_id):
+        exp = Expediente.query.get_or_404(expediente_id)
+
+        # 1. Registrar auditoría de visualización
+        registrar_auditoria(
+            usuario_id=current_user.id,
+            accion="Visualización",
+            detalles="Consultó la información detallada del expediente.",
+            expediente_id=exp.id,
+        )
+
+        # 2. Obtener auditorías asociadas a este expediente
+        auditorias_db = (
+            BitacoraAuditoria.query.filter_by(expediente_id=exp.id)
+            .order_by(BitacoraAuditoria.fecha_hora.desc())
+            .all()
+        )
+
+        auditorias_data = [
+            {
+                "id": log.id,
+                "fecha_hora": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
+                "usuario": log.usuario.nombre if log.usuario else "Desconocido",
+                "accion": log.accion_realizada,
+                "detalles": log.detalles_tecnicos,
+                "ip": log.ip_direccion,
+                "dispositivo": log.dispositivo_info,
+            }
+            for log in auditorias_db
+        ]
+
+        # 3. Serializar expediente
+        item = {
+            "id": exp.id,
+            "codigo_firma": exp.codigo_firma,
+            "cliente_id": exp.cliente_id,
+            "cliente_nombre": exp.cliente.nombre_completo if exp.cliente else "Desconocido",
+            "abogado_responsable_id": exp.abogado_responsable_id,
+            "abogado_responsable_nombre": exp.abogado_responsable.nombre if exp.abogado_responsable else "No asignado",
+            "nombre_caso": exp.nombre_caso,
+            "rol_firma": exp.rol_firma,
+            "tipo_tramite": exp.tipo_tramite,
+            "estado": exp.estado,
+            "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d") if exp.fecha_apertura else None,
+            "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d") if exp.fecha_cierre else None,
+            "razon_estado": exp.razon_estado or "",
+            "auditorias": auditorias_data,
+        }
+
+        if exp.tipo_tramite == "Judicial":
+            item.update(
+                {
+                    "rama_derecho": exp.rama_derecho,
+                    "sub_categoria": exp.sub_categoria or "",
+                    "tipo_accion": exp.tipo_accion or "",
+                    "jurisdiccion_actual": exp.jurisdiccion_actual or "",
+                    "tribunal_asignado": exp.tribunal_asignado or "",
+                    "numero_expediente_tribunal": exp.numero_expediente_tribunal or "",
+                    "juez_asignado": exp.juez_asignado or "",
+                    "nombre_contraparte": exp.nombre_contraparte or "",
+                    "contacto_contraparte": exp.contacto_contraparte or "",
+                    "abogado_contraparte": exp.abogado_contraparte or "",
+                    "contacto_abogado_contraparte": exp.contacto_abogado_contraparte or "",
+                    "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
+                    "fecha_audiencia": exp.fecha_audiencia.strftime("%Y-%m-%d") if exp.fecha_audiencia else None,
+                    "hora_audiencia": exp.hora_audiencia.strftime("%H:%M") if exp.hora_audiencia else None,
+                }
+            )
+        elif exp.tipo_tramite == "Administrativo":
+            item.update(
+                {
+                    "tipo_proceso": exp.tipo_proceso or "",
+                    "sub_proceso": exp.sub_proceso or "",
+                    "institucion_encargada": exp.institucion_encargada or "",
+                    "numero_solicitud_oficial": exp.numero_solicitud_oficial or "",
+                    "descripcion_tramite": exp.descripcion_tramite or "",
+                    "monto_tasas_impuestos": float(exp.monto_tasas_impuestos) if exp.monto_tasas_impuestos is not None else None,
+                }
+            )
+        return jsonify(item)
 
     # --- CREAR NUEVO EXPEDIENTE ---
     @app.route("/expedientes/nuevo", methods=["GET", "POST"])
@@ -928,6 +1203,13 @@ def register_routes(app):
                 try:
                     db.session.add(nuevo_caso)
                     db.session.commit()
+                    # Registrar en auditoría
+                    registrar_auditoria(
+                        usuario_id=current_user.id,
+                        accion="Creación",
+                        detalles=f"Creó el expediente judicial '{nuevo_caso.nombre_caso}' ({nuevo_caso.codigo_firma}).",
+                        expediente_id=nuevo_caso.id,
+                    )
                     flash("Expediente judicial creado exitosamente.", "success")
                     return redirect(url_for("expedientes"))
                 except Exception as e:
@@ -979,6 +1261,13 @@ def register_routes(app):
                 try:
                     db.session.add(nuevo_tramite)
                     db.session.commit()
+                    # Registrar en auditoría
+                    registrar_auditoria(
+                        usuario_id=current_user.id,
+                        accion="Creación",
+                        detalles=f"Creó el expediente administrativo '{nuevo_tramite.nombre_caso}' ({nuevo_tramite.codigo_firma}).",
+                        expediente_id=nuevo_tramite.id,
+                    )
                     flash("Expediente administrativo creado exitosamente.", "success")
                     return redirect(url_for("expedientes"))
                 except Exception as e:
@@ -1128,6 +1417,13 @@ def register_routes(app):
 
             try:
                 db.session.commit()
+                # Registrar en auditoría
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Edición",
+                    detalles=f"Modificó los datos del expediente '{exp.nombre_caso}' ({exp.codigo_firma}).",
+                    expediente_id=exp.id,
+                )
                 flash("Expediente actualizado exitosamente.", "success")
                 return redirect(url_for("expedientes"))
             except Exception as e:
@@ -1148,7 +1444,16 @@ def register_routes(app):
             return redirect(url_for("expedientes"))
 
         exp = Expediente.query.get_or_404(expediente_id)
+
+        # Requiere justificación/razón
+        razon = request.form.get("razon", "").strip()
+        if not razon:
+            flash("Debe especificar una razón para cambiar el estado del expediente.", "danger")
+            return redirect(url_for("expedientes"))
+
+        estado_anterior = exp.estado
         exp.estado = nuevo_estado
+        exp.razon_estado = razon
 
         if nuevo_estado == "Archivado":
             exp.fecha_cierre = datetime.utcnow()
@@ -1157,6 +1462,13 @@ def register_routes(app):
 
         try:
             db.session.commit()
+            # Registrar en auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Estado cambiado",
+                detalles=f"Cambió el estado de '{estado_anterior}' a '{nuevo_estado}'. Razón: {razon}",
+                expediente_id=exp.id,
+            )
             flash(f"Estado del expediente cambiado a {nuevo_estado}.", "success")
         except Exception as e:
             db.session.rollback()
@@ -1168,9 +1480,26 @@ def register_routes(app):
     @login_required
     @roles_permitidos("Socio", "Administrador")
     def eliminar_expediente(expediente_id):
-
         exp = Expediente.query.get_or_404(expediente_id)
+
+        # Requiere justificación/razón
+        razon = request.form.get("razon", "").strip()
+        if not razon:
+            flash("Debe especificar una razón para eliminar el expediente.", "danger")
+            return redirect(url_for("expedientes"))
+
+        codigo = exp.codigo_firma
+        nombre = exp.nombre_caso
+
         try:
+            # Registrar auditoría ANTES de borrar para poder conservar el registro de eliminación
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Eliminación",
+                detalles=f"Expediente {codigo} ({nombre}) eliminado. Razón: {razon}",
+                expediente_id=None,
+            )
+
             db.session.delete(exp)
             db.session.commit()
             flash("Expediente eliminado correctamente del sistema.", "success")

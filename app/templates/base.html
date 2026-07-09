@@ -11,6 +11,88 @@
             background-color: #f4f6f9;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+        /* Estilos premium para pestañas (tabs) */
+        .nav-tabs {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .nav-tabs .nav-link {
+            color: #6c757d !important;
+            border: none !important;
+            border-bottom: 2px solid transparent !important;
+            background-color: transparent !important;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link:hover {
+            color: #0d6efd !important;
+            border-bottom-color: #dee2e6 !important;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd !important;
+            border-bottom: 2px solid #0d6efd !important;
+            font-weight: 600 !important;
+        }
+
+        /* Estilos claros y visibles para botones .btn-white */
+        .btn-white {
+            background-color: #ffffff !important;
+            color: #333333 !important;
+            border: 1px solid #dee2e6 !important;
+        }
+        .btn-white:hover {
+            background-color: #f8f9fa !important;
+            color: #212529 !important;
+            border-color: #c1c9d0 !important;
+        }
+        .btn-white.text-danger {
+            color: #dc3545 !important;
+            border-color: #f5c2c7 !important;
+        }
+        .btn-white.text-danger:hover {
+            background-color: #ea868f !important;
+            color: #ffffff !important;
+            border-color: #dc3545 !important;
+        }
+        .btn-white.text-success {
+            color: #198754 !important;
+            border-color: #badbcc !important;
+        }
+        .btn-white.text-success:hover {
+            background-color: #75b798 !important;
+            color: #ffffff !important;
+            border-color: #198754 !important;
+        }
+        .btn-white.text-warning {
+            color: #ffc107 !important;
+            border-color: #ffecb5 !important;
+        }
+        .btn-white.text-warning:hover {
+            background-color: #ffda6a !important;
+            color: #212529 !important;
+            border-color: #ffc107 !important;
+        }
+        .btn-white.text-secondary {
+            color: #6c757d !important;
+            border-color: #dee2e6 !important;
+        }
+        .btn-white.text-secondary:hover {
+            background-color: #e2e3e5 !important;
+            color: #212529 !important;
+        }
+        .btn-white:disabled, .btn-white.disabled {
+            background-color: #f8f9fa !important;
+            color: #bcbcbc !important;
+            border-color: #e9ecef !important;
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        /* Panel de detalles con scrollbar interno para evitar corte de contenido/botones */
+        #detailsPanel {
+            max-height: calc(100vh - 50px) !important;
+            overflow-y: auto !important;
+            scrollbar-width: thin;
+        }
     </style>
 </head>
 <body>
