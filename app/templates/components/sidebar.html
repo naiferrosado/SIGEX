@@ -199,6 +199,10 @@
     </div>
 
     <div class="px-3 mt-3">
+        <a href="{{ url_for('ver_perfil') }}" class="nav-link {% if request.endpoint == 'ver_perfil' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2 mb-2">
+            <i class="bi bi-person-circle me-3"></i> 
+            <span class="menu-text">Mi Perfil</span>
+        </a>
         <a href="{{ url_for('logout') }}" class="nav-link text-white d-flex align-items-center px-3 py-2">
             <i class="bi bi-box-arrow-right me-3"></i> 
             <span class="menu-text">Cerrar Sesión</span>

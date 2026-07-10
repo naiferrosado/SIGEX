@@ -192,3 +192,46 @@ class TareaForm(FlaskForm):
     expediente_id = SelectField('Expediente / Caso', coerce=int, validators=[DataRequired(message="Debe seleccionar un expediente.")])
     asignado_a_id = SelectField('Asignar a Abogado/Paralegal', coerce=int, validators=[InputRequired(message="Debe seleccionar a quién asignar la tarea.")])
     submit = SubmitField('Guardar Tarea')
+
+
+# FORMULARIO PARA EDITAR PERFIL
+class UserProfileForm(FlaskForm):
+    nombre = StringField('Nombre Completo', validators=[
+        DataRequired(message="El nombre es obligatorio."),
+        Length(max=100)
+    ])
+    email = StringField('Correo Institucional', validators=[
+        DataRequired(message="El correo es obligatorio."),
+        Email(message="Ingrese un formato de correo válido."),
+        Length(max=150)
+    ])
+    submit = SubmitField('Actualizar Perfil')
+
+
+# FORMULARIO PARA CAMBIO VOLUNTARIO DE CONTRASEÑA
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField('Contraseña Actual', validators=[
+        DataRequired(message="La contraseña actual es obligatoria.")
+    ])
+    new_password = PasswordField('Nueva Contraseña', validators=[
+        DataRequired(message="La nueva contraseña es obligatoria."),
+        Length(min=6, message="La contraseña debe tener al menos 6 caracteres.")
+    ])
+    confirm_password = PasswordField('Confirmar Nueva Contraseña', validators=[
+        DataRequired(message="Debe confirmar la nueva contraseña."),
+        EqualTo('new_password', message="Las contraseñas no coinciden.")
+    ])
+    submit = SubmitField('Cambiar Contraseña')
+
+
+# FORMULARIO PARA CAMBIO OBLIGATORIO DE CONTRASEÑA
+class RequiredChangePasswordForm(FlaskForm):
+    new_password = PasswordField('Nueva Contraseña', validators=[
+        DataRequired(message="La nueva contraseña es obligatoria."),
+        Length(min=6, message="La contraseña debe tener al menos 6 caracteres.")
+    ])
+    confirm_password = PasswordField('Confirmar Nueva Contraseña', validators=[
+        DataRequired(message="Debe confirmar la nueva contraseña."),
+        EqualTo('new_password', message="Las contraseñas no coinciden.")
+    ])
+    submit = SubmitField('Guardar y Continuar')

@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .login-btn {
+        background-color: #0046a6 !important;
+        border: none !important;
+        transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+    }
+    .login-btn:hover {
+        background-color: #003680 !important;
+        transform: translateY(-1px);
+    }
+    .login-btn:active {
+        transform: translateY(0);
+    }
+    .form-control:focus {
+        border-color: #0046a6 !important;
+        box-shadow: 0 0 0 0.25rem rgba(0, 70, 166, 0.25) !important;
+    }
+</style>
+
+<div class="min-vh-100 w-100 d-flex align-items-center justify-content-center py-5 px-3" style="background-color: #f4f6f9;">
+    <div class="shadow bg-white" style="max-width: 850px; width: 100%; border-radius: 20px; border: 1.5px solid #0046a6; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;">
+        <div class="row g-0">
+            <!-- Left Side: Banner Image -->
+            <div class="col-lg-5 d-none d-lg-block p-0" style="position: relative;">
+                <img src="{{ url_for('static', filename='img/login_banner.png') }}" alt="Oficina de Abogados" class="w-100 h-100" style="object-fit: cover; display: block; min-height: 520px; border-top-left-radius: 18px; border-bottom-left-radius: 18px;">
+            </div>
+            
+            <!-- Right Side: Change Password Form -->
+            <div class="col-lg-7 d-flex align-items-center justify-content-center p-4 p-md-5" style="background-color: #ffffff;">
+                <div class="w-100" style="max-width: 400px;">
+                    <h1 class="h4 fw-bold text-center mb-2" style="color: #0046a6; font-family: 'Segoe UI', Arial, sans-serif;">Actualización de Seguridad</h1>
+                    <p class="text-muted small text-center mb-4">Es necesario que configure una contraseña personal y segura antes de continuar.</p>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show small py-2 mb-3" role="alert">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem 1rem;"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <div class="card border-0 p-4 shadow" style="border-radius: 16px; background-color: #ffffff; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;">
+                        <form method="POST" action="{{ url_for('cambiar_password_obligatorio') }}" novalidate>
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-3">
+                                <label for="new_password" class="form-label text-secondary small fw-bold mb-1" style="font-size: 0.85rem;">Nueva Contraseña</label>
+                                <div class="position-relative">
+                                    {{ form.new_password(class="form-control pe-5 py-2", placeholder="Mínimo 6 caracteres...", id="new_password", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem;") }}
+                                    <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock-fill" style="font-size: 1.1rem; color: #4a5568;"></i></span>
+                                </div>
+                                {% if form.new_password.errors %}
+                                    {% for error in form.new_password.errors %}
+                                        <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="confirm_password" class="form-label text-secondary small fw-bold mb-1" style="font-size: 0.85rem;">Confirmar Contraseña</label>
+                                <div class="position-relative">
+                                    {{ form.confirm_password(class="form-control pe-5 py-2", placeholder="Repita la contraseña...", id="confirm_password", style="border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem;") }}
+                                    <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-shield-fill-check" style="font-size: 1.1rem; color: #4a5568;"></i></span>
+                                </div>
+                                {% if form.confirm_password.errors %}
+                                    {% for error in form.confirm_password.errors %}
+                                        <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+
+                            <div class="d-grid mb-2">
+                                {{ form.submit(class="btn btn-lg fw-semibold py-2 text-white login-btn", style="border-radius: 8px; font-size: 1rem;") }}
+                            </div>
+                            
+                            <div class="text-center mt-3">
+                                <a href="{{ url_for('logout') }}" class="text-danger small"><i class="bi bi-box-arrow-left me-1"></i>Cancelar y Salir</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

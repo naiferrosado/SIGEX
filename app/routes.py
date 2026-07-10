@@ -20,6 +20,9 @@ from app.forms import (
     ForgotPasswordForm,
     ResetPasswordForm,
     TareaForm,
+    UserProfileForm,
+    ChangePasswordForm,
+    RequiredChangePasswordForm,
 )
 from app.utils import (
     generate_reset_token,
@@ -182,6 +185,16 @@ def roles_permitidos(*roles):
 
 
 def register_routes(app):
+
+    @app.before_request
+    def force_password_change():
+        if not request.endpoint:
+            return
+        if request.endpoint in ["static", "logout", "cambiar_password_obligatorio"]:
+            return
+
+        if current_user.is_authenticated and current_user.requiere_cambio_password:
+            return redirect(url_for("cambiar_password_obligatorio"))
 
     @app.route("/", methods=["GET", "POST"])
     @app.route("/login", methods=["GET", "POST"])
@@ -1102,6 +1115,105 @@ def register_routes(app):
     def logout():
         logout_user()
         return redirect(url_for("login"))
+
+    @app.route("/perfil/cambiar-password-obligatorio", methods=["GET", "POST"])
+    @login_required
+    def cambiar_password_obligatorio():
+        if not current_user.requiere_cambio_password:
+            return redirect(url_for("dashboard"))
+
+        form = RequiredChangePasswordForm()
+        if form.validate_on_submit():
+            current_user.password_hash = generate_password_hash(form.new_password.data)
+            current_user.requiere_cambio_password = False
+            try:
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Edición",
+                    detalles="Estableció una contraseña nueva por requerimiento de primer inicio de sesión."
+                )
+                flash("Contraseña actualizada con éxito. Bienvenido al sistema.", "success")
+                return redirect(url_for("dashboard"))
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al actualizar la contraseña: {str(e)}", "danger")
+
+        return render_template("perfil/cambio_obligatorio.html", form=form)
+
+    @app.route("/perfil", methods=["GET"])
+    @login_required
+    def ver_perfil():
+        profile_form = UserProfileForm(obj=current_user)
+        password_form = ChangePasswordForm()
+        return render_template(
+            "perfil/ver.html",
+            usuario=current_user,
+            profile_form=profile_form,
+            password_form=password_form,
+            current_date=rd_now()
+        )
+
+    @app.route("/perfil/editar", methods=["POST"])
+    @login_required
+    def editar_perfil():
+        form = UserProfileForm()
+        if form.validate_on_submit():
+            existente = Usuario.query.filter(Usuario.email == form.email.data, Usuario.id != current_user.id).first()
+            if existente:
+                flash("El correo electrónico ya está registrado por otro usuario.", "danger")
+                return redirect(url_for("ver_perfil"))
+
+            old_nombre = current_user.nombre
+            old_email = current_user.email
+            current_user.nombre = form.nombre.data
+            current_user.email = form.email.data
+
+            try:
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Edición",
+                    detalles=f"Actualizó sus datos personales de perfil: Nombre '{old_nombre}' -> '{current_user.nombre}', Correo '{old_email}' -> '{current_user.email}'."
+                )
+                flash("Datos personales actualizados correctamente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al actualizar los datos: {str(e)}", "danger")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+
+        return redirect(url_for("ver_perfil"))
+
+    @app.route("/perfil/cambiar-password", methods=["POST"])
+    @login_required
+    def cambiar_password_perfil():
+        form = ChangePasswordForm()
+        if form.validate_on_submit():
+            if not check_password_hash(current_user.password_hash, form.current_password.data):
+                flash("La contraseña actual es incorrecta.", "danger")
+                return redirect(url_for("ver_perfil"))
+
+            current_user.password_hash = generate_password_hash(form.new_password.data)
+            try:
+                db.session.commit()
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Edición",
+                    detalles="Cambió voluntariamente su contraseña de acceso desde su perfil de usuario."
+                )
+                flash("Su contraseña ha sido modificada con éxito.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al cambiar la contraseña: {str(e)}", "danger")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+
+        return redirect(url_for("ver_perfil"))
 
     # --- HELPER PARA USUARIOS ---
     def _serialize_usuarios(usuarios):
