@@ -101,6 +101,24 @@ flask db upgrade
 ```
 *(Si es la primera vez o hay cambios estructurales, ejecuta `flask db migrate -m "comentario"` antes del upgrade).*
 
+### 8. Crear Administrador e Insertar Datos de Prueba (Opcional)
+Para facilitar las pruebas e inicio de sesión inicial, existen scripts listos para usar en la carpeta `scripts/`. Debes ejecutarlos desde la raíz del proyecto con tu entorno virtual activo:
+
+1. **Crear usuario administrador inicial:**
+   Crea un usuario administrador por defecto con las siguientes credenciales:
+   - **Correo:** `naiferrosado@rosadomendez.com`
+   - **Contraseña:** `naiferrosado123`
+   ```bash
+   python scripts/crear_admin.py
+   ```
+
+2. **Insertar datos ficticios:**
+   *Importante: Requiere haber ejecutado primero el script de administrador para asignar correctamente los expedientes.*
+   Inserta clientes, expedientes judiciales y administrativos de prueba para visualizar el funcionamiento de los paneles:
+   ```bash
+   python scripts/insertar_datos_ficticios.py
+   ```
+
 ---
 
 ## 🏃 Cómo Ejecutar el Sistema
