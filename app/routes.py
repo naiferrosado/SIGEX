@@ -456,8 +456,13 @@ def register_routes(app):
                 expedientes_activos = Expediente.query.filter(
                     Expediente.estado != "Archivado"
                 ).count()
-                total_tareas_pendientes = BitacoraTiempoTarea.query.filter_by(
-                    usuario_id=current_user.id, estado_cierre="Abierto"
+                total_tareas_pendientes = Tarea.query.filter(
+                    Tarea.estado != "Completada"
+                ).filter(
+                    db.or_(
+                        Tarea.asignado_a_id == current_user.id,
+                        Tarea.asignado_a_id == None
+                    )
                 ).count()
                 mis_documentos_cargados = VersionDocumento.query.filter_by(
                     usuario_id=current_user.id
@@ -2661,48 +2666,45 @@ def register_routes(app):
         filtro_expediente = request.args.get("expediente_id", "Todos")
         filtro_asignado = request.args.get("asignado_a_id", "Todos")
 
-        # Iniciar lista vacía si no se busca (como las otras pantallas)
-        if not filtro_q:
-            tareas = []
-        else:
-            query = Tarea.query
+        query = Tarea.query
 
-            # Filtrar por rol (Asociado/Paralegal solo ven las asignadas a ellos o a todos)
-            if current_user.rol in ["Asociado", "Paralegal"]:
-                query = query.filter(db.or_(
-                    Tarea.asignado_a_id == current_user.id,
-                    Tarea.asignado_a_id == None
-                ))
-            elif filtro_asignado != "Todos":
-                if filtro_asignado == "General":
-                    query = query.filter_by(asignado_a_id=None)
-                else:
-                    try:
-                        a_id = int(filtro_asignado)
-                        query = query.filter_by(asignado_a_id=a_id)
-                    except ValueError:
-                        pass
-
-            if filtro_estado != "Todos":
-                query = query.filter_by(estado=filtro_estado)
-            
-            if filtro_prioridad != "Todas":
-                query = query.filter_by(prioridad=filtro_prioridad)
-                
-            if filtro_expediente != "Todos":
+        # Filtrar por rol (Asociado/Paralegal solo ven las asignadas a ellos o a todos)
+        if current_user.rol in ["Asociado", "Paralegal"]:
+            query = query.filter(db.or_(
+                Tarea.asignado_a_id == current_user.id,
+                Tarea.asignado_a_id == None
+            ))
+        elif filtro_asignado != "Todos":
+            if filtro_asignado == "General":
+                query = query.filter_by(asignado_a_id=None)
+            else:
                 try:
-                    e_id = int(filtro_expediente)
-                    query = query.filter_by(expediente_id=e_id)
+                    a_id = int(filtro_asignado)
+                    query = query.filter_by(asignado_a_id=a_id)
                 except ValueError:
                     pass
 
-            # Filtrar por texto de búsqueda en título o descripción
+        if filtro_estado != "Todos":
+            query = query.filter_by(estado=filtro_estado)
+        
+        if filtro_prioridad != "Todas":
+            query = query.filter_by(prioridad=filtro_prioridad)
+            
+        if filtro_expediente != "Todos":
+            try:
+                e_id = int(filtro_expediente)
+                query = query.filter_by(expediente_id=e_id)
+            except ValueError:
+                pass
+
+        # Filtrar por texto de búsqueda en título o descripción
+        if filtro_q:
             query = query.filter(db.or_(
                 Tarea.titulo.ilike(f"%{filtro_q}%"),
                 Tarea.descripcion.ilike(f"%{filtro_q}%")
             ))
 
-            tareas = query.order_by(Tarea.estado.desc(), Tarea.fecha_limite.asc(), Tarea.prioridad.asc()).all()
+        tareas = query.order_by(Tarea.estado.desc(), Tarea.fecha_limite.asc(), Tarea.prioridad.asc()).all()
 
         # Datos para los selectores del formulario de creación/edición
         expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
