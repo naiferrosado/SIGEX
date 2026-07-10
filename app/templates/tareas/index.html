@@ -1,0 +1,581 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1" style="color: #071c4d; font-family: 'Segoe UI', Arial, sans-serif;">Gestor de Tareas</h1>
+            <p class="text-muted small mb-0">Gestión de plazos procesales, escritos pendientes y asignación de actividades de la firma.</p>
+        </div>
+        <div>
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2 shadow-sm"
+                style="background-color: #00409A; border-color: #00409A; border-radius: 8px;"
+                onclick="abrirModalCrear()">
+                <i class="bi bi-plus-lg"></i> Crear Nueva Tarea
+            </button>
+        </div>
+    </div>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+                    {{ message|safe }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Tarjetas de Estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid #6c757d !important;">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold d-block mb-1">Tareas Pendientes</span>
+                            <h3 class="fw-bold text-dark mb-0">{{ stat_pendientes }}</h3>
+                        </div>
+                        <div class="p-3 bg-secondary bg-opacity-10 text-secondary rounded-circle">
+                            <i class="bi bi-clock-history fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid #00409A !important;">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold d-block mb-1">En Progreso</span>
+                            <h3 class="fw-bold text-primary mb-0">{{ stat_progreso }}</h3>
+                        </div>
+                        <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-circle">
+                            <i class="bi bi-play-circle fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid #dc3545 !important;">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold d-block mb-1">Plazos Vencidos</span>
+                            <h3 class="fw-bold text-danger mb-0">{{ stat_vencidas }}</h3>
+                        </div>
+                        <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-circle">
+                            <i class="bi bi-exclamation-triangle fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid #198754 !important;">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold d-block mb-1">Completadas</span>
+                            <h3 class="fw-bold text-success mb-0">{{ stat_completadas }}</h3>
+                        </div>
+                        <div class="p-3 bg-success bg-opacity-10 text-success rounded-circle">
+                            <i class="bi bi-check-circle fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('listar_tareas') }}" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Buscar Tarea <span class="text-danger">*</span></label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control bg-white border-start-0" placeholder="Escribe para buscar..." value="{{ filtro_q or '' }}" required>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Estado</label>
+                    <select name="estado" class="form-select form-select-sm">
+                        <option value="Todos" {% if filtro_estado == 'Todos' %}selected{% endif %}>Todos</option>
+                        <option value="Pendiente" {% if filtro_estado == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                        <option value="En Progreso" {% if filtro_estado == 'En Progreso' %}selected{% endif %}>En Progreso</option>
+                        <option value="Completada" {% if filtro_estado == 'Completada' %}selected{% endif %}>Completada</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Prioridad</label>
+                    <select name="prioridad" class="form-select form-select-sm">
+                        <option value="Todas" {% if filtro_prioridad == 'Todas' %}selected{% endif %}>Todas</option>
+                        <option value="Alta" {% if filtro_prioridad == 'Alta' %}selected{% endif %}>Alta</option>
+                        <option value="Media" {% if filtro_prioridad == 'Media' %}selected{% endif %}>Media</option>
+                        <option value="Baja" {% if filtro_prioridad == 'Baja' %}selected{% endif %}>Baja</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Expediente / Caso</label>
+                    <select name="expediente_id" class="form-select form-select-sm">
+                        <option value="Todos" {% if filtro_expediente == 'Todos' %}selected{% endif %}>Todos los Expedientes</option>
+                        {% for e in expedientes_list %}
+                        <option value="{{ e.id }}" {% if filtro_expediente == e.id|string %}selected{% endif %}>{{ e.nombre_caso }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                {% if usuario.rol in ['Socio', 'Administrador'] %}
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Asignado a</label>
+                    <select name="asignado_a_id" class="form-select form-select-sm">
+                        <option value="Todos" {% if filtro_asignado == 'Todos' %}selected{% endif %}>Cualquiera</option>
+                        <option value="General" {% if filtro_asignado == 'General' %}selected{% endif %}>Asignadas a Todos</option>
+                        {% for u in usuarios_list %}
+                        <option value="{{ u.id }}" {% if filtro_asignado == u.id|string %}selected{% endif %}>{{ u.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="col text-end">
+                    <button type="submit" class="btn btn-sm btn-primary px-3 fw-medium w-100" style="background-color: #00409A; border-color: #00409A; height: 31px;">
+                        <i class="bi bi-search me-1"></i> Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Listado de Tareas -->
+    <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0" style="font-size: 0.9rem;">
+                <thead class="bg-light text-secondary fw-semibold small" style="border-bottom: 2px solid #edf2f7;">
+                    <tr>
+                        <th class="ps-4 py-3" style="width: 50px;"></th>
+                        <th class="py-3">Tarea</th>
+                        <th class="py-3">Expediente / Caso</th>
+                        <th class="py-3">Asignado a</th>
+                        <th class="py-3">Plazo Límite</th>
+                        <th class="py-3 text-center">Prioridad</th>
+                        <th class="py-3 text-center">Estado</th>
+                        <th class="pe-4 py-3 text-end" style="width: 120px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if tareas %}
+                    {% for t in tareas %}
+                    <!-- Determinar prioridad color de borde izquierdo -->
+                    {% set border_color = '#cbd5e1' %}
+                    {% if t.prioridad == 'Alta' %}
+                        {% set border_color = '#dc3545' %}
+                    {% elif t.prioridad == 'Media' %}
+                        {% set border_color = '#ffc107' %}
+                    {% elif t.prioridad == 'Baja' %}
+                        {% set border_color = '#0dcaf0' %}
+                    {% endif %}
+                    
+                    <tr style="border-left: 4px solid {{ border_color }} !important;">
+                        <!-- Checkbox rápido para completar -->
+                        <td class="ps-4">
+                            <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}" id="form-complete-{{ t.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="nuevo_estado" value="{% if t.estado == 'Completada' %}Pendiente{% else %}Completada{% endif %}">
+                                <input type="checkbox" class="form-check-input cursor-pointer shadow-sm" 
+                                    style="width: 1.2rem; height: 1.2rem; border-color: #cbd5e1;"
+                                    {% if t.estado == 'Completada' %}checked{% endif %}
+                                    onchange="document.getElementById('form-complete-{{ t.id }}').submit();">
+                            </form>
+                        </td>
+                        <!-- Detalles Tarea -->
+                        <td>
+                            <div>
+                                <span class="fw-semibold text-dark {% if t.estado == 'Completada' %}text-decoration-line-through text-muted{% endif %}">
+                                    {{ t.titulo }}
+                                </span>
+                                {% if t.descripcion %}
+                                <p class="text-muted mb-0 small" style="font-size: 0.78rem; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ t.descripcion }}">
+                                    {{ t.descripcion }}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <!-- Expediente -->
+                        <td>
+                            {% if t.expediente %}
+                            <a href="{{ url_for('documentos') }}?expediente_id={{ t.expediente_id }}" class="text-decoration-none fw-medium text-primary hover-underline">
+                                {{ t.expediente.nombre_caso }}
+                            </a>
+                            <span class="d-block text-muted small" style="font-size: 0.7rem;">{{ t.expediente.codigo_firma }}</span>
+                            {% else %}
+                            <span class="text-muted small italic">General (Sin Expediente)</span>
+                            {% endif %}
+                        </td>
+                        <!-- Asignado a -->
+                        <td class="fw-medium text-dark">
+                            {% if t.asignado_a %}
+                                {{ t.asignado_a.nombre }}
+                            {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-0.5" style="font-size:0.7rem;">Todo el equipo</span>
+                            {% endif %}
+                            <span class="d-block text-muted small" style="font-size: 0.7rem; font-weight: normal;">Por: {{ t.creado_por.nombre if t.creado_por else 'Sistema' }}</span>
+                        </td>
+                        <!-- Fecha límite y alerta perentoria -->
+                        <td>
+                            {% if t.fecha_limite %}
+                                {% set hoy = current_date.date() %}
+                                {% if t.estado != 'Completada' and t.fecha_limite < hoy %}
+                                    <span class="text-danger fw-bold d-flex align-items-center gap-1 small" style="font-size: 0.8rem;">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> ¡VENCIDA! ({{ t.fecha_limite.strftime('%d/%m/%Y') }})
+                                    </span>
+                                {% elif t.estado != 'Completada' and (t.fecha_limite - hoy).days <= 2 and (t.fecha_limite - hoy).days >= 0 %}
+                                    <span class="text-warning fw-bold d-flex align-items-center gap-1 small" style="font-size: 0.8rem;">
+                                        <i class="bi bi-clock-fill"></i> Próxima ({{ t.fecha_limite.strftime('%d/%m/%Y') }})
+                                    </span>
+                                {% else %}
+                                    <span class="text-dark small">{{ t.fecha_limite.strftime('%d/%m/%Y') }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted small">Sin plazo establecido</span>
+                            {% endif %}
+                        </td>
+                        <!-- Prioridad -->
+                        <td class="text-center">
+                            {% if t.prioridad == 'Alta' %}
+                                <span class="badge rounded-pill fw-semibold px-2" style="background-color: #fde8e8; color: #9b1c1c; border: 1px solid #f8b4b4;">Alta</span>
+                            {% elif t.prioridad == 'Media' %}
+                                <span class="badge rounded-pill fw-semibold px-2" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Media</span>
+                            {% else %}
+                                <span class="badge rounded-pill fw-semibold px-2" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">Baja</span>
+                            {% endif %}
+                        </td>
+                        <!-- Estado — Selector directo de un clic -->
+                        <td class="text-center">
+                            <div class="d-inline-flex bg-light p-1 rounded-pill border" style="box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                                <!-- Pendiente -->
+                                <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}" class="m-0">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="nuevo_estado" value="Pendiente">
+                                    <button type="submit" class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1"
+                                        style="font-size: 0.72rem; transition: all 0.2s ease-in-out;
+                                        {% if t.estado == 'Pendiente' %}
+                                            background-color: #6b7280; color: #ffffff; font-weight: 600; box-shadow: 0 2px 4px rgba(107, 114, 128, 0.25);
+                                        {% else %}
+                                            background-color: transparent; color: #6b7280; opacity: 0.7;
+                                        {% endif %}"
+                                        title="Marcar como Pendiente">
+                                        <i class="bi bi-hourglass-split"></i>
+                                        <span class="d-none d-xl-inline">Pendiente</span>
+                                    </button>
+                                </form>
+
+                                <!-- En Progreso -->
+                                <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}" class="m-0">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="nuevo_estado" value="En Progreso">
+                                    <button type="submit" class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1"
+                                        style="font-size: 0.72rem; transition: all 0.2s ease-in-out;
+                                        {% if t.estado == 'En Progreso' %}
+                                            background-color: #00409a; color: #ffffff; font-weight: 600; box-shadow: 0 2px 4px rgba(0, 64, 154, 0.25);
+                                        {% else %}
+                                            background-color: transparent; color: #00409a; opacity: 0.7;
+                                        {% endif %}"
+                                        title="Marcar como En Progreso">
+                                        <i class="bi bi-play-circle-fill"></i>
+                                        <span class="d-none d-xl-inline">En Progreso</span>
+                                    </button>
+                                </form>
+
+                                <!-- Completada -->
+                                <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}" class="m-0">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="nuevo_estado" value="Completada">
+                                    <button type="submit" class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1"
+                                        style="font-size: 0.72rem; transition: all 0.2s ease-in-out;
+                                        {% if t.estado == 'Completada' %}
+                                            background-color: #10b981; color: #ffffff; font-weight: 600; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+                                        {% else %}
+                                            background-color: transparent; color: #10b981; opacity: 0.7;
+                                        {% endif %}"
+                                        title="Marcar como Completada">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        <span class="d-none d-xl-inline">Completada</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                        <!-- Acciones -->
+                        <td class="pe-4 text-end">
+                            <div class="d-inline-flex gap-2">
+                                <button class="btn btn-link p-0 text-secondary hover-text-primary" title="Editar tarea"
+                                    data-id="{{ t.id }}"
+                                    data-titulo="{{ t.titulo }}"
+                                    data-descripcion="{{ t.descripcion or '' }}"
+                                    data-fecha-limite="{{ t.fecha_limite.strftime('%Y-%m-%d') if t.fecha_limite else '' }}"
+                                    data-prioridad="{{ t.prioridad }}"
+                                    data-estado="{{ t.estado }}"
+                                    data-expediente-id="{{ t.expediente_id or '' }}"
+                                    data-asignado-a-id="{{ t.asignado_a_id or 0 }}"
+                                    onclick="abrirModalEditar(this)">
+                                    <i class="bi bi-pencil-square fs-5"></i>
+                                </button>
+                                <button class="btn btn-link p-0 text-secondary hover-text-danger" title="Eliminar tarea"
+                                    data-id="{{ t.id }}"
+                                    data-titulo="{{ t.titulo }}"
+                                    onclick="confirmarEliminar(this)">
+                                    <i class="bi bi-trash3 fs-5"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            {% if not filtro_q %}
+                                <i class="bi bi-search text-secondary opacity-50 mb-3" style="font-size: 3rem; display: block;"></i>
+                                <h6 class="fw-bold mb-1 text-dark">Búsqueda Requerida</h6>
+                                <p class="small text-muted mb-0">Ingresa un término de búsqueda en la barra superior para ver las tareas.</p>
+                            {% else %}
+                                <i class="bi bi-clipboard2-x text-secondary opacity-50 mb-3" style="font-size: 3rem; display: block;"></i>
+                                <h6 class="fw-bold mb-1 text-dark">No se encontraron tareas</h6>
+                                <p class="small text-muted mb-0">No hay tareas que coincidan con "{{ filtro_q }}" o con los filtros seleccionados.</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bitácora de Actividades (Auditoría) -->
+    <div class="card border-0 shadow-sm mt-4 rounded-4">
+        <div class="card-header bg-white border-bottom p-3">
+            <h5 class="card-title fw-bold mb-0 text-dark" style="font-family: 'Segoe UI', Arial, sans-serif;">
+                <i class="bi bi-shield-check text-primary me-2 fs-4"></i>Bitácora de Movimientos y Auditoría de Tareas
+            </h5>
+            <p class="text-muted small mb-0">Historial completo de creación, edición, cambios de estado y eliminación de plazos y tareas (Auditoría de seguridad).</p>
+        </div>
+        <div class="card-body p-3">
+            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="bg-light text-secondary fw-semibold">
+                        <tr>
+                            <th class="ps-3 py-2">Fecha y Hora</th>
+                            <th class="py-2">Usuario</th>
+                            <th class="py-2">Acción</th>
+                            <th class="py-2">Detalles</th>
+                            <th class="py-2">Dirección IP</th>
+                            <th class="pe-3 py-2">Dispositivo / Agente</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if auditorias_tareas %}
+                            {% for log in auditorias_tareas %}
+                                <tr>
+                                    <td class="ps-3 text-muted" style="white-space: nowrap;">{{ log.fecha_hora.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                                    <td class="fw-semibold text-dark">{{ log.usuario.nombre if log.usuario else 'Desconocido' }}</td>
+                                    <td>
+                                        {% set badge_class = 'bg-secondary' %}
+                                        {% if 'Creación' in log.accion_realizada or 'Crear' in log.accion_realizada %}
+                                            {% set badge_class = 'bg-success bg-opacity-10 text-success border border-success border-opacity-25' %}
+                                        {% elif 'Editar' in log.accion_realizada or 'Edición' in log.accion_realizada %}
+                                            {% set badge_class = 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25' %}
+                                        {% elif 'Estado' in log.accion_realizada %}
+                                            {% set badge_class = 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25' %}
+                                        {% elif 'Eliminar' in log.accion_realizada or 'Eliminación' in log.accion_realizada %}
+                                            {% set badge_class = 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25' %}
+                                        {% endif %}
+                                        <span class="badge rounded-pill {{ badge_class }} px-2 py-1" style="font-size:0.72rem;">{{ log.accion_realizada }}</span>
+                                    </td>
+                                    <td class="text-dark">{{ log.detalles_tecnicos }}</td>
+                                    <td class="text-muted" style="white-space: nowrap;">{{ log.ip_direccion }}</td>
+                                    <td class="text-muted pe-3" style="max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ log.dispositivo_info }}">
+                                        {{ log.dispositivo_info }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>No hay registros de movimientos en tareas.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA CREAR Y EDITAR TAREAS -->
+<div class="modal fade" id="modalTarea" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" id="modalTareaTitle" style="color: #071c4d;">Crear Nueva Tarea</h5>
+                    <p class="text-muted small mb-0" id="modalTareaSub">Define los parámetros de la actividad o plazo procesal.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formTarea">
+                {{ form.hidden_tag() }}
+                <div class="modal-body p-4">
+                    <!-- Título -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">{{ form.titulo.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.titulo(class="form-control form-control-sm", placeholder="Ej: Redactar memorial de apelación") }}
+                    </div>
+                    <!-- Descripción -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">{{ form.descripcion.label.text }}</label>
+                        {{ form.descripcion(class="form-control form-control-sm", rows="3", placeholder="Detalla los puntos clave o justificaciones...") }}
+                    </div>
+                    
+                    <div class="row g-2">
+                        <!-- Fecha Límite -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-semibold">{{ form.fecha_limite.label.text }}</label>
+                            {{ form.fecha_limite(class="form-control form-control-sm", type="date") }}
+                        </div>
+                        <!-- Prioridad -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-semibold">{{ form.prioridad.label.text }} <span class="text-danger">*</span></label>
+                            {{ form.prioridad(class="form-select form-select-sm") }}
+                        </div>
+                    </div>
+
+                    <div class="row g-2">
+                        <!-- Estado -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-semibold">{{ form.estado.label.text }} <span class="text-danger">*</span></label>
+                            {{ form.estado(class="form-select form-select-sm") }}
+                        </div>
+                        <!-- Asignado A -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-semibold">{{ form.asignado_a_id.label.text }} <span class="text-danger">*</span></label>
+                            {{ form.asignado_a_id(class="form-select form-select-sm") }}
+                        </div>
+                    </div>
+
+                    <!-- Expediente -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">{{ form.expediente_id.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.expediente_id(class="form-select form-select-sm") }}
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    {{ form.submit(class="btn btn-sm btn-primary fw-semibold px-3", id="btnSubmitForm", style="background-color: #00409A; border-color: #00409A;") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CONFIRMAR ELIMINACIÓN DE TAREA -->
+<div class="modal fade" id="modalEliminarTarea" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold text-danger"><i class="bi bi-trash3-fill me-2"></i>Eliminar Tarea</h5>
+                    <p class="text-muted small mb-0">Esta acción no se puede deshacer.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formEliminarTarea">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="mb-0 text-dark">¿Está seguro de que desea eliminar permanentemente la tarea <strong id="lblEliminarTareaName"></strong> del sistema?</p>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold px-3">Eliminar Tarea</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</main>
+
+<script>
+    let modalInstance;
+    let modalElimInstance;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        modalInstance = new bootstrap.Modal(document.getElementById('modalTarea'));
+        modalElimInstance = new bootstrap.Modal(document.getElementById('modalEliminarTarea'));
+    });
+
+    function abrirModalCrear() {
+        document.getElementById('modalTareaTitle').innerText = 'Crear Nueva Tarea';
+        document.getElementById('modalTareaSub').innerText = 'Define los parámetros de la actividad o plazo procesal.';
+        document.getElementById('formTarea').action = "{{ url_for('crear_tarea') }}";
+        
+        // Limpiar formulario
+        document.getElementById('titulo').value = '';
+        document.getElementById('descripcion').value = '';
+        document.getElementById('fecha_limite').value = '';
+        document.getElementById('prioridad').value = 'Media';
+        document.getElementById('estado').value = 'Pendiente';
+        document.getElementById('expediente_id').value = '0';
+        document.getElementById('asignado_a_id').value = '{{ current_user.id }}'; // Autoasignar por defecto
+        
+        document.getElementById('btnSubmitForm').value = 'Crear Tarea';
+        modalInstance.show();
+    }
+
+    function abrirModalEditar(el) {
+        const id = el.getAttribute('data-id');
+        const titulo = el.getAttribute('data-titulo');
+        const descripcion = el.getAttribute('data-descripcion');
+        const fechaLimite = el.getAttribute('data-fecha-limite');
+        const prioridad = el.getAttribute('data-prioridad');
+        const estado = el.getAttribute('data-estado');
+        const expId = el.getAttribute('data-expediente-id');
+        const asignadoId = el.getAttribute('data-asignado-a-id');
+
+        document.getElementById('modalTareaTitle').innerText = 'Editar Tarea';
+        document.getElementById('modalTareaSub').innerText = 'Modifica los parámetros o reasigna esta actividad.';
+        document.getElementById('formTarea').action = `/tareas/${id}/editar`;
+        
+        // Rellenar formulario
+        document.getElementById('titulo').value = titulo;
+        document.getElementById('descripcion').value = descripcion;
+        document.getElementById('fecha_limite').value = fechaLimite;
+        document.getElementById('prioridad').value = prioridad;
+        document.getElementById('estado').value = estado;
+        document.getElementById('expediente_id').value = expId ? expId : '0';
+        document.getElementById('asignado_a_id').value = asignadoId;
+        
+        document.getElementById('btnSubmitForm').value = 'Guardar Cambios';
+        modalInstance.show();
+    }
+
+    function confirmarEliminar(el) {
+        const id = el.getAttribute('data-id');
+        const titulo = el.getAttribute('data-titulo');
+
+        document.getElementById('lblEliminarTareaName').innerText = titulo;
+        document.getElementById('formEliminarTarea').action = `/tareas/${id}/eliminar`;
+        
+        modalElimInstance.show();
+    }
+</script>
+{% endblock %}

@@ -167,7 +167,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                <a href="{{ url_for('listar_tareas') }}" class="nav-link {% if request.endpoint == 'listar_tareas' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                     <i class="bi bi-clipboard2-check-fill me-3"></i> 
                     <span class="menu-text">Mis Tareas</span>
                 </a>

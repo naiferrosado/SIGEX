@@ -17,6 +17,14 @@ from app.forms import (
     ExpedienteJudicialForm,
     LoginForm,
     UsuarioForm,
+    ForgotPasswordForm,
+    ResetPasswordForm,
+    TareaForm,
+)
+from app.utils import (
+    generate_reset_token,
+    verify_reset_token,
+    enviar_email_restablecimiento,
 )
 from app.models import (
     AlertaPlazoAudiencia,
@@ -33,6 +41,7 @@ from app.models import (
     Usuario,
     VersionDocumento,
     rd_now,
+    Tarea,
 )
 
 ALLOWED_EXTENSIONS = {
@@ -213,6 +222,51 @@ def register_routes(app):
                 )
 
         return render_template("auth/login.html", form=form)
+
+    @app.route("/olvidaste-password", methods=["GET", "POST"])
+    def reset_password_request():
+        if current_user.is_authenticated:
+            return redirect(url_for("dashboard"))
+        form = ForgotPasswordForm()
+        if form.validate_on_submit():
+            usuario = Usuario.query.filter_by(email=form.email.data).first()
+            if usuario:
+                token = generate_reset_token(usuario.id)
+                reset_url = url_for("reset_password", token=token, _external=True)
+                enviar_email_restablecimiento(usuario, reset_url)
+            flash(
+                "Si el correo electrónico ingresado está registrado, recibirás un mensaje con las instrucciones para restablecer tu contraseña.",
+                "success"
+            )
+            return redirect(url_for("login"))
+        return render_template("auth/reset_password_request.html", form=form)
+
+    @app.route("/restablecer-password/<token>", methods=["GET", "POST"])
+    def reset_password(token):
+        if current_user.is_authenticated:
+            return redirect(url_for("dashboard"))
+        user_id = verify_reset_token(token)
+        if not user_id:
+            flash("El enlace de restablecimiento es inválido o ha expirado.", "danger")
+            return redirect(url_for("reset_password_request"))
+        
+        usuario = Usuario.query.get(user_id)
+        if not usuario:
+            flash("El usuario no existe.", "danger")
+            return redirect(url_for("reset_password_request"))
+
+        form = ResetPasswordForm()
+        if form.validate_on_submit():
+            usuario.password_hash = generate_password_hash(form.password.data)
+            usuario.requiere_cambio_password = False
+            try:
+                db.session.commit()
+                flash("Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.", "success")
+                return redirect(url_for("login"))
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al guardar la nueva contraseña: {str(e)}", "danger")
+        return render_template("auth/reset_password.html", form=form)
 
     @app.route("/dashboard")
     @login_required
@@ -2157,6 +2211,12 @@ def register_routes(app):
                 flash("No tiene permisos para descargar este documento.", "danger")
                 return redirect(url_for("dashboard"))
 
+        # Verificar si el archivo existe físicamente
+        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento)
+        if not os.path.exists(filepath):
+            flash("El archivo físico no se encuentra en el servidor. Puede que haya sido eliminado del almacenamiento local.", "danger")
+            return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
         # Reconstruir nombre de descarga original quitando el UUID prefijo
         orig_filename = version.ruta_almacenamiento.split("_", 1)[-1] if "_" in version.ruta_almacenamiento else version.ruta_almacenamiento
 
@@ -2193,6 +2253,36 @@ def register_routes(app):
             if not tiene_acceso:
                 flash("No tiene permisos para ver este documento.", "danger")
                 return redirect(url_for("dashboard"))
+
+        # Verificar si el archivo existe físicamente (vista previa cargada en iframe)
+        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento)
+        if not os.path.exists(filepath):
+            return """
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Archivo no encontrado</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+                <style>
+                    body { background-color: #f8f9fa; color: #333; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                    .error-container { text-align: center; max-width: 450px; padding: 30px; border-radius: 12px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+                    .error-icon { font-size: 3.5rem; color: #dc3545; margin-bottom: 15px; }
+                </style>
+            </head>
+            <body>
+                <div class="error-container">
+                    <i class="bi bi-file-earmark-x-fill error-icon"></i>
+                    <h4 class="fw-bold mb-2">Archivo no disponible</h4>
+                    <p class="text-muted small mb-4">El archivo físico de este documento no está disponible en este servidor local. Esto suele ocurrir porque la carpeta de subidas (<code>uploads</code>) está excluida en el archivo <code>.gitignore</code>, por lo que los archivos subidos por otros usuarios no se descargan de GitHub.</p>
+                    <div class="text-center">
+                        <button onclick="window.parent.bootstrap.Modal.getInstance(window.parent.document.getElementById('modalVistaPrevia')).hide();" class="btn btn-secondary btn-sm fw-semibold">Cerrar Vista Previa</button>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """, 404
 
         # Reconstruir nombre de descarga original quitando el UUID prefijo
         orig_filename = version.ruta_almacenamiento.split("_", 1)[-1] if "_" in version.ruta_almacenamiento else version.ruta_almacenamiento
@@ -2559,3 +2649,348 @@ def register_routes(app):
             flash(f"Error al mover el documento: {str(e)}", "danger")
 
         return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+
+    @app.route("/tareas", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def listar_tareas():
+        # Capturar filtros de búsqueda
+        filtro_q = request.args.get("q", "").strip()
+        filtro_estado = request.args.get("estado", "Todos")
+        filtro_prioridad = request.args.get("prioridad", "Todas")
+        filtro_expediente = request.args.get("expediente_id", "Todos")
+        filtro_asignado = request.args.get("asignado_a_id", "Todos")
+
+        # Iniciar lista vacía si no se busca (como las otras pantallas)
+        if not filtro_q:
+            tareas = []
+        else:
+            query = Tarea.query
+
+            # Filtrar por rol (Asociado/Paralegal solo ven las asignadas a ellos o a todos)
+            if current_user.rol in ["Asociado", "Paralegal"]:
+                query = query.filter(db.or_(
+                    Tarea.asignado_a_id == current_user.id,
+                    Tarea.asignado_a_id == None
+                ))
+            elif filtro_asignado != "Todos":
+                if filtro_asignado == "General":
+                    query = query.filter_by(asignado_a_id=None)
+                else:
+                    try:
+                        a_id = int(filtro_asignado)
+                        query = query.filter_by(asignado_a_id=a_id)
+                    except ValueError:
+                        pass
+
+            if filtro_estado != "Todos":
+                query = query.filter_by(estado=filtro_estado)
+            
+            if filtro_prioridad != "Todas":
+                query = query.filter_by(prioridad=filtro_prioridad)
+                
+            if filtro_expediente != "Todos":
+                try:
+                    e_id = int(filtro_expediente)
+                    query = query.filter_by(expediente_id=e_id)
+                except ValueError:
+                    pass
+
+            # Filtrar por texto de búsqueda en título o descripción
+            query = query.filter(db.or_(
+                Tarea.titulo.ilike(f"%{filtro_q}%"),
+                Tarea.descripcion.ilike(f"%{filtro_q}%")
+            ))
+
+            tareas = query.order_by(Tarea.estado.desc(), Tarea.fecha_limite.asc(), Tarea.prioridad.asc()).all()
+
+        # Datos para los selectores del formulario de creación/edición
+        expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
+        usuarios_list = Usuario.query.filter(Usuario.activo == True).order_by(Usuario.nombre.asc()).all()
+
+        # Instanciar el formulario
+        form = TareaForm()
+        # Cargar opciones dinámicas (0 representa "Todo el equipo")
+        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [(e.id, f"{e.nombre_caso} ({e.codigo_firma})") for e in expedientes_list]
+        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [(u.id, u.nombre) for u in usuarios_list]
+
+        # Calcular estadísticas rápidas
+        stat_query = Tarea.query
+        if current_user.rol in ["Asociado", "Paralegal"]:
+            stat_query = stat_query.filter(db.or_(
+                Tarea.asignado_a_id == current_user.id,
+                Tarea.asignado_a_id == None
+            ))
+
+        stat_pendientes = stat_query.filter_by(estado="Pendiente").count()
+        stat_progreso = stat_query.filter_by(estado="En Progreso").count()
+        stat_completadas = stat_query.filter_by(estado="Completada").count()
+        
+        # Calcular tareas vencidas (no completadas y con fecha_limite menor a hoy)
+        hoy = rd_now().date()
+        stat_vencidas = stat_query.filter(Tarea.estado != "Completada", Tarea.fecha_limite < hoy).count()
+
+        # Obtener auditorías relacionadas con movimientos en tareas
+        auditorias_tareas = (
+            BitacoraAuditoria.query.filter(
+                db.or_(
+                    BitacoraAuditoria.accion_realizada.ilike("%tarea%"),
+                    BitacoraAuditoria.detalles_tecnicos.ilike("%tarea%")
+                )
+            )
+            .order_by(BitacoraAuditoria.fecha_hora.desc())
+            .limit(50)
+            .all()
+        )
+
+        return render_template(
+            "tareas/index.html",
+            tareas=tareas,
+            form=form,
+            expedientes_list=expedientes_list,
+            usuarios_list=usuarios_list,
+            filtro_q=filtro_q,
+            filtro_estado=filtro_estado,
+            filtro_prioridad=filtro_prioridad,
+            filtro_expediente=filtro_expediente,
+            filtro_asignado=filtro_asignado,
+            stat_pendientes=stat_pendientes,
+            stat_progreso=stat_progreso,
+            stat_vencidas=stat_vencidas,
+            stat_completadas=stat_completadas,
+            auditorias_tareas=auditorias_tareas,
+            current_date=rd_now(),
+            usuario=current_user
+        )
+
+    @app.route("/tareas/crear", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def crear_tarea():
+        form = TareaForm()
+        # Cargar opciones para pasar validaciones
+        expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").all()
+        usuarios_list = Usuario.query.filter(Usuario.activo == True).all()
+        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [(e.id, e.nombre_caso) for e in expedientes_list]
+        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [(u.id, u.nombre) for u in usuarios_list]
+
+        if form.validate_on_submit():
+            exp_id = form.expediente_id.data
+            asignado_id = form.asignado_a_id.data
+            if asignado_id == 0:
+                asignado_id = None
+                
+            nueva_tarea = Tarea(
+                titulo=form.titulo.data.strip(),
+                descripcion=form.descripcion.data.strip() if form.descripcion.data else None,
+                fecha_limite=form.fecha_limite.data,
+                prioridad=form.prioridad.data,
+                estado=form.estado.data,
+                expediente_id=exp_id,
+                asignado_a_id=asignado_id,
+                creado_por_id=current_user.id
+            )
+            try:
+                db.session.add(nueva_tarea)
+                db.session.commit()
+
+                # Auditoría
+                nombre_asignado = "Todo el equipo" if asignado_id is None else nueva_tarea.asignado_a.nombre
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Creación Tarea",
+                    detalles=f"Creó la tarea '{form.titulo.data}' asignada a: {nombre_asignado}.",
+                    expediente_id=exp_id,
+                    cliente_id=nueva_tarea.expediente.cliente_id
+                )
+                flash(f"Tarea '{form.titulo.data}' creada exitosamente.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al guardar la tarea: {str(e)}", "danger")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+
+        return redirect(url_for("listar_tareas"))
+
+    @app.route("/tareas/<int:tarea_id>/editar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def editar_tarea(tarea_id):
+        tarea = Tarea.query.get_or_404(tarea_id)
+        
+        # Validar permisos
+        if current_user.rol in ["Asociado", "Paralegal"] and tarea.asignado_a_id is not None and tarea.asignado_a_id != current_user.id:
+            flash("No tiene permisos para modificar esta tarea.", "danger")
+            return redirect(url_for("listar_tareas"))
+
+        form = TareaForm()
+        # Cargar opciones para pasar validaciones
+        expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").all()
+        usuarios_list = Usuario.query.filter(Usuario.activo == True).all()
+        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [(e.id, e.nombre_caso) for e in expedientes_list]
+        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [(u.id, u.nombre) for u in usuarios_list]
+
+        if form.validate_on_submit():
+            exp_id = form.expediente_id.data
+            
+            if current_user.rol in ["Asociado", "Paralegal"]:
+                # Asociado/Paralegal no pueden reasignar
+                asignado_id = tarea.asignado_a_id
+            else:
+                asignado_id = form.asignado_a_id.data
+                if asignado_id == 0:
+                    asignado_id = None
+
+            tarea.titulo = form.titulo.data.strip()
+            tarea.descripcion = form.descripcion.data.strip() if form.descripcion.data else None
+            tarea.fecha_limite = form.fecha_limite.data
+            tarea.prioridad = form.prioridad.data
+            
+            estado_anterior = tarea.estado
+            tarea.estado = form.estado.data
+            if tarea.estado == "Completada" and estado_anterior != "Completada":
+                tarea.fecha_completada = rd_now()
+            elif tarea.estado != "Completada":
+                tarea.fecha_completada = None
+
+            tarea.expediente_id = exp_id
+            tarea.asignado_a_id = asignado_id
+
+            try:
+                db.session.commit()
+
+                # Auditoría
+                nombre_asignado = "Todo el equipo" if asignado_id is None else tarea.asignado_a.nombre
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="Editar Tarea",
+                    detalles=f"Modificó la tarea ID {tarea_id} ('{tarea.titulo}'). Asignado: {nombre_asignado}.",
+                    expediente_id=exp_id,
+                    cliente_id=tarea.expediente.cliente_id
+                )
+                flash(f"Tarea '{tarea.titulo}' modificada con éxito.", "success")
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al actualizar la tarea: {str(e)}", "danger")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+
+        return redirect(url_for("listar_tareas"))
+
+    @app.route("/tareas/<int:tarea_id>/completar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def completar_tarea(tarea_id):
+        tarea = Tarea.query.get_or_404(tarea_id)
+
+        # Validar permisos
+        if current_user.rol in ["Asociado", "Paralegal"] and tarea.asignado_a_id != current_user.id:
+            flash("No tiene permisos para modificar esta tarea.", "danger")
+            return redirect(url_for("listar_tareas"))
+
+        # Alternar estado
+        if tarea.estado == "Completada":
+            tarea.estado = "Pendiente"
+            tarea.fecha_completada = None
+            accion_aud = "Reabrir Tarea"
+            detalles_aud = f"Marcó la tarea ID {tarea_id} ('{tarea.titulo}') como Pendiente."
+            msg = f"Tarea '{tarea.titulo}' reabierta."
+        else:
+            tarea.estado = "Completada"
+            tarea.fecha_completada = rd_now()
+            accion_aud = "Completar Tarea"
+            detalles_aud = f"Marcó la tarea ID {tarea_id} ('{tarea.titulo}') como Completada."
+            msg = f"Tarea '{tarea.titulo}' completada exitosamente."
+
+        try:
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion=accion_aud,
+                detalles=detalles_aud,
+                expediente_id=tarea.expediente_id,
+                cliente_id=tarea.expediente.cliente_id if tarea.expediente_id else None
+            )
+            flash(msg, "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al actualizar estado de la tarea: {str(e)}", "danger")
+
+        return redirect(url_for("listar_tareas"))
+
+    @app.route("/tareas/<int:tarea_id>/eliminar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def eliminar_tarea(tarea_id):
+        tarea = Tarea.query.get_or_404(tarea_id)
+
+        # Validar permisos
+        puede_eliminar = (current_user.rol in ["Socio", "Administrador"]) or (tarea.creado_por_id == current_user.id)
+        if not puede_eliminar:
+            flash("No tiene permisos para eliminar esta tarea.", "danger")
+            return redirect(url_for("listar_tareas"))
+
+        titulo = tarea.titulo
+        exp_id = tarea.expediente_id
+        cli_id = tarea.expediente.cliente_id if exp_id else None
+
+        try:
+            db.session.delete(tarea)
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Eliminar Tarea",
+                detalles=f"Eliminó permanentemente la tarea ID {tarea_id} ('{titulo}').",
+                expediente_id=exp_id,
+                cliente_id=cli_id
+            )
+            flash(f"Tarea '{titulo}' eliminada del sistema.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al eliminar la tarea: {str(e)}", "danger")
+
+        return redirect(url_for("listar_tareas"))
+
+    @app.route("/tareas/<int:tarea_id>/cambiar-estado", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def cambiar_estado_tarea(tarea_id):
+        tarea = Tarea.query.get_or_404(tarea_id)
+
+        # Validar permisos
+        if current_user.rol in ["Asociado", "Paralegal"] and tarea.asignado_a_id != current_user.id:
+            flash("No tiene permisos para modificar esta tarea.", "danger")
+            return redirect(url_for("listar_tareas"))
+
+        nuevo_estado = request.form.get("nuevo_estado")
+        estados_validos = ["Pendiente", "En Progreso", "Completada"]
+        if nuevo_estado not in estados_validos:
+            flash("Estado no válido.", "danger")
+            return redirect(url_for("listar_tareas"))
+
+        estado_anterior = tarea.estado
+        tarea.estado = nuevo_estado
+
+        try:
+            db.session.commit()
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Cambiar Estado Tarea",
+                detalles=f"Cambió el estado de la tarea ID {tarea_id} ('{tarea.titulo}') de '{estado_anterior}' a '{nuevo_estado}'.",
+                expediente_id=tarea.expediente_id,
+                cliente_id=tarea.expediente.cliente_id if tarea.expediente_id else None
+            )
+            flash(f"Estado de '{tarea.titulo}' cambiado a <strong>{nuevo_estado}</strong>.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al cambiar el estado: {str(e)}", "danger")
+
+        return redirect(url_for("listar_tareas"))

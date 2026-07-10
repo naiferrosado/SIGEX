@@ -306,3 +306,26 @@ class BitacoraAuditoria(db.Model):
     # Relaciones para facilidad de acceso en el backend
     usuario = db.relationship('Usuario', backref=db.backref('auditorias', lazy=True))
     cliente_afectado = db.relationship('Cliente', backref=db.backref('auditorias_list', lazy=True, cascade='all, delete-orphan'))
+
+
+class Tarea(db.Model):
+    __tablename__ = 'tareas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(255), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    fecha_limite = db.Column(db.Date, nullable=True)
+    prioridad = db.Column(db.String(20), nullable=False, default='Media') # 'Alta', 'Media', 'Baja'
+    estado = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'En Progreso', 'Completada'
+    
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), nullable=False)
+    asignado_a_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=True)
+    creado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True)
+    
+    fecha_creacion = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+    fecha_completada = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    # Relaciones
+    expediente = db.relationship('Expediente', backref=db.backref('tareas', lazy=True, cascade="all, delete-orphan"))
+    asignado_a = db.relationship('Usuario', foreign_keys=[asignado_a_id], backref=db.backref('tareas_asignadas', lazy=True))
+    creado_por = db.relationship('Usuario', foreign_keys=[creado_por_id], backref=db.backref('tareas_creadas', lazy=True))

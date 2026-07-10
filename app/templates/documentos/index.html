@@ -431,6 +431,8 @@
                                                         data-filename="{{ file_name }}"
                                                         data-visibilidad="{{ doc.visibilidad }}"
                                                         data-cliente-id="{{ doc.cliente_id or '' }}"
+                                                        data-expediente-cliente-id="{{ doc.expediente.cliente_id }}"
+                                                        data-expediente-cliente-nombre="{{ doc.expediente.cliente.nombre_completo }} ({{ doc.expediente.cliente.rnc_cedula }})"
                                                         onclick="abrirModalVisibilidad(this)">
                                                         <i class="bi {% if doc.visibilidad == 'Compartido' %}bi-eye-slash-fill{% else %}bi-eye-fill{% endif %} me-2 text-warning"></i>
                                                         Visibilidad / Compartir
@@ -826,15 +828,24 @@
 
                     <!-- Compartir con Cliente -->
                     <div class="mb-3 d-none" id="uploadClienteWrapper">
-                        <label class="form-label small fw-semibold">Compartir con Cliente Específico <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm" name="compartir_cliente_id" id="uploadCompartirCliente">
-                            <option value="">-- Seleccione un cliente --</option>
-                            {% if clientes_select %}
-                            {% for c in clientes_select %}
-                            <option value="{{ c.id }}">{{ c.nombre_completo }} ({{ c.rnc_cedula }})</option>
-                            {% endfor %}
-                            {% endif %}
-                        </select>
+                        <label class="form-label small fw-semibold">Compartir con Cliente <span class="text-danger">*</span></label>
+                        {% if expediente_preseleccionado %}
+                            <!-- Input oculto para enviar el ID del cliente del expediente -->
+                            <input type="hidden" name="compartir_cliente_id" id="uploadCompartirCliente" value="{{ expediente_preseleccionado.cliente_id }}">
+                            <!-- Mostrar el cliente de forma estática en lugar de un dropdown -->
+                            <div class="form-control form-control-sm bg-light text-dark fw-medium">
+                                {{ expediente_preseleccionado.cliente.nombre_completo }} ({{ expediente_preseleccionado.cliente.rnc_cedula }})
+                            </div>
+                        {% else %}
+                            <select class="form-select form-select-sm" name="compartir_cliente_id" id="uploadCompartirCliente">
+                                <option value="">-- Seleccione un cliente --</option>
+                                {% if clientes_select %}
+                                {% for c in clientes_select %}
+                                <option value="{{ c.id }}">{{ c.nombre_completo }} ({{ c.rnc_cedula }})</option>
+                                {% endfor %}
+                                {% endif %}
+                            </select>
+                        {% endif %}
                         <span class="text-muted small" style="font-size: 0.7rem;">El cliente seleccionado podrá ver este documento en su portal.</span>
                     </div>
 
@@ -1100,17 +1111,13 @@
                             <option value="Compartido">Compartir con Cliente</option>
                         </select>
                     </div>
-                    <!-- Cliente dropdown -->
+                    <!-- Cliente wrapper -->
                     <div class="mb-3 d-none" id="visClienteWrapper">
-                        <label class="form-label small fw-semibold">Compartir con Cliente Específico <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm" name="compartir_cliente_id" id="visCompartirCliente">
-                            <option value="">-- Seleccione un cliente --</option>
-                            {% if clientes_select %}
-                                {% for c in clientes_select %}
-                                <option value="{{ c.id }}">{{ c.nombre_completo }} ({{ c.rnc_cedula }})</option>
-                                {% endfor %}
-                            {% endif %}
-                        </select>
+                        <label class="form-label small fw-semibold">Compartir con Cliente <span class="text-danger">*</span></label>
+                        <!-- Input oculto para enviar el ID del cliente del expediente -->
+                        <input type="hidden" name="compartir_cliente_id" id="visCompartirCliente">
+                        <!-- Mostrar el cliente de forma estática -->
+                        <div id="visClienteStaticName" class="form-control form-control-sm bg-light text-dark fw-medium"></div>
                         <span class="text-muted small" style="font-size: 0.7rem;">El cliente seleccionado podrá ver este documento en su portal.</span>
                     </div>
                 </div>
@@ -1528,14 +1535,10 @@
     function toggleVisClienteSelect() {
         const vis = document.getElementById('visSelect').value;
         const wrapper = document.getElementById('visClienteWrapper');
-        const select = document.getElementById('visCompartirCliente');
         if (vis === 'Compartido') {
             wrapper.classList.remove('d-none');
-            select.required = true;
         } else {
             wrapper.classList.add('d-none');
-            select.required = false;
-            select.value = '';
         }
     }
 
@@ -1543,11 +1546,13 @@
         const id = el.getAttribute('data-id');
         const filename = el.getAttribute('data-filename');
         const visibilidad = el.getAttribute('data-visibilidad');
-        const clienteId = el.getAttribute('data-cliente-id');
+        const expClienteId = el.getAttribute('data-expediente-cliente-id');
+        const expClienteNombre = el.getAttribute('data-expediente-cliente-nombre');
         
         document.getElementById('lblVisibilidadDocName').value = filename;
         document.getElementById('visSelect').value = visibilidad;
-        document.getElementById('visCompartirCliente').value = clienteId && clienteId !== 'None' ? clienteId : '';
+        document.getElementById('visCompartirCliente').value = expClienteId;
+        document.getElementById('visClienteStaticName').innerText = expClienteNombre;
         document.getElementById('formVisibilidadDocumento').action = `/documentos/${id}/cambiar_visibilidad`;
         
         toggleVisClienteSelect();

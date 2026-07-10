@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, DecimalField, DateField, TimeField, PasswordField, BooleanField, SubmitField, SelectField
-from wtforms.validators import DataRequired, Email, Optional, Length
+from wtforms.validators import DataRequired, Email, Optional, Length, EqualTo, InputRequired
 from wtforms import DateField, TextAreaField
 
 # FORMULARIO DE SEGURIDAD PARA EL LOGIN
@@ -149,3 +149,46 @@ class ExpedienteAdministrativoForm(ExpedienteBaseForm):
     monto_tasas_impuestos = DecimalField('Total Tasas/Impuestos (RD$)', places=2, validators=[Optional()])
 
     submit_admin = SubmitField('Crear Expediente Administrativo')
+
+
+class ForgotPasswordForm(FlaskForm):
+    email = StringField('Correo Institucional', validators=[
+        DataRequired(message="El correo es obligatorio."),
+        Email(message="Ingrese un formato de correo válido.")
+    ])
+    submit = SubmitField('Enviar Enlace')
+
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('Nueva Contraseña', validators=[
+        DataRequired(message="La nueva contraseña es obligatoria."),
+        Length(min=6, message="La clave debe tener al menos 6 caracteres.")
+    ])
+    confirm_password = PasswordField('Confirmar Contraseña', validators=[
+        DataRequired(message="Debe confirmar la contraseña."),
+        EqualTo('password', message="Las contraseñas deben coincidir.")
+    ])
+    submit = SubmitField('Restablecer Contraseña')
+
+
+class TareaForm(FlaskForm):
+    titulo = StringField('Título de la Tarea', validators=[
+        DataRequired(message="El título es obligatorio."),
+        Length(max=255)
+    ])
+    descripcion = TextAreaField('Descripción', validators=[Optional()])
+    fecha_limite = DateField('Fecha Límite (Plazo)', format='%Y-%m-%d', validators=[Optional()])
+    prioridad = SelectField('Prioridad', choices=[
+        ('Baja', 'Baja'),
+        ('Media', 'Media'),
+        ('Alta', 'Alta')
+    ], default='Media', validators=[DataRequired(message="Debe seleccionar una prioridad.")])
+    estado = SelectField('Estado', choices=[
+        ('Pendiente', 'Pendiente'),
+        ('En Progreso', 'En Progreso'),
+        ('Completada', 'Completada')
+    ], default='Pendiente', validators=[DataRequired(message="Debe seleccionar un estado.")])
+    
+    expediente_id = SelectField('Expediente / Caso', coerce=int, validators=[DataRequired(message="Debe seleccionar un expediente.")])
+    asignado_a_id = SelectField('Asignar a Abogado/Paralegal', coerce=int, validators=[InputRequired(message="Debe seleccionar a quién asignar la tarea.")])
+    submit = SubmitField('Guardar Tarea')
