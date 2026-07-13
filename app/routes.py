@@ -2610,6 +2610,66 @@ def register_routes(app):
 
         return redirect(url_for("listar_tipologias"))
 
+    @app.route("/documentos/carpetas", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def listar_carpetas():
+        filtro_q = request.args.get("q", "").strip()
+        filtro_expediente = request.args.get("expediente_id", "Todos")
+
+        query = Carpeta.query
+
+        # Filtrar por expediente
+        if filtro_expediente != "Todos":
+            try:
+                e_id = int(filtro_expediente)
+                query = query.filter_by(expediente_id=e_id)
+            except ValueError:
+                pass
+
+        # Filtrar por búsqueda de texto
+        if filtro_q:
+            query = query.filter(Carpeta.nombre.ilike(f"%{filtro_q}%"))
+
+        carpetas = query.order_by(Carpeta.fecha_creacion.desc()).all()
+
+        # Estadísticas globales
+        total_carpetas = Carpeta.query.count()
+        total_docs_en_carpetas = Documento.query.filter(Documento.carpeta_id != None).count()
+        total_docs_sin_carpeta = Documento.query.filter(Documento.carpeta_id == None).count()
+        expedientes_con_carpetas = db.session.query(db.func.count(db.distinct(Carpeta.expediente_id))).scalar()
+
+        # Expedientes para el selector de filtro
+        expedientes_select = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
+
+        # Auditorías recientes relacionadas con carpetas
+        auditorias_carpetas = (
+            BitacoraAuditoria.query.filter(
+                db.or_(
+                    BitacoraAuditoria.accion_realizada.ilike("%Carpeta%"),
+                    BitacoraAuditoria.detalles_tecnicos.ilike("%carpeta%")
+                )
+            )
+            .order_by(BitacoraAuditoria.fecha_hora.desc())
+            .limit(30)
+            .all()
+        )
+
+        return render_template(
+            "documentos/carpetas.html",
+            carpetas=carpetas,
+            filtro_q=filtro_q,
+            filtro_expediente=filtro_expediente,
+            total_carpetas=total_carpetas,
+            total_docs_en_carpetas=total_docs_en_carpetas,
+            total_docs_sin_carpeta=total_docs_sin_carpeta,
+            expedientes_con_carpetas=expedientes_con_carpetas,
+            expedientes_select=expedientes_select,
+            auditorias_carpetas=auditorias_carpetas,
+            usuario=current_user,
+            current_date=datetime.now()
+        )
+
     @app.route("/documentos/carpetas/crear", methods=["POST"])
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")

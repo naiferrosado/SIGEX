@@ -154,8 +154,7 @@
                 href="{{ url_for('documentos') }}" style="border-width: 3px !important;">Documentos</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link py-2 px-1 text-muted" href="#seccion-carpetas"
-                onclick="const el = document.getElementById('seccion-carpetas'); if(el) el.scrollIntoView({behavior: 'smooth'}); return false;">Carpetas</a>
+            <a class="nav-link py-2 px-1 text-muted" href="{{ url_for('listar_carpetas') }}">Carpetas</a>
         </li>
         {% if usuario.rol in ['Socio', 'Asociado', 'Paralegal', 'Administrador'] %}
         <li class="nav-item">

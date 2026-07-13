@@ -1,0 +1,619 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa; min-height: 100vh;">
+
+    <!-- Encabezado Superior -->
+    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-3">
+        <div>
+            <h3 class="fw-bold mb-0 text-dark" style="font-family: 'Segoe UI', system-ui; letter-spacing: -0.5px;">
+                Gestión de Carpetas
+            </h3>
+            <p class="text-muted small mb-0">Organiza y administra las carpetas de documentos de todos los expedientes del sistema.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('documentos') }}" class="btn btn-white btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm" style="border-radius: 8px;">
+                <i class="bi bi-arrow-left text-primary"></i> Volver a Documentos
+            </a>
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 shadow-sm" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#modalCrearCarpeta">
+                <i class="bi bi-folder-plus"></i> Nueva Carpeta
+            </button>
+        </div>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{{ url_for('expedientes') }}" class="text-decoration-none text-muted">Expedientes</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('documentos') }}" class="text-decoration-none text-muted">Documentos</a></li>
+            <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">Carpetas</li>
+        </ol>
+    </nav>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-3" role="alert" style="border-radius: 8px;">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Navegación por pestañas -->
+    <ul class="nav nav-tabs border-bottom mb-4" style="gap: 1.5rem;">
+        <li class="nav-item">
+            <a class="nav-link py-2 px-1 text-muted" href="{{ url_for('documentos') }}">Documentos</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active py-2 px-1 text-primary border-bottom border-primary fw-bold" href="{{ url_for('listar_carpetas') }}" style="border-width: 3px !important;">Carpetas</a>
+        </li>
+        {% if usuario.rol in ['Socio', 'Asociado', 'Paralegal', 'Administrador'] %}
+        <li class="nav-item">
+            <a class="nav-link py-2 px-1 text-muted" href="{{ url_for('listar_tipologias') }}">Tipologías</a>
+        </li>
+        {% endif %}
+    </ul>
+
+    <!-- CSS Interno para esta página -->
+    <style>
+        .stat-card {
+            border: none;
+            border-radius: 16px;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12) !important;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -30px;
+            right: -30px;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            opacity: 0.08;
+            background: white;
+        }
+        .stat-card .stat-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+        .stat-card .stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .carpeta-row {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .carpeta-row:hover {
+            background-color: #f0f5ff !important;
+        }
+        .carpeta-row.table-active {
+            background-color: #e8f0fe !important;
+            border-left: 3px solid #00409A;
+        }
+
+        .detail-panel {
+            transition: all 0.3s ease;
+        }
+
+        .folder-visual {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .folder-visual::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+        }
+
+        .audit-timeline-item {
+            position: relative;
+            padding-left: 1.5rem;
+            padding-bottom: 0.75rem;
+        }
+        .audit-timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00409A;
+            border: 2px solid #e8f0fe;
+        }
+        .audit-timeline-item::after {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 18px;
+            bottom: 0;
+            width: 2px;
+            background: #e8f0fe;
+        }
+        .audit-timeline-item:last-child::after {
+            display: none;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in {
+            animation: fadeInUp 0.35s ease forwards;
+        }
+    </style>
+
+    <!-- Tarjetas de Estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm text-white" style="background: linear-gradient(135deg, #00409A 0%, #0062d6 100%);">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="stat-icon bg-white bg-opacity-25">
+                        <i class="bi bi-folder-fill text-white"></i>
+                    </div>
+                </div>
+                <div class="stat-value mb-1">{{ total_carpetas }}</div>
+                <div class="small text-white-50 fw-semibold">Total Carpetas</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm text-white" style="background: linear-gradient(135deg, #0d6e3e 0%, #17a362 100%);">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="stat-icon bg-white bg-opacity-25">
+                        <i class="bi bi-file-earmark-text-fill text-white"></i>
+                    </div>
+                </div>
+                <div class="stat-value mb-1">{{ total_docs_en_carpetas }}</div>
+                <div class="small text-white-50 fw-semibold">Docs. Organizados</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm text-white" style="background: linear-gradient(135deg, #b45309 0%, #e07a18 100%);">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="stat-icon bg-white bg-opacity-25">
+                        <i class="bi bi-file-earmark-minus-fill text-white"></i>
+                    </div>
+                </div>
+                <div class="stat-value mb-1">{{ total_docs_sin_carpeta }}</div>
+                <div class="small text-white-50 fw-semibold">Docs. Sin Carpeta</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card shadow-sm text-white" style="background: linear-gradient(135deg, #6d28b1 0%, #9b59d6 100%);">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="stat-icon bg-white bg-opacity-25">
+                        <i class="bi bi-briefcase-fill text-white"></i>
+                    </div>
+                </div>
+                <div class="stat-value mb-1">{{ expedientes_con_carpetas }}</div>
+                <div class="small text-white-50 fw-semibold">Expedientes con Carpetas</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body py-3 px-4">
+            <form method="GET" action="{{ url_for('listar_carpetas') }}" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Buscar carpeta</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="q" class="form-control bg-white border-start-0" placeholder="Nombre de la carpeta..." value="{{ filtro_q or '' }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Expediente</label>
+                    <select name="expediente_id" class="form-select form-select-sm">
+                        <option value="Todos" {% if filtro_expediente=='Todos' %}selected{% endif %}>Todos los expedientes</option>
+                        {% for exp in expedientes_select %}
+                        <option value="{{ exp.id }}" {% if filtro_expediente == exp.id|string %}selected{% endif %}>{{ exp.codigo_firma }} — {{ exp.nombre_caso[:40] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm fw-semibold px-4" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;">
+                        <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                    </button>
+                    <a href="{{ url_for('listar_carpetas') }}" class="btn btn-light btn-sm border fw-semibold px-3" style="border-radius: 8px;">
+                        <i class="bi bi-x-circle me-1"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal: Tabla + Panel de Detalle -->
+    <div class="row g-4 mb-4">
+        <!-- Tabla de Carpetas -->
+        <div class="col-xl-8 transition-all" id="mainTableColumn">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-muted fw-semibold">
+                            <tr class="border-bottom text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
+                                <th class="ps-4 py-3">Carpeta</th>
+                                <th class="py-3">Expediente</th>
+                                <th class="py-3 text-center">Documentos</th>
+                                <th class="py-3">Fecha Creación</th>
+                                <th class="py-3 pe-4 text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if carpetas %}
+                                {% for carp in carpetas %}
+                                <tr class="carpeta-row" id="carpeta-row-{{ carp.id }}"
+                                    data-id="{{ carp.id }}"
+                                    data-nombre="{{ carp.nombre }}"
+                                    data-expediente="{{ carp.expediente.codigo_firma }}"
+                                    data-caso="{{ carp.expediente.nombre_caso }}"
+                                    data-exp-id="{{ carp.expediente_id }}"
+                                    data-docs="{{ carp.documentos | length }}"
+                                    data-fecha="{{ carp.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}"
+                                    onclick="seleccionarCarpeta(this)">
+                                    <td class="ps-4 py-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="rounded-3 bg-warning bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width: 38px; height: 38px; flex-shrink: 0;">
+                                                <i class="bi bi-folder-fill text-warning fs-5"></i>
+                                            </div>
+                                            <div>
+                                                <span class="fw-semibold text-dark">{{ carp.nombre }}</span>
+                                                <div class="text-muted" style="font-size: 0.7rem;">ID #{{ carp.id }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3">
+                                        <div>
+                                            <span class="fw-semibold text-primary" style="font-size: 0.8rem;">{{ carp.expediente.codigo_firma }}</span>
+                                            <div class="text-muted text-truncate" style="font-size: 0.7rem; max-width: 180px;" title="{{ carp.expediente.nombre_caso }}">{{ carp.expediente.nombre_caso }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 text-center">
+                                        <span class="badge rounded-pill {% if carp.documentos | length > 0 %}bg-primary bg-opacity-10 text-primary{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %} fw-bold px-3 py-1" style="font-size: 0.75rem;">
+                                            {{ carp.documentos | length }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-muted" style="font-size: 0.8rem;">
+                                        <i class="bi bi-calendar3 me-1"></i>{{ carp.fecha_creacion.strftime('%d/%m/%Y') }}
+                                    </td>
+                                    <td class="pe-4 text-end" onclick="event.stopPropagation();">
+                                        <div class="d-inline-flex gap-2">
+                                            <button class="btn btn-link p-0 text-secondary" title="Renombrar"
+                                                    data-id="{{ carp.id }}"
+                                                    data-nombre="{{ carp.nombre }}"
+                                                    data-exp-id="{{ carp.expediente_id }}"
+                                                    onclick="abrirModalEditar(this)">
+                                                <i class="bi bi-pencil-square fs-5"></i>
+                                            </button>
+                                            <a href="{{ url_for('documentos', expediente_id=carp.expediente_id, carpeta_id=carp.id) }}" class="btn btn-link p-0 text-primary" title="Ver documentos">
+                                                <i class="bi bi-box-arrow-up-right fs-5"></i>
+                                            </a>
+                                            {% if usuario.rol in ['Socio', 'Administrador'] %}
+                                            <button class="btn btn-link p-0 text-secondary" title="Eliminar"
+                                                    data-id="{{ carp.id }}"
+                                                    data-nombre="{{ carp.nombre }}"
+                                                    data-exp-id="{{ carp.expediente_id }}"
+                                                    onclick="abrirModalEliminar(this)">
+                                                <i class="bi bi-trash fs-5"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <i class="bi bi-folder fs-1 d-block mb-2 text-muted"></i>
+                                        {% if filtro_q or filtro_expediente != 'Todos' %}
+                                            No se encontraron carpetas con los filtros aplicados.
+                                        {% else %}
+                                            No hay carpetas creadas en el sistema.
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white border-top-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">
+                        Mostrando {{ carpetas | length }} carpeta{{ 's' if carpetas | length != 1 else '' }}
+                        {% if filtro_q or filtro_expediente != 'Todos' %} (filtrado){% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Detalle Lateral -->
+        <div class="col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4 position-sticky detail-panel" style="top: 20px;" id="detailsPanel">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h6 class="mb-0 fw-bold" style="color: #071c4d;">
+                        <i class="bi bi-info-circle-fill me-2 text-primary"></i>Detalle de Carpeta
+                    </h6>
+                </div>
+                
+                <!-- Estado vacío -->
+                <div class="card-body p-4 text-center" id="panelVacio">
+                    <div class="py-3">
+                        <div class="folder-visual mx-auto mb-3" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);">
+                            <i class="bi bi-folder-fill text-warning" style="font-size: 2rem; z-index: 1; position: relative;"></i>
+                        </div>
+                        <h5 class="fw-bold mt-3 mb-1 text-dark">Seleccione una carpeta</h5>
+                        <p class="text-muted small mb-0 px-3">Haga clic en una fila de la tabla para ver información detallada y opciones de la carpeta.</p>
+                    </div>
+                </div>
+
+                <!-- Estado con datos -->
+                <div class="card-body p-4 text-center d-none animate-in" id="panelInfo">
+                    <div class="folder-visual mx-auto mb-3" style="background: linear-gradient(135deg, #00409A 0%, #0062d6 100%);">
+                        <i class="bi bi-folder-fill text-white" style="font-size: 2rem; z-index: 1; position: relative;"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1 text-dark" id="detNombre">Carpeta</h5>
+                    <p class="text-muted small mb-0">ID: #<span id="detId">0</span></p>
+
+                    <div class="text-start small mt-4">
+                        <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Información</div>
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted"><i class="bi bi-briefcase me-1"></i> Expediente:</span>
+                            <span class="fw-bold text-primary" id="detExpediente" style="font-size: 0.8rem;">—</span>
+                        </div>
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted"><i class="bi bi-bookmark me-1"></i> Caso:</span>
+                            <span class="fw-semibold text-dark text-end text-truncate" id="detCaso" style="max-width: 160px; font-size: 0.8rem;" title="">—</span>
+                        </div>
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted"><i class="bi bi-file-earmark me-1"></i> Documentos:</span>
+                            <span class="fw-bold text-dark" id="detDocs">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2">
+                            <span class="text-muted"><i class="bi bi-calendar-event me-1"></i> Creada:</span>
+                            <span class="fw-semibold text-dark" id="detFecha" style="font-size: 0.8rem;">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción del panel -->
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-none gap-2" id="panelActions">
+                    <a href="#" class="btn btn-white btn-sm border flex-grow-1 fw-semibold text-decoration-none" id="btnVerDocs">
+                        <i class="bi bi-folder2-open me-1 text-primary"></i> Ver Docs
+                    </a>
+                    <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold" id="btnEditarPanel">
+                        <i class="bi bi-pencil-square me-1 text-primary"></i> Renombrar
+                    </button>
+                    {% if usuario.rol in ['Socio', 'Administrador'] %}
+                    <button class="btn btn-white btn-sm border border-danger text-danger flex-grow-1 fw-semibold" id="btnEliminarPanel">
+                        <i class="bi bi-trash me-1"></i> Eliminar
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Bitácora de Actividad -->
+            {% if auditorias_carpetas %}
+            <div class="card border-0 shadow-sm rounded-4 mt-4">
+                <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#auditCollapse">
+                    <h6 class="mb-0 fw-bold small" style="color: #071c4d;">
+                        <i class="bi bi-clock-history me-2 text-primary"></i>Actividad Reciente
+                    </h6>
+                    <i class="bi bi-chevron-down text-muted small"></i>
+                </div>
+                <div class="collapse show" id="auditCollapse">
+                    <div class="card-body p-3" style="max-height: 350px; overflow-y: auto;">
+                        {% for log in auditorias_carpetas[:15] %}
+                        <div class="audit-timeline-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="fw-semibold text-dark" style="font-size: 0.78rem;">{{ log.accion_realizada }}</span>
+                                    <div class="text-muted" style="font-size: 0.7rem;">{{ log.detalles_tecnicos[:80] }}{% if log.detalles_tecnicos|length > 80 %}...{% endif %}</div>
+                                </div>
+                                <span class="text-muted flex-shrink-0 ms-2" style="font-size: 0.65rem;">{{ log.fecha_hora.strftime('%d/%m %H:%M') }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+<!-- Modal Crear Carpeta -->
+<div class="modal fade" id="modalCrearCarpeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-folder-plus text-primary me-2"></i>Nueva Carpeta</h5>
+                    <p class="text-muted small mb-0">Cree una carpeta para organizar los documentos de un expediente.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('crear_carpeta') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Expediente <span class="text-danger">*</span></label>
+                        <select name="expediente_id" class="form-select form-select-sm" required>
+                            <option value="">-- Seleccione un expediente --</option>
+                            {% for exp in expedientes_select %}
+                            <option value="{{ exp.id }}">{{ exp.codigo_firma }} — {{ exp.nombre_caso[:50] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Nombre de la Carpeta <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej. Pruebas Documentales, Correspondencia, Contratos" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold" style="background-color: #00409A; border-color: #00409A;">Crear Carpeta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Carpeta -->
+<div class="modal fade" id="modalEditarCarpeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-pencil-square text-primary me-2"></i>Renombrar Carpeta</h5>
+                    <p class="text-muted small mb-0">Modifique el nombre de la carpeta seleccionada.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formEditarCarpeta">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4 row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Nuevo Nombre <span class="text-danger">*</span></label>
+                        <input type="text" name="nombre" id="inputEditarNombre" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold" style="background-color: #00409A; border-color: #00409A;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Eliminar Carpeta -->
+<div class="modal fade" id="modalEliminarCarpeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom border-light p-4">
+                <div>
+                    <h5 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Eliminar Carpeta</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="mb-1 small">¿Está seguro de que desea eliminar la carpeta <strong id="elimNombre"></strong>?</p>
+                <p class="text-muted small mb-0">Los documentos contenidos serán movidos a la raíz del expediente.</p>
+            </div>
+            <div class="modal-footer border-top-0 rounded-bottom-4 justify-content-center">
+                <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <form method="POST" action="" id="formEliminarCarpeta" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold">Sí, Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeCarpetaId = null;
+
+    function seleccionarCarpeta(el) {
+        const id = el.getAttribute('data-id');
+        const nombre = el.getAttribute('data-nombre');
+        const expediente = el.getAttribute('data-expediente');
+        const caso = el.getAttribute('data-caso');
+        const expId = el.getAttribute('data-exp-id');
+        const docs = el.getAttribute('data-docs');
+        const fecha = el.getAttribute('data-fecha');
+
+        activeCarpetaId = id;
+
+        // Highlight row
+        document.querySelectorAll('.carpeta-row').forEach(r => r.classList.remove('table-active'));
+        el.classList.add('table-active');
+
+        // Show detail panel
+        document.getElementById('panelVacio').classList.add('d-none');
+        const panelInfo = document.getElementById('panelInfo');
+        panelInfo.classList.remove('d-none');
+        panelInfo.classList.remove('animate-in');
+        void panelInfo.offsetWidth; // trigger reflow
+        panelInfo.classList.add('animate-in');
+        
+        document.getElementById('panelActions').classList.remove('d-none');
+        document.getElementById('panelActions').style.display = 'flex';
+
+        // Fill data
+        document.getElementById('detId').innerText = id;
+        document.getElementById('detNombre').innerText = nombre;
+        document.getElementById('detExpediente').innerText = expediente;
+        const detCaso = document.getElementById('detCaso');
+        detCaso.innerText = caso;
+        detCaso.title = caso;
+        document.getElementById('detDocs').innerText = docs;
+        document.getElementById('detFecha').innerText = fecha;
+
+        // Configure action buttons
+        document.getElementById('btnVerDocs').href = `/documentos?expediente_id=${expId}&carpeta_id=${id}`;
+        
+        document.getElementById('btnEditarPanel').onclick = function() {
+            document.getElementById('inputEditarNombre').value = nombre;
+            document.getElementById('formEditarCarpeta').action = `/documentos/carpetas/${id}/editar`;
+            new bootstrap.Modal(document.getElementById('modalEditarCarpeta')).show();
+        };
+
+        const btnElim = document.getElementById('btnEliminarPanel');
+        if (btnElim) {
+            btnElim.onclick = function() {
+                document.getElementById('elimNombre').innerText = nombre;
+                document.getElementById('formEliminarCarpeta').action = `/documentos/carpetas/${id}/eliminar`;
+                new bootstrap.Modal(document.getElementById('modalEliminarCarpeta')).show();
+            };
+        }
+    }
+
+    function abrirModalEditar(btn) {
+        const id = btn.getAttribute('data-id');
+        const nombre = btn.getAttribute('data-nombre');
+        document.getElementById('inputEditarNombre').value = nombre;
+        document.getElementById('formEditarCarpeta').action = `/documentos/carpetas/${id}/editar`;
+        new bootstrap.Modal(document.getElementById('modalEditarCarpeta')).show();
+    }
+
+    function abrirModalEliminar(btn) {
+        const id = btn.getAttribute('data-id');
+        const nombre = btn.getAttribute('data-nombre');
+        document.getElementById('elimNombre').innerText = nombre;
+        document.getElementById('formEliminarCarpeta').action = `/documentos/carpetas/${id}/eliminar`;
+        new bootstrap.Modal(document.getElementById('modalEliminarCarpeta')).show();
+    }
+</script>
+{% endblock %}
