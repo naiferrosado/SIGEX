@@ -5,7 +5,7 @@ from wtforms import DateField, TextAreaField
 
 # FORMULARIO DE SEGURIDAD PARA EL LOGIN
 class LoginForm(FlaskForm):
-    email = StringField('Correo Institucional', validators=[
+    email = StringField('Correo ', validators=[
         DataRequired(message="El correo es obligatorio."), 
         Email(message="Ingrese un formato de correo válido.")
     ])

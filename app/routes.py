@@ -2773,7 +2773,7 @@ def register_routes(app):
     def listar_tareas():
         # Capturar filtros de búsqueda
         filtro_q = request.args.get("q", "").strip()
-        filtro_estado = request.args.get("estado", "Todos")
+        filtro_estado = request.args.get("estado", "Activas")
         filtro_prioridad = request.args.get("prioridad", "Todas")
         filtro_expediente = request.args.get("expediente_id", "Todos")
         filtro_asignado = request.args.get("asignado_a_id", "Todos")
@@ -2796,7 +2796,9 @@ def register_routes(app):
                 except ValueError:
                     pass
 
-        if filtro_estado != "Todos":
+        if filtro_estado == "Activas":
+            query = query.filter(Tarea.estado != "Completada")
+        elif filtro_estado != "Todos":
             query = query.filter_by(estado=filtro_estado)
         
         if filtro_prioridad != "Todas":

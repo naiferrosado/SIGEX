@@ -122,6 +122,7 @@
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary mb-1">Estado</label>
                     <select name="estado" class="form-select form-select-sm">
+                        <option value="Activas" {% if filtro_estado=='Activas' %}selected{% endif %}>Activas</option>
                         <option value="Todos" {% if filtro_estado=='Todos' %}selected{% endif %}>Todos</option>
                         <option value="Pendiente" {% if filtro_estado=='Pendiente' %}selected{% endif %}>Pendiente
                         </option>
