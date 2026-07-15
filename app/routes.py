@@ -761,25 +761,27 @@ def register_routes(app):
             cliente_id=cliente.id,
         )
 
-        # 2. Obtener auditorías asociadas a este cliente
-        auditorias_db = (
-            BitacoraAuditoria.query.filter_by(cliente_id=cliente.id)
-            .order_by(BitacoraAuditoria.fecha_hora.desc())
-            .all()
-        )
+        # 2. Obtener auditorías asociadas a este cliente (solo para Administrador)
+        auditorias_data = []
+        if current_user.rol == "Administrador":
+            auditorias_db = (
+                BitacoraAuditoria.query.filter_by(cliente_id=cliente.id)
+                .order_by(BitacoraAuditoria.fecha_hora.desc())
+                .all()
+            )
 
-        auditorias_data = [
-            {
-                "id": log.id,
-                "fecha_hora": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
-                "usuario": log.usuario.nombre if log.usuario else "Desconocido",
-                "accion": log.accion_realizada,
-                "detalles": log.detalles_tecnicos,
-                "ip": log.ip_direccion,
-                "dispositivo": log.dispositivo_info,
-            }
-            for log in auditorias_db
-        ]
+            auditorias_data = [
+                {
+                    "id": log.id,
+                    "fecha_hora": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
+                    "usuario": log.usuario.nombre if log.usuario else "Desconocido",
+                    "accion": log.accion_realizada,
+                    "detalles": log.detalles_tecnicos,
+                    "ip": log.ip_direccion,
+                    "dispositivo": log.dispositivo_info,
+                }
+                for log in auditorias_db
+            ]
 
         # 3. Obtener información de usuario vinculado
         usuario_info = None
@@ -879,7 +881,7 @@ def register_routes(app):
 
     @app.route("/clientes/<int:cliente_id>/desactivar_acceso", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def desactivar_acceso_cliente(cliente_id):
         cliente = Cliente.query.get_or_404(cliente_id)
         if not cliente.usuario_id:
@@ -937,7 +939,7 @@ def register_routes(app):
 
     @app.route("/clientes/<int:cliente_id>/restablecer_clave_acceso", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def restablecer_clave_acceso_cliente(cliente_id):
         cliente = Cliente.query.get_or_404(cliente_id)
         if not cliente.usuario_id:
@@ -1232,7 +1234,7 @@ def register_routes(app):
     # --- RUTAS DE USUARIOS ---
     @app.route("/usuarios")
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def usuarios():
         form = UsuarioForm()
         usuarios_db = Usuario.query.order_by(Usuario.nombre.asc()).all()
@@ -1248,7 +1250,7 @@ def register_routes(app):
 
     @app.route("/usuarios/agregar", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def agregar_usuario():
         form = UsuarioForm()
 
@@ -1288,7 +1290,7 @@ def register_routes(app):
 
     @app.route("/usuarios/<int:usuario_id>/editar", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def editar_usuario(usuario_id):
         usuario = Usuario.query.get_or_404(usuario_id)
         form = UsuarioForm()
@@ -1325,7 +1327,7 @@ def register_routes(app):
 
     @app.route("/usuarios/<int:usuario_id>/desactivar", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def desactivar_usuario(usuario_id):
         # Evitar que el administrador se desactive a sí mismo
         if usuario_id == current_user.id:
@@ -1346,7 +1348,7 @@ def register_routes(app):
     # --- BITÁCORA DE AUDITORÍA GENERAL ---
     @app.route("/auditoria")
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def auditoria():
         page = request.args.get("page", 1, type=int)
         q = request.args.get("q", "").strip()
@@ -1469,25 +1471,27 @@ def register_routes(app):
             expediente_id=exp.id,
         )
 
-        # 2. Obtener auditorías asociadas a este expediente
-        auditorias_db = (
-            BitacoraAuditoria.query.filter_by(expediente_id=exp.id)
-            .order_by(BitacoraAuditoria.fecha_hora.desc())
-            .all()
-        )
+        # 2. Obtener auditorías asociadas a este expediente (solo para Administrador)
+        auditorias_data = []
+        if current_user.rol == "Administrador":
+            auditorias_db = (
+                BitacoraAuditoria.query.filter_by(expediente_id=exp.id)
+                .order_by(BitacoraAuditoria.fecha_hora.desc())
+                .all()
+            )
 
-        auditorias_data = [
-            {
-                "id": log.id,
-                "fecha_hora": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
-                "usuario": log.usuario.nombre if log.usuario else "Desconocido",
-                "accion": log.accion_realizada,
-                "detalles": log.detalles_tecnicos,
-                "ip": log.ip_direccion,
-                "dispositivo": log.dispositivo_info,
-            }
-            for log in auditorias_db
-        ]
+            auditorias_data = [
+                {
+                    "id": log.id,
+                    "fecha_hora": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
+                    "usuario": log.usuario.nombre if log.usuario else "Desconocido",
+                    "accion": log.accion_realizada,
+                    "detalles": log.detalles_tecnicos,
+                    "ip": log.ip_direccion,
+                    "dispositivo": log.dispositivo_info,
+                }
+                for log in auditorias_db
+            ]
 
         # 3. Serializar expediente
         item = {
@@ -1907,7 +1911,7 @@ def register_routes(app):
 
     @app.route("/expedientes/<int:expediente_id>/eliminar", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def eliminar_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
 
@@ -1959,6 +1963,11 @@ def register_routes(app):
             cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
             if cliente_db:
                 expedientes_select = [e for e in cliente_db.expedientes if e.estado != "Archivado"]
+        elif rol == "Asociado":
+            expedientes_select = Expediente.query.filter(
+                Expediente.estado != "Archivado",
+                Expediente.abogado_responsable_id == current_user.id
+            ).order_by(Expediente.nombre_caso.asc()).all()
         else:
             expedientes_select = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
 
@@ -1977,9 +1986,13 @@ def register_routes(app):
         expediente_preseleccionado = None
         if expediente_id:
             expediente_preseleccionado = Expediente.query.get(expediente_id)
+            if expediente_preseleccionado and rol == "Asociado" and expediente_preseleccionado.abogado_responsable_id != current_user.id:
+                flash("Acceso denegado. No está asignado a este expediente.", "danger")
+                return redirect(url_for("documentos"))
         
         documentos_lista = []
         audit_logs = []
+        usuarios_audit_select = []
         q = request.args.get("q", "").strip()
         tipo_filtro = request.args.get("tipo", "Todos")
         visibilidad_filtro = request.args.get("visibilidad", "Todos")
@@ -2044,41 +2057,51 @@ def register_routes(app):
 
             documentos_lista = query.order_by(Documento.id.desc()).all()
 
-            # Cargar bitácora de auditoría asociada a los accesos de este expediente
-            audit_query = BitacoraAuditoria.query.filter_by(expediente_id=expediente_id)
-            
-            # Filtros de bitácora
-            audit_doc = request.args.get("audit_doc", "").strip()
-            audit_action = request.args.get("audit_action", "Todos").strip()
-            audit_user = request.args.get("audit_user", "Todos").strip()
-            audit_desde = request.args.get("audit_desde", "").strip()
-            audit_hasta = request.args.get("audit_hasta", "").strip()
+            # Cargar bitácora de auditoría asociada a los accesos de este expediente (solo para Administrador)
+            audit_logs = []
+            usuarios_audit_select = []
+            audit_doc = ""
+            audit_action = "Todos"
+            audit_user = "Todos"
+            audit_desde = ""
+            audit_hasta = ""
 
-            if audit_doc:
-                audit_query = audit_query.filter(BitacoraAuditoria.detalles_tecnicos.ilike(f"%{audit_doc}%"))
-            if audit_action != "Todos":
-                audit_query = audit_query.filter(BitacoraAuditoria.accion_realizada == audit_action)
-            if audit_user != "Todos":
-                try:
-                    u_id = int(audit_user)
-                    audit_query = audit_query.filter(BitacoraAuditoria.usuario_id == u_id)
-                except ValueError:
-                    pass
-            if audit_desde:
-                try:
-                    desde_dt = datetime.strptime(audit_desde, "%Y-%m-%d")
-                    audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora >= desde_dt)
-                except ValueError:
-                    pass
-            if audit_hasta:
-                try:
-                    hasta_dt = datetime.strptime(audit_hasta, "%Y-%m-%d")
-                    from datetime import timedelta
-                    audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora < hasta_dt + timedelta(days=1))
-                except ValueError:
-                    pass
+            if current_user.rol == "Administrador":
+                audit_query = BitacoraAuditoria.query.filter_by(expediente_id=expediente_id)
+                
+                # Filtros de bitácora
+                audit_doc = request.args.get("audit_doc", "").strip()
+                audit_action = request.args.get("audit_action", "Todos").strip()
+                audit_user = request.args.get("audit_user", "Todos").strip()
+                audit_desde = request.args.get("audit_desde", "").strip()
+                audit_hasta = request.args.get("audit_hasta", "").strip()
 
-            audit_logs = audit_query.order_by(BitacoraAuditoria.fecha_hora.desc()).all()
+                if audit_doc:
+                    audit_query = audit_query.filter(BitacoraAuditoria.detalles_tecnicos.ilike(f"%{audit_doc}%"))
+                if audit_action != "Todos":
+                    audit_query = audit_query.filter(BitacoraAuditoria.accion_realizada == audit_action)
+                if audit_user != "Todos":
+                    try:
+                        u_id = int(audit_user)
+                        audit_query = audit_query.filter(BitacoraAuditoria.usuario_id == u_id)
+                    except ValueError:
+                        pass
+                if audit_desde:
+                    try:
+                        desde_dt = datetime.strptime(audit_desde, "%Y-%m-%d")
+                        audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora >= desde_dt)
+                    except ValueError:
+                        pass
+                if audit_hasta:
+                    try:
+                        hasta_dt = datetime.strptime(audit_hasta, "%Y-%m-%d")
+                        from datetime import timedelta
+                        audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora < hasta_dt + timedelta(days=1))
+                    except ValueError:
+                        pass
+
+                audit_logs = audit_query.order_by(BitacoraAuditoria.fecha_hora.desc()).all()
+                usuarios_audit_select = Usuario.query.order_by(Usuario.nombre.asc()).all()
 
         # Datos para los selectores del modal de subida (solo para internos)
         clientes_select = []
@@ -2087,9 +2110,6 @@ def register_routes(app):
         if rol != "Cliente":
             clientes_select = Cliente.query.order_by(Cliente.nombres.asc()).all()
             tipos_documentos = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
-
-        # Usuarios para filtro de auditoría
-        usuarios_audit_select = Usuario.query.order_by(Usuario.nombre.asc()).all()
 
         # Estadísticas rápidas
         total_docs = len(documentos_lista)
@@ -2176,6 +2196,10 @@ def register_routes(app):
             flash("El expediente seleccionado no existe.", "danger")
             return redirect(url_for("documentos"))
 
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
+
         tipo = TipoDocumento.query.get(tipo_documento_id)
         if not tipo:
             flash("El tipo de documento seleccionado no existe.", "danger")
@@ -2244,6 +2268,9 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def nueva_version_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
+        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
         version_input = request.form.get("version_numero", "").strip()
         descripcion = request.form.get("descripcion", "").strip()
 
@@ -2316,6 +2343,10 @@ def register_routes(app):
         version = VersionDocumento.query.get_or_404(version_id)
         doc = version.documento_maestro
 
+        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
+
         # Permisos
         if current_user.rol == "Cliente":
             cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
@@ -2358,6 +2389,10 @@ def register_routes(app):
     def ver_documento(version_id):
         version = VersionDocumento.query.get_or_404(version_id)
         doc = version.documento_maestro
+
+        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
 
         # Permisos
         if current_user.rol == "Cliente":
@@ -2424,6 +2459,9 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def cambiar_visibilidad_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
+        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
         nueva_vis = request.form.get("visibilidad", "Interno")
         compartir_cliente_id = request.form.get("compartir_cliente_id", type=int)
 
@@ -2463,6 +2501,9 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def eliminar_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
+        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
         exp_id = doc.expediente_id
         cli_id = doc.expediente.cliente_id
         
@@ -2513,7 +2554,7 @@ def register_routes(app):
 
     @app.route("/documentos/tipologias/crear", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    @roles_permitidos("Administrador")
     def crear_tipologia():
         nombre_tipo = request.form.get("nombre_tipo", "").strip()
         if not nombre_tipo:
@@ -2546,7 +2587,7 @@ def register_routes(app):
 
     @app.route("/documentos/tipologias/<int:tipo_id>/editar", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def editar_tipologia(tipo_id):
         tipologia = TipoDocumento.query.get_or_404(tipo_id)
         nombre_tipo = request.form.get("nombre_tipo", "").strip()
@@ -2583,7 +2624,7 @@ def register_routes(app):
 
     @app.route("/documentos/tipologias/<int:tipo_id>/eliminar", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador")
+    @roles_permitidos("Administrador")
     def eliminar_tipologia(tipo_id):
         tipologia = TipoDocumento.query.get_or_404(tipo_id)
         
@@ -2622,6 +2663,9 @@ def register_routes(app):
             return redirect(url_for("documentos", expediente_id=expediente_id))
 
         exp = Expediente.query.get_or_404(expediente_id)
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
 
         # Validar duplicados
         existente = Carpeta.query.filter(
@@ -2658,6 +2702,9 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def editar_carpeta(carpeta_id):
         carpeta = Carpeta.query.get_or_404(carpeta_id)
+        if current_user.rol == "Asociado" and carpeta.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
         nombre = request.form.get("nombre", "").strip()
 
         if not nombre:
@@ -2727,6 +2774,9 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def mover_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
+        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("documentos"))
         carpeta_id = request.form.get("carpeta_id")
 
         if carpeta_id == "" or carpeta_id == "0" or carpeta_id is None:

@@ -545,6 +545,8 @@
         </div>
     </div>
 
+
+    {% if current_user.rol == 'Administrador' %}
     <!-- SECCIÓN INFERIOR: Bitácora de Auditoría (Siempre visible) -->
     <div class="card border-0 shadow-sm rounded-4 mt-5">
         <div
@@ -781,6 +783,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </main>
 
 {% if expediente_preseleccionado and usuario.rol != 'Cliente' %}
