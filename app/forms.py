@@ -126,9 +126,6 @@ class ExpedienteJudicialForm(ExpedienteBaseForm):
     
     monto_demanda = DecimalField('Monto Involucrado (RD$)', places=2, validators=[Optional()])
     
-    fecha_audiencia = DateField('Fecha de Próxima Audiencia', format='%Y-%m-%d', validators=[Optional()])
-    hora_audiencia = TimeField('Hora', format='%H:%M', validators=[Optional()])
-
     submit_judicial = SubmitField('Crear Expediente Judicial')
 
 
