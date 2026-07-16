@@ -1519,6 +1519,8 @@
         document.getElementById('selMoverDocumentoCarpeta').value = carpetaId ? carpetaId : "0";
         document.getElementById('formMoverDocumento').action = `/documentos/${id}/mover`;
 
+        const modal = new bootstrap.Modal(document.getElementById('modalMoverDocumento'));
+        modal.show();
     }
 
     function toggleUploadClienteSelect() {
