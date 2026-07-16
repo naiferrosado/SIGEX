@@ -155,7 +155,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                <a href="{{ url_for('agenda') }}" class="nav-link {% if request.endpoint == 'agenda' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                     <i class="bi bi-calendar-date-fill me-3"></i> 
                     <span class="menu-text">Agenda</span>
                 </a>
@@ -172,9 +172,18 @@
                     <span class="menu-text">Mis Tareas</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="{{ url_for('ver_notificaciones') }}" class="nav-link {% if request.endpoint == 'ver_notificaciones' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-bell-fill me-3"></i> 
+                    <span class="menu-text">Notificaciones</span>
+                    {% if notificaciones_pendientes_count > 0 %}
+                    <span class="badge bg-danger ms-auto rounded-pill" style="font-size: 0.7rem; padding: 0.25em 0.6em;">{{ notificaciones_pendientes_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
             {% endif %}
             
-            {% if current_user.rol in ['Socio', 'Administrador'] %}
+            {% if current_user.rol == 'Administrador' %}
             <hr class="text-white-50 my-2">
             <li class="nav-item">
                 <a href="{{ url_for('usuarios') }}" class="nav-link {% if request.endpoint == 'usuarios' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
@@ -188,6 +197,14 @@
                     <span class="menu-text">Auditoría</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
+                    <i class="bi bi-gear-fill me-3"></i> 
+                    <span class="menu-text">Configuración</span>
+                </a>
+            </li>
+            {% elif current_user.rol == 'Socio' %}
+            <hr class="text-white-50 my-2">
             <li class="nav-item">
                 <a href="#" class="nav-link text-white d-flex align-items-center px-3 py-2">
                     <i class="bi bi-gear-fill me-3"></i> 

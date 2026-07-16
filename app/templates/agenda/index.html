@@ -1,0 +1,785 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<!-- FullCalendar JS desde CDN (FullCalendar v6 maneja sus propios estilos inyectados) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/locales/es.global.min.js"></script>
+
+<style>
+    /* Estilos personalizados para FullCalendar en SIGEX */
+    .fc {
+        font-family: var(--bs-body-font-family);
+        background: #ffffff;
+        padding: 1.25rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    .fc-header-toolbar {
+        margin-bottom: 1.5rem !important;
+    }
+    .fc-toolbar-title {
+        font-size: 1.25rem !important;
+        font-weight: 700 !important;
+        color: #071c4d !important;
+    }
+    .fc-button {
+        background-color: #ffffff !important;
+        border: 1px solid #dee2e6 !important;
+        color: #071c4d !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        padding: 0.4rem 0.8rem !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        transition: all 0.2s ease;
+    }
+    .fc-button:hover {
+        background-color: #f8f9fa !important;
+        border-color: #c1c9d2 !important;
+    }
+    .fc-button-active {
+        background-color: #00409A !important;
+        border-color: #00409A !important;
+        color: #ffffff !important;
+    }
+    .fc-daygrid-day-number {
+        font-weight: 600 !important;
+        color: #495057 !important;
+        font-size: 0.85rem !important;
+        text-decoration: none !important;
+    }
+    .fc-col-header-cell-cushion {
+        font-weight: 700 !important;
+        color: #071c4d !important;
+        font-size: 0.85rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-decoration: none !important;
+    }
+    .fc-event {
+        border-radius: 6px !important;
+        padding: 2px 6px !important;
+        font-weight: 600 !important;
+        font-size: 0.75rem !important;
+        cursor: pointer !important;
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        transition: transform 0.15s ease !important;
+    }
+    .fc-event:hover {
+        transform: translateY(-1px) !important;
+        filter: brightness(0.95);
+    }
+    .legend-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+</style>
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1" style="color: #071c4d; font-family: 'Segoe UI', Arial, sans-serif;">Agenda de la Firma</h1>
+            <p class="text-muted small mb-0">Control unificado de audiencias judiciales, plazos administrativos y tareas asignadas.</p>
+        </div>
+        <div>
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2 shadow-sm"
+                style="background-color: #00409A; border-color: #00409A; border-radius: 8px;"
+                onclick="abrirModalCrear()">
+                <i class="bi bi-plus-lg"></i> Nuevo Evento
+            </button>
+        </div>
+    </div>
+
+    <!-- Alertas Flash -->
+    <div id="alertContainer"></div>
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Filtros y Leyenda -->
+        <div class="col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h5 class="card-title fw-bold mb-0 text-dark" style="font-size: 0.95rem;"><i class="bi bi-funnel-fill text-primary me-2"></i>Filtros de Agenda</h5>
+                </div>
+                <div class="card-body p-3">
+                    <div class="d-flex flex-column gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input filter-checkbox" type="checkbox" value="tarea-pendiente" id="filterTareaPendiente" checked>
+                            <label class="form-check-label small fw-semibold d-flex align-items-center gap-2" for="filterTareaPendiente">
+                                <span class="legend-indicator" style="background-color: #3b82f6;"></span>
+                                Tareas Pendientes
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input filter-checkbox" type="checkbox" value="tarea-completada" id="filterTareaCompletada" checked>
+                            <label class="form-check-label small fw-semibold d-flex align-items-center gap-2" for="filterTareaCompletada">
+                                <span class="legend-indicator" style="background-color: #10b981;"></span>
+                                Tareas Completadas
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input filter-checkbox" type="checkbox" value="audiencia" id="filterAudiencia" checked>
+                            <label class="form-check-label small fw-semibold d-flex align-items-center gap-2" for="filterAudiencia">
+                                <span class="legend-indicator" style="background-color: #8b5cf6;"></span>
+                                Audiencias Judiciales
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input filter-checkbox" type="checkbox" value="plazo" id="filterPlazo" checked>
+                            <label class="form-check-label small fw-semibold d-flex align-items-center gap-2" for="filterPlazo">
+                                <span class="legend-indicator" style="background-color: #f97316;"></span>
+                                Plazos Administrativos
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Próximos Eventos -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-bottom p-3">
+                    <h5 class="card-title fw-bold mb-0 text-dark" style="font-size: 0.95rem;"><i class="bi bi-clock-history text-warning me-2"></i>Próximos 5 Eventos</h5>
+                </div>
+                <div class="card-body p-3" id="upcomingEventsList" style="max-height: 350px; overflow-y: auto;">
+                    <div class="text-muted text-center py-3 small">Cargando próximos eventos...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Calendario -->
+        <div class="col-lg-9">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</main>
+
+<!-- MODAL: CREAR EVENTO -->
+<div class="modal fade" id="modalCrearEvento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom p-3">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-calendar-plus-fill text-primary me-2"></i>Nuevo Evento de Agenda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCrearEvento" onsubmit="guardarEvento(event)">
+                <div class="modal-body p-4">
+                    <!-- Tipo de Evento -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Tipo de Registro <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="eventoTipo" onchange="toggleFormFields(this.value)" required>
+                            <option value="" disabled selected>-- Seleccione Tipo --</option>
+                            <option value="tarea">Tarea Pendiente</option>
+                            <option value="audiencia">Audiencia Judicial</option>
+                            <option value="plazo">Plazo Administrativo</option>
+                        </select>
+                    </div>
+
+                    <!-- Expediente Vinculado (Común) -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Expediente <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="eventoExpedienteId" required>
+                            <option value="" disabled selected>-- Seleccione Expediente --</option>
+                            {% for exp in expedientes_select %}
+                            <option value="{{ exp.id }}" data-tipo="{{ exp.tipo_tramite }}">{{ exp.codigo_firma }} - {{ exp.nombre_caso }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Título (Sólo para Tarea y Plazo) -->
+                    <div class="mb-3" id="groupTitulo" style="display:none;">
+                        <label class="form-label small fw-bold" id="labelTitulo">Título <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="eventoTitulo" placeholder="Ej. Presentación de memorial">
+                    </div>
+
+                    <!-- Descripción (Sólo para Tarea) -->
+                    <div class="mb-3" id="groupDescripcion" style="display:none;">
+                        <label class="form-label small fw-bold">Descripción</label>
+                        <textarea class="form-control form-control-sm" id="eventoDescripcion" rows="2" placeholder="Detalles de la tarea..."></textarea>
+                    </div>
+
+                    <div class="row g-3">
+                        <!-- Fecha Límite / Fecha Audiencia / Vencimiento -->
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold" id="labelFecha">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" id="eventoFecha" required>
+                        </div>
+                        
+                        <!-- Hora (Sólo para Audiencia) -->
+                        <div class="col-md-6" id="groupHora" style="display:none;">
+                            <label class="form-label small fw-bold">Hora <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control form-control-sm" id="eventoHora">
+                        </div>
+                    </div>
+
+                    <!-- Asignación (Sólo para Tarea) -->
+                    <div class="mb-3 mt-3" id="groupAsignacion" style="display:none;">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Asignado a</label>
+                                <select class="form-select form-select-sm" id="eventoAsignadoId">
+                                    <option value="0">Todo el equipo</option>
+                                    {% for u in usuarios_select %}
+                                    <option value="{{ u.id }}">{{ u.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Prioridad</label>
+                                <select class="form-select form-select-sm" id="eventoPrioridad">
+                                    <option value="Baja">Baja</option>
+                                    <option value="Media" selected>Media</option>
+                                    <option value="Alta">Alta</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top p-3 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold" style="background-color: #00409A; border-color: #00409A;">Guardar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: DETALLE EVENTO -->
+<div class="modal fade" id="modalDetalleEvento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom p-3">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-info-circle-fill text-info me-2"></i>Detalles del Evento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span id="detEventCategoryBadge" class="badge">Tipo</span>
+                    <span id="detEventPriorityBadge" class="badge bg-secondary" style="display:none;">Prioridad</span>
+                </div>
+                
+                <h4 class="fw-bold text-dark mb-1" id="detEventTitle">Título del Evento</h4>
+                <p class="text-muted small mb-3" id="detEventCaseCode"><i class="bi bi-file-earmark-text me-1"></i>Expediente: --</p>
+
+                <div class="d-flex flex-column gap-2 mb-3 bg-light p-3 rounded-3 small">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar3 text-primary"></i>
+                        <span class="fw-semibold">Fecha:</span>
+                        <span id="detEventDate">--</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2" id="detEventTimeRow" style="display:none !important;">
+                        <i class="bi bi-clock text-primary"></i>
+                        <span class="fw-semibold">Hora:</span>
+                        <span id="detEventTime">--</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2" id="detEventAssigneeRow" style="display:none !important;">
+                        <i class="bi bi-person text-primary"></i>
+                        <span class="fw-semibold">Asignado a:</span>
+                        <span id="detEventAssignee">--</span>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="detEventDescriptionContainer" style="display:none;">
+                    <label class="form-label small fw-bold text-muted">Descripción</label>
+                    <p class="text-dark bg-light p-3 rounded-3 small mb-0" id="detEventDescription">--</p>
+                </div>
+            </div>
+            <!-- SECCIÓN DE JUSTIFICACIÓN DE ELIMINACIÓN (OCULTA POR DEFECTO) -->
+            <div class="p-4 bg-danger-subtle border-top border-danger-subtle" id="detEventDeleteJustificationContainer" style="display:none;">
+                <label class="form-label small fw-bold text-danger mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Motivo de la Eliminación <span class="text-danger">*</span></label>
+                <textarea class="form-control form-control-sm mb-3" id="detEventDeleteReason" rows="2" placeholder="Ingrese el motivo de la cancelación/eliminación..." required></textarea>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold text-secondary" onclick="cancelarEliminacionDirecta()">Cancelar</button>
+                    <button type="button" class="btn btn-sm btn-danger fw-semibold" onclick="confirmarEliminacionDirecta()">Confirmar Eliminación</button>
+                </div>
+            </div>
+
+            <!-- FOOTER CON BOTONES ORIGINALES -->
+            <div class="modal-footer bg-light border-top p-3 rounded-bottom-4 d-flex justify-content-between" id="detEventFooterButtons">
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-danger fw-semibold" id="btnEliminarEvento" onclick="mostrarFormularioEliminacion()">
+                        <i class="bi bi-trash-fill me-1"></i>Eliminar
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold ms-2" id="btnEditarEvento" data-bs-toggle="modal" data-bs-target="#modalCrearEvento" data-bs-dismiss="modal" onclick="prepararEdicion()">
+                        <i class="bi bi-pencil-fill me-1"></i>Editar
+                    </button>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-success fw-semibold" id="btnCompletarTarea" onclick="completarTareaSeleccionada()" style="display:none;">
+                        <i class="bi bi-check-lg me-1"></i>Completar Tarea
+                    </button>
+                    <a href="#" class="btn btn-sm btn-primary fw-semibold" id="btnVerExpediente" style="background-color: #00409A; border-color: #00409A;">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Ver Expediente
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let calendar;
+    let selectedEventData = null;
+    let modalCrear;
+    let modalDetalle;
+    let isEditing = false;
+    const userRole = '{{ current_user.rol }}';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        modalCrear = new bootstrap.Modal(document.getElementById('modalCrearEvento'));
+        modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleEvento'));
+        const calendarEl = document.getElementById('calendar');
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'es',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            editable: false,
+            events: function(info, successCallback, failureCallback) {
+                // Obtener filtros activos
+                const categories = [];
+                document.querySelectorAll('.filter-checkbox:checked').forEach(cb => {
+                    categories.push(cb.value);
+                });
+
+                fetch(`/agenda/eventos?start=${info.startStr}&end=${info.endStr}&categories=${categories.join(',')}`)
+                    .then(res => res.json())
+                    .then(events => {
+                        successCallback(events);
+                        actualizarProximosEventos(events);
+                    })
+                    .catch(err => {
+                        showFlashAlert("Error al cargar los eventos del servidor.", "danger");
+                        failureCallback(err);
+                    });
+            },
+            eventClick: function(info) {
+                mostrarDetalleEvento(info.event);
+            },
+            dateClick: function(info) {
+                abrirModalCrear(info.dateStr);
+            }
+        });
+
+        calendar.render();
+
+        // Escuchar cambios en los filtros para recargar eventos
+        document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                calendar.refetchEvents();
+            });
+        });
+    });
+
+    function toggleFormFields(tipo) {
+        const groupTitulo = document.getElementById('groupTitulo');
+        const labelTitulo = document.getElementById('labelTitulo');
+        const groupDescripcion = document.getElementById('groupDescripcion');
+        const groupHora = document.getElementById('groupHora');
+        const groupAsignacion = document.getElementById('groupAsignacion');
+        
+        // Inputs
+        const inputTitulo = document.getElementById('eventoTitulo');
+        const inputHora = document.getElementById('eventoHora');
+
+        // Reset
+        groupTitulo.style.display = 'none';
+        inputTitulo.required = false;
+        groupDescripcion.style.display = 'none';
+        groupHora.style.display = 'none';
+        inputHora.required = false;
+        groupAsignacion.style.display = 'none';
+
+        // Filtrar expedientes para audiencias (solo judiciales)
+        const expSelect = document.getElementById('eventoExpedienteId');
+        Array.from(expSelect.options).forEach(opt => {
+            if (opt.value === "") return;
+            const tipoTramite = opt.getAttribute('data-tipo');
+            if (tipo === 'audiencia') {
+                if (tipoTramite !== 'Judicial') {
+                    opt.disabled = true;
+                    opt.style.display = 'none';
+                } else {
+                    opt.disabled = false;
+                    opt.style.display = 'block';
+                }
+            } else {
+                opt.disabled = false;
+                opt.style.display = 'block';
+            }
+        });
+
+        if (tipo === 'tarea') {
+            groupTitulo.style.display = 'block';
+            labelTitulo.innerText = 'Título de Tarea *';
+            inputTitulo.required = true;
+            groupDescripcion.style.display = 'block';
+            groupAsignacion.style.display = 'block';
+        } else if (tipo === 'plazo') {
+            groupTitulo.style.display = 'block';
+            labelTitulo.innerText = 'Título del Plazo / Alerta *';
+            inputTitulo.required = true;
+        } else if (tipo === 'audiencia') {
+            groupHora.style.display = 'block';
+            inputHora.required = true;
+        }
+    }
+
+    function abrirModalCrear(dateStr = '') {
+        isEditing = false;
+        document.getElementById('formCrearEvento').reset();
+        document.getElementById('eventoTipo').disabled = false;
+        document.getElementById('eventoExpedienteId').disabled = false;
+        document.getElementById('modalCrearEvento').querySelector('.modal-title').innerHTML = '<i class="bi bi-calendar-plus-fill text-primary me-2"></i>Nuevo Evento de Agenda';
+
+        toggleFormFields('');
+        
+        if (dateStr) {
+            document.getElementById('eventoFecha').value = dateStr;
+        } else {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('eventoFecha').value = today;
+        }
+        
+        modalCrear.show();
+    }
+
+    function prepararEdicion() {
+        if (!selectedEventData || !selectedEventData.id) return;
+        
+        isEditing = true;
+        const raw = selectedEventData.raw_data;
+        const type = selectedEventData.type;
+
+        const typeSelect = document.getElementById('eventoTipo');
+        const expSelect = document.getElementById('eventoExpedienteId');
+        
+        let baseType = '';
+        if (type === 'tarea-pendiente' || type === 'tarea-completada') baseType = 'tarea';
+        else if (type === 'audiencia') baseType = 'audiencia';
+        else if (type === 'plazo') baseType = 'plazo';
+
+        typeSelect.value = baseType;
+        typeSelect.disabled = true;
+        
+        expSelect.value = selectedEventData.expediente_id;
+        expSelect.disabled = true;
+        
+        toggleFormFields(baseType);
+
+        if (baseType === 'tarea') {
+            document.getElementById('eventoTitulo').value = raw.title || selectedEventData.title.replace('[Tarea] ', '');
+            document.getElementById('eventoDescripcion').value = raw.descripcion || '';
+            document.getElementById('eventoAsignadoId').value = raw.asignado_id || 0;
+            document.getElementById('eventoPrioridad').value = raw.prioridad || 'Media';
+        } else if (baseType === 'plazo') {
+            document.getElementById('eventoTitulo').value = raw.title || selectedEventData.title.replace('[Plazo] ', '');
+        }
+
+        const startIso = raw.start || raw.fecha_vencimiento || '';
+        if (startIso) {
+            const parts = startIso.split('T');
+            document.getElementById('eventoFecha').value = parts[0];
+            if (parts[1] && baseType === 'audiencia') {
+                document.getElementById('eventoHora').value = parts[1].substring(0, 5);
+            }
+        }
+        if (baseType === 'audiencia' && raw.hora) {
+            document.getElementById('eventoHora').value = raw.hora;
+        }
+
+        document.getElementById('modalCrearEvento').querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square text-warning me-2"></i>Editar Registro de Agenda';
+    }
+
+    function mostrarDetalleEvento(event) {
+        selectedEventData = {
+            id: event.extendedProps.id,
+            type: event.extendedProps.type,
+            title: event.title,
+            expediente_id: event.extendedProps.expediente_id,
+            raw_data: event.extendedProps
+        };
+
+        const type = event.extendedProps.type;
+        const titleElement = document.getElementById('detEventTitle');
+        const badgeCategory = document.getElementById('detEventCategoryBadge');
+        const badgePriority = document.getElementById('detEventPriorityBadge');
+        const caseCode = document.getElementById('detEventCaseCode');
+        const eventDate = document.getElementById('detEventDate');
+        const eventTime = document.getElementById('detEventTime');
+        const eventTimeRow = document.getElementById('detEventTimeRow');
+        const eventAssignee = document.getElementById('detEventAssignee');
+        const eventAssigneeRow = document.getElementById('detEventAssigneeRow');
+        const eventDescription = document.getElementById('detEventDescription');
+        const eventDescriptionContainer = document.getElementById('detEventDescriptionContainer');
+        const btnCompletar = document.getElementById('btnCompletarTarea');
+        const btnEliminar = document.getElementById('btnEliminarEvento');
+        const btnVerExp = document.getElementById('btnVerExpediente');
+
+        // Reset
+        badgePriority.style.display = 'none';
+        eventTimeRow.style.setProperty('display', 'none', 'important');
+        eventAssigneeRow.style.setProperty('display', 'none', 'important');
+        eventDescriptionContainer.style.display = 'none';
+        btnCompletar.style.display = 'none';
+        document.getElementById('detEventDeleteJustificationContainer').style.display = 'none';
+        document.getElementById('detEventFooterButtons').style.setProperty('display', 'flex', 'important');
+
+        // Llenar datos comunes
+        titleElement.innerText = event.title;
+        caseCode.innerHTML = `<i class="bi bi-file-earmark-text me-1"></i>Expediente: <strong>${event.extendedProps.expediente_codigo} - ${event.extendedProps.expediente_nombre}</strong>`;
+        btnVerExp.href = `/expedientes?id=${event.extendedProps.expediente_id}`;
+
+        // Formatear Fecha
+        let dateObj = event.start;
+        let formattedDate = dateObj.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        eventDate.innerText = formattedDate;
+
+        if (type === 'tarea-pendiente' || type === 'tarea-completada') {
+            badgeCategory.innerText = type === 'tarea-pendiente' ? 'Tarea Pendiente' : 'Tarea Completada';
+            badgeCategory.className = type === 'tarea-pendiente' ? 'badge bg-primary' : 'badge bg-success';
+            
+            // Prioridad
+            badgePriority.innerText = `Prioridad: ${event.extendedProps.prioridad}`;
+            badgePriority.className = `badge bg-opacity-25 ${event.extendedProps.prioridad === 'Alta' ? 'bg-danger text-danger' : event.extendedProps.prioridad === 'Media' ? 'bg-warning text-warning' : 'bg-secondary text-secondary'}`;
+            badgePriority.style.display = 'inline-block';
+
+            // Asignación
+            eventAssignee.innerText = event.extendedProps.asignado_nombre || 'Todo el equipo';
+            eventAssigneeRow.style.setProperty('display', 'flex', 'important');
+
+            // Descripción
+            if (event.extendedProps.descripcion) {
+                eventDescription.innerText = event.extendedProps.descripcion;
+                eventDescriptionContainer.style.display = 'block';
+            }
+
+            if (type === 'tarea-pendiente') {
+                btnCompletar.style.display = 'inline-block';
+            }
+            btnEliminar.style.display = 'inline-block';
+        } else if (type === 'audiencia') {
+            badgeCategory.innerText = 'Audiencia Judicial';
+            badgeCategory.className = 'badge bg-purple text-white';
+            badgeCategory.style.backgroundColor = '#8b5cf6';
+
+            // Hora
+            if (event.extendedProps.hora) {
+                eventTime.innerText = event.extendedProps.hora;
+                eventTimeRow.style.setProperty('display', 'flex', 'important');
+            }
+            btnEliminar.style.display = 'inline-block';
+        } else if (type === 'plazo') {
+            badgeCategory.innerText = 'Plazo Administrativo';
+            badgeCategory.className = 'badge bg-warning text-dark';
+            badgeCategory.style.backgroundColor = '#f97316';
+            btnEliminar.style.display = 'inline-block';
+        }
+
+        modalDetalle.show();
+    }
+
+    function guardarEvento(e) {
+        e.preventDefault();
+
+        const tipo = document.getElementById('eventoTipo').value;
+        const expediente_id = document.getElementById('eventoExpedienteId').value;
+        const titulo = document.getElementById('eventoTitulo').value;
+        const descripcion = document.getElementById('eventoDescripcion').value;
+        const fecha = document.getElementById('eventoFecha').value;
+        const hora = document.getElementById('eventoHora').value;
+        const asignado_a_id = document.getElementById('eventoAsignadoId').value;
+        const prioridad = document.getElementById('eventoPrioridad').value;
+
+        const csrfToken = '{{ csrf_token() }}';
+
+        const payload = {
+            tipo,
+            expediente_id: parseInt(expediente_id),
+            titulo,
+            descripcion,
+            fecha,
+            hora,
+            asignado_a_id: parseInt(asignado_a_id),
+            prioridad
+        };
+
+        const url = isEditing 
+            ? `/agenda/evento/${selectedEventData.type}/${selectedEventData.id}/editar`
+            : '/agenda/crear_evento';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                modalCrear.hide();
+                showFlashAlert(data.message, "success");
+                calendar.refetchEvents();
+            } else {
+                showFlashAlert(data.error || "Ocurrió un error al guardar el evento.", "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showFlashAlert("Error de red al guardar el evento.", "danger");
+        });
+    }
+
+    function completarTareaSeleccionada() {
+        if (!selectedEventData || !selectedEventData.id) return;
+        
+        const csrfToken = '{{ csrf_token() }}';
+
+        fetch(`/agenda/evento/tarea/${selectedEventData.id}/completar`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                modalDetalle.hide();
+                showFlashAlert(data.message, "success");
+                calendar.refetchEvents();
+            } else {
+                showFlashAlert(data.error || "Error al completar la tarea.", "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showFlashAlert("Error de red al completar la tarea.", "danger");
+        });
+    }
+
+    function mostrarFormularioEliminacion() {
+        document.getElementById('detEventDeleteJustificationContainer').style.display = 'block';
+        document.getElementById('detEventFooterButtons').style.setProperty('display', 'none', 'important');
+        document.getElementById('detEventDeleteReason').value = '';
+    }
+
+    function cancelarEliminacionDirecta() {
+        document.getElementById('detEventDeleteJustificationContainer').style.display = 'none';
+        document.getElementById('detEventFooterButtons').style.setProperty('display', 'flex', 'important');
+    }
+
+    function confirmarEliminacionDirecta() {
+        if (!selectedEventData || !selectedEventData.id) return;
+
+        const motivo = document.getElementById('detEventDeleteReason').value.trim();
+        if (!motivo) {
+            alert("El motivo de la eliminación es obligatorio.");
+            return;
+        }
+
+        const csrfToken = '{{ csrf_token() }}';
+
+        fetch(`/agenda/evento/${selectedEventData.type}/${selectedEventData.id}/eliminar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ justificacion: motivo })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                modalDetalle.hide();
+                showFlashAlert(data.message, "success");
+                calendar.refetchEvents();
+            } else {
+                showFlashAlert(data.error || "Error al eliminar el evento.", "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showFlashAlert("Error de red al eliminar el evento.", "danger");
+        });
+    }
+
+    function actualizarProximosEventos(events) {
+        const container = document.getElementById('upcomingEventsList');
+        container.innerHTML = '';
+
+        if (!events || events.length === 0) {
+            container.innerHTML = '<div class="text-muted text-center py-3 small">No hay eventos próximos en este período.</div>';
+            return;
+        }
+
+        // Ordenar eventos por fecha y hora ascendente
+        const sortedEvents = [...events].sort((a, b) => new Date(a.start) - new Date(b.start));
+        
+        // Tomar los 5 primeros
+        const top5 = sortedEvents.slice(0, 5);
+
+        top5.forEach(event => {
+            const div = document.createElement('div');
+            div.className = 'border-bottom py-2 cursor-pointer';
+            div.onclick = () => {
+                // Buscar el objeto FullCalendar correspondiente para abrir su detalle
+                const fcEvent = calendar.getEventById(event.id);
+                if (fcEvent) {
+                    mostrarDetalleEvento(fcEvent);
+                }
+            };
+
+            let typeText = 'Evento';
+            let badgeColor = 'bg-secondary';
+            if (event.extendedProps.type === 'tarea-pendiente') {
+                typeText = 'Tarea Pendiente';
+                badgeColor = 'bg-primary';
+            } else if (event.extendedProps.type === 'tarea-completada') {
+                typeText = 'Tarea Completada';
+                badgeColor = 'bg-success';
+            } else if (event.extendedProps.type === 'audiencia') {
+                typeText = 'Audiencia';
+                badgeColor = 'bg-purple';
+            } else if (event.extendedProps.type === 'plazo') {
+                typeText = 'Plazo Admin';
+                badgeColor = 'bg-warning text-dark';
+            }
+
+            const formattedDate = new Date(event.start).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+            const formattedTime = event.extendedProps.hora ? ` a las ${event.extendedProps.hora}` : '';
+
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge ${badgeColor} py-1 px-2" style="font-size: 0.65rem;">${typeText}</span>
+                    <span class="text-muted small fw-semibold">${formattedDate}</span>
+                </div>
+                <div class="text-dark fw-bold text-truncate" style="font-size: 0.8rem;" title="${event.title}">${event.title}</div>
+                <div class="text-muted text-truncate" style="font-size: 0.7rem;">${event.extendedProps.expediente_codigo} - ${event.extendedProps.expediente_nombre}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function showFlashAlert(message, category) {
+        const container = document.getElementById('alertContainer');
+        container.innerHTML = `
+            <div class="alert alert-${category} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                <i class="bi ${category === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+            </div>
+        `;
+    }
+</script>
+{% endblock %}

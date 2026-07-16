@@ -96,9 +96,11 @@
                         <li class="nav-item">
                             <a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general" id="tabGeneralLink">General</a>
                         </li>
+                        {% if current_user.rol == 'Administrador' %}
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
                         </li>
+                        {% endif %}
                     </ul>
 
                     <div class="tab-content text-start small">
@@ -129,12 +131,14 @@
                         </div>
 
                         <!-- Pestaña Auditoría -->
+                        {% if current_user.rol == 'Administrador' %}
                         <div class="tab-pane fade" id="tab-auditoria">
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Historial de Auditoría</div>
                             <div id="auditLogList" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
                                 <div class="text-muted text-center py-3">No hay registros de auditoría.</div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -146,10 +150,7 @@
                             <button type="button" class="btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled" id="btnDesactivarPanel"><i class="bi bi-toggle-off me-1"></i> Desactivar</button>
                         </form>
                     </div>
-                    <!-- Ver Documentos -->
-                    <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled" id="btnVerDocumentosPanel">
-                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Ver Documentos
-                    </a>
+
                 </div>
             </div>
         </div>
@@ -445,7 +446,10 @@
                 }
 
                 // Renderizar auditoría
-                renderAuditorias(c.auditorias);
+                const userRole = '{{ current_user.rol }}';
+                if (userRole === 'Administrador') {
+                    renderAuditorias(c.auditorias);
+                }
 
                 // Renderizar Acceso al Portal
                 const portalStatus = document.getElementById('detPortalStatus');
@@ -455,39 +459,60 @@
                 if (c.usuario_info) {
                     if (c.usuario_info.activo) {
                         portalStatus.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Habilitado</span>';
-                        portalActions.innerHTML = `
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-white text-danger border border-danger btn-sm flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('desactivar', ${c.id})">
-                                    <i class="bi bi-shield-slash-fill me-1"></i>Suspender
-                                </button>
-                                <button type="button" class="btn btn-white text-warning border border-warning flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('restablecer', ${c.id})">
-                                    <i class="bi bi-key-fill me-1"></i>Reiniciar Clave
-                                </button>
-                            </div>
-                        `;
+                        if (userRole === 'Administrador') {
+                            portalActions.innerHTML = `
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-white text-danger border border-danger btn-sm flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('desactivar', ${c.id})">
+                                        <i class="bi bi-shield-slash-fill me-1"></i>Suspender
+                                    </button>
+                                    <button type="button" class="btn btn-white text-warning border border-warning flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('restablecer', ${c.id})">
+                                        <i class="bi bi-key-fill me-1"></i>Reiniciar Clave
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            portalActions.innerHTML = `
+                                <div class="text-center py-2 text-muted small">
+                                    <i class="bi bi-lock-fill me-1"></i> Solo el Administrador puede suspender o reiniciar claves.
+                                </div>
+                            `;
+                        }
                     } else {
                         portalStatus.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Suspendido</span>';
-                        portalActions.innerHTML = `
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-white text-success border border-success btn-sm flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('reactivar', ${c.id})">
-                                    <i class="bi bi-shield-check-fill me-1"></i>Reactivar
-                                </button>
-                            </div>
-                        `;
+                        if (userRole === 'Socio' || userRole === 'Administrador') {
+                            portalActions.innerHTML = `
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-white text-success border border-success btn-sm flex-grow-1 fw-semibold small py-1" onclick="ejecutarAccionPortal('reactivar', ${c.id})">
+                                        <i class="bi bi-shield-check-fill me-1"></i>Reactivar
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            portalActions.innerHTML = `
+                                <div class="text-center py-2 text-muted small">
+                                    <i class="bi bi-lock-fill me-1"></i> Reactivación no disponible para su rol.
+                                </div>
+                            `;
+                        }
                     }
                 } else {
                     portalStatus.innerHTML = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Sin Acceso</span>';
-                    portalActions.innerHTML = `
-                        <button type="button" class="btn btn-white text-primary border border-primary w-100 fw-semibold btn-sm py-1" onclick="ejecutarAccionPortal('habilitar', ${c.id}, '${c.email_contacto}', '${c.rnc_cedula}')">
-                            <i class="bi bi-shield-plus me-1"></i>Habilitar Acceso al Portal
-                        </button>
-                    `;
+                    if (userRole === 'Socio' || userRole === 'Administrador') {
+                        portalActions.innerHTML = `
+                            <button type="button" class="btn btn-white text-primary border border-primary w-100 fw-semibold btn-sm py-1" onclick="ejecutarAccionPortal('habilitar', ${c.id}, '${c.email_contacto}', '${c.rnc_cedula}')">
+                                <i class="bi bi-shield-plus me-1"></i>Habilitar Acceso al Portal
+                            </button>
+                        `;
+                    } else {
+                        portalActions.innerHTML = `
+                            <div class="text-center py-2 text-muted small">
+                                <i class="bi bi-lock-fill me-1"></i> Habilitación no disponible para su rol.
+                            </div>
+                        `;
+                    }
                 }
 
-                // Habilitar y llenar Modal de Edición
-                const btnVerDocs = document.getElementById('btnVerDocumentosPanel');
-                btnVerDocs.classList.remove('disabled');
-                btnVerDocs.href = `/documentos?cliente_id=${c.id}`;
+
 
                 const btnEdit = document.getElementById('btnEditarPanel');
                 btnEdit.classList.remove('disabled');

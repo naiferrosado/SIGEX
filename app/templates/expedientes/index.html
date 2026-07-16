@@ -101,9 +101,11 @@
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-detalle" id="tabDetalleLink">Detalles Técnicos</a>
                         </li>
+                        {% if current_user.rol == 'Administrador' %}
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
                         </li>
+                        {% endif %}
                     </ul>
 
                     <div class="tab-content text-start small">
@@ -139,9 +141,8 @@
                                 <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Abogado Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAbogContra">—</span></div>
                                 <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Contacto Abogado:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAbogContraContacto">—</span></div>
                                 
-                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Aspectos Financieros y Agenda</div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Monto Demanda:</span><span class="fw-semibold text-dark" id="detJudMonto">—</span></div>
-                                <div class="d-flex justify-content-between py-2"><span class="text-muted">Próxima Audiencia:</span><span class="fw-semibold text-dark" id="detJudAudiencia">—</span></div>
+                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Aspecto Financiero</div>
+                                <div class="d-flex justify-content-between py-2"><span class="text-muted">Monto Demanda:</span><span class="fw-semibold text-dark" id="detJudMonto">—</span></div>
                             </div>
 
                             <!-- Detalles Administrativos -->
@@ -157,12 +158,14 @@
                         </div>
 
                         <!-- Pestaña Auditoría -->
+                        {% if current_user.rol == 'Administrador' %}
                         <div class="tab-pane fade" id="tab-auditoria">
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Historial de Auditoría</div>
                             <div id="auditLogList" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
                                 <div class="text-muted text-center py-3">No hay registros de auditoría.</div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -196,8 +199,8 @@
                         </form>
                     </div>
 
-                    <!-- Eliminar Expediente (Solo para Socios/Admin) -->
-                    {% if current_user.rol in ['Socio', 'Administrador'] %}
+                    <!-- Eliminar Expediente (Solo para Admin) -->
+                    {% if current_user.rol == 'Administrador' %}
                     <form method="POST" action="" id="formEliminar">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="button" class="btn btn-sm btn-white border border-danger text-danger w-100 fw-semibold disabled" id="btnEliminar">
@@ -237,6 +240,7 @@
     </div>
 </div>
 
+{% if current_user.rol == 'Administrador' %}
 <!-- MODAL PARA ESPECIFICAR RAZÓN DE ELIMINACIÓN -->
 <div class="modal fade" id="modalEliminarExpedienteReason" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -263,6 +267,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <script>
     let expedientes = [];
@@ -404,15 +409,6 @@
                     document.getElementById('detJudAbogContra').innerText = e.abogado_contraparte || 'No provisto';
                     document.getElementById('detJudAbogContraContacto').innerText = e.contacto_abogado_contraparte || 'No provisto';
                     document.getElementById('detJudMonto').innerText = e.monto_demanda !== null ? `RD$ ${e.monto_demanda.toLocaleString('es-DO', {minimumFractionDigits: 2})}` : 'No cuantificable';
-                    
-                    let audienciaText = 'Sin programar';
-                    if (e.fecha_audiencia) {
-                        audienciaText = e.fecha_audiencia;
-                        if (e.hora_audiencia) {
-                            audienciaText += ` a las ${e.hora_audiencia}`;
-                        }
-                    }
-                    document.getElementById('detJudAudiencia').innerText = audienciaText;
                 } else {
                     document.getElementById('det-judicial').style.display = 'none';
                     document.getElementById('det-admin').style.display = 'block';
@@ -425,8 +421,11 @@
                     document.getElementById('detAdmDesc').innerText = e.descripcion_tramite || 'Sin descripción';
                 }
 
-                // Renderizar auditoría
-                renderAuditorias(e.auditorias);
+                 // Renderizar auditoría
+                 const userRole = '{{ current_user.rol }}';
+                 if (userRole === 'Administrador') {
+                     renderAuditorias(e.auditorias);
+                 }
 
                 // Configurar Formularios y Botones de Acción
                 const btnVerDocumentos = document.getElementById('btnVerDocumentos');
