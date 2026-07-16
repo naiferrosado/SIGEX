@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1" style="color: #071c4d; font-family: 'Segoe UI', Arial, sans-serif;">
+                <i class="bi bi-bell-fill text-primary me-2"></i>Centro de Notificaciones
+            </h1>
+            <p class="text-muted small mb-0">Control de alertas preventivas de plazos de ley y trámites administrativos.</p>
+        </div>
+        <div>
+            {% if notificaciones %}
+            <button class="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2 shadow-sm"
+                onclick="marcarTodasComoLeidas()">
+                <i class="bi bi-check-all fs-5"></i> Marcar todas como leídas
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Alertas Flash -->
+    <div id="alertContainer"></div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    {% if notificaciones %}
+                    <div class="list-group list-group-flush" id="notificationsList">
+                        {% for notif in notificaciones %}
+                        <div class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-start justify-content-between flex-wrap gap-3 notification-item {% if not notif.leida %}bg-light bg-opacity-50 px-3 rounded-3 mb-2 border-1{% endif %}" 
+                             id="notif-{{ notif.id }}" style="transition: all 0.2s ease;">
+                            
+                            <div class="d-flex gap-3 align-items-start">
+                                <!-- Icono según urgencia o tipo -->
+                                <div class="p-2 rounded-3 {% if not notif.leida %}bg-warning bg-opacity-10 text-warning{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}">
+                                    {% if "3 días" in notif.mensaje %}
+                                    <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                                    {% elif "15 días" in notif.mensaje %}
+                                    <i class="bi bi-exclamation-circle-fill text-warning fs-5"></i>
+                                    {% else %}
+                                    <i class="bi bi-bell-fill text-primary fs-5"></i>
+                                    {% endif %}
+                                </div>
+                                
+                                <div>
+                                    <p class="mb-1 text-dark small {% if not notif.leida %}fw-bold{% else %}fw-semibold{% endif %}" style="font-size: 0.9rem; line-height: 1.4;">
+                                        {{ notif.mensaje }}
+                                    </p>
+                                    <div class="d-flex align-items-center gap-3 text-muted small mt-1" style="font-size: 0.75rem;">
+                                        <span>
+                                            <i class="bi bi-clock me-1"></i>{{ notif.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
+                                        </span>
+                                        {% if not notif.leida %}
+                                        <span class="badge bg-warning text-dark bg-opacity-25 fw-bold" style="font-size: 0.65rem;">Pendiente</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary text-secondary bg-opacity-10 fw-semibold" style="font-size: 0.65rem;">Leída</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2 ms-auto">
+                                {% if not notif.leida %}
+                                <button class="btn btn-xs btn-white text-success border border-success-subtle rounded-3 py-1 px-2 d-flex align-items-center gap-1"
+                                        style="font-size: 0.75rem;" onclick="marcarLeida({{ notif.id }})">
+                                    <i class="bi bi-check2"></i> Marcar leída
+                                </button>
+                                {% endif %}
+                                
+                                {% if notif.expediente_id %}
+                                <a href="/expedientes?id={{ notif.expediente_id }}" class="btn btn-xs btn-primary py-1 px-2 rounded-3 d-flex align-items-center gap-1"
+                                   style="font-size: 0.75rem; background-color: #00409A; border-color: #00409A;">
+                                    <i class="bi bi-box-arrow-in-right"></i> Ver Caso
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="p-4 bg-light rounded-circle d-inline-block mb-3" style="width: 80px; height: 80px;">
+                            <i class="bi bi-bell-slash text-muted fs-1"></i>
+                        </div>
+                        <h5 class="fw-bold text-dark">No tienes notificaciones</h5>
+                        <p class="text-muted small">Te avisaremos automáticamente cuando se acerque el vencimiento de tus plazos legales o administrativos.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    function showFlashAlert(message, category) {
+        const container = document.getElementById('alertContainer');
+        container.innerHTML = `
+            <div class="alert alert-${category} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                <i class="bi ${category === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+            </div>
+        `;
+    }
+
+    function marcarLeida(id) {
+        const csrfToken = '{{ csrf_token() }}';
+        
+        fetch(`/notificaciones/${id}/leer`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar el DOM de forma reactiva
+                const item = document.getElementById(`notif-${id}`);
+                
+                // Cambiar el fondo del contenedor
+                item.classList.remove('bg-light', 'bg-opacity-50', 'px-3');
+                
+                // Buscar el botón de marcar leída y ocultarlo
+                const btnMarcar = item.querySelector('button[onclick^="marcarLeida"]');
+                if (btnMarcar) btnMarcar.remove();
+                
+                // Cambiar la insignia
+                const badges = item.querySelectorAll('.badge');
+                badges.forEach(badge => {
+                    if (badge.innerText === 'Pendiente') {
+                        badge.innerText = 'Leída';
+                        badge.className = 'badge bg-secondary text-secondary bg-opacity-10 fw-semibold';
+                    }
+                });
+                
+                // Decrementar el contador del menú lateral si existe
+                const sidebarBadge = document.querySelector('aside .badge');
+                if (sidebarBadge) {
+                    let currentCount = parseInt(sidebarBadge.innerText) || 0;
+                    if (currentCount > 1) {
+                        sidebarBadge.innerText = currentCount - 1;
+                    } else {
+                        sidebarBadge.remove();
+                    }
+                }
+                
+                showFlashAlert(data.message, "success");
+            } else {
+                showFlashAlert(data.error || "Error al actualizar la notificación.", "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showFlashAlert("Error de conexión al marcar como leída.", "danger");
+        });
+    }
+
+    function marcarTodasComoLeidas() {
+        const csrfToken = '{{ csrf_token() }}';
+        
+        fetch('/notificaciones/leer_todas', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Recargar la página para reordenar y actualizar todo de forma premium
+                window.location.reload();
+            } else {
+                showFlashAlert(data.error || "Error al actualizar las notificaciones.", "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showFlashAlert("Error de conexión al marcar todas las notificaciones.", "danger");
+        });
+    }
+</script>
+{% endblock %}
