@@ -130,9 +130,6 @@ class ExpedienteJudicial(Expediente):
     # NUEVO: Aspecto financiero del litigio (Monto demandado)
     monto_demanda = db.Column(db.Numeric(15, 2), nullable=True) # Maneja montos exactos con decimales
 
-    fecha_audiencia = db.Column(db.Date, nullable=True)
-    hora_audiencia = db.Column(db.Time, nullable=True)
-
     alertas_plazos = db.relationship('AlertaPlazoAudiencia', backref='expediente_judicial', lazy=True, cascade="all, delete-orphan")
 
     __mapper_args__ = {
@@ -192,8 +189,11 @@ class AlertaPlazoAudiencia(db.Model):
     expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), nullable=False)
     titulo_hito = db.Column(db.String(255), nullable=False)
     fecha_vencimiento = db.Column(db.DateTime(timezone=True), nullable=False)
-    estado_alerta = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'Atendida', 'Escalada'
+    estado_alerta = db.Column(db.String(20), nullable=False, default='Pending') # 'Pending', 'Atendida', 'Escalada'
     fuente_origen = db.Column(db.String(30), nullable=False) # 'Firma', 'Poder Judicial'
+    es_audiencia = db.Column(db.Boolean, default=False, nullable=False)
+
+    expediente = db.relationship('Expediente', backref=db.backref('alertas_plazos_base', lazy=True, cascade='all, delete-orphan', overlaps="alertas_plazos,expediente_judicial"), overlaps="alertas_plazos,expediente_judicial")
 
 # 3. MOTOR DOCUMENTAL Y VERSIONES
 
@@ -329,3 +329,28 @@ class Tarea(db.Model):
     expediente = db.relationship('Expediente', backref=db.backref('tareas', lazy=True, cascade="all, delete-orphan"))
     asignado_a = db.relationship('Usuario', foreign_keys=[asignado_a_id], backref=db.backref('tareas_asignadas', lazy=True))
     creado_por = db.relationship('Usuario', foreign_keys=[creado_por_id], backref=db.backref('tareas_creadas', lazy=True))
+
+
+class NotificacionInterna(db.Model):
+    __tablename__ = 'notificaciones_internas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    mensaje = db.Column(db.String(500), nullable=False)
+    leida = db.Column(db.Boolean, default=False, nullable=False)
+    fecha_creacion = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), nullable=True)
+    
+    expediente = db.relationship('Expediente')
+    usuario = db.relationship('Usuario', backref=db.backref('notificaciones_internas_list', lazy=True, cascade='all, delete-orphan'))
+
+
+class RegistroEnvioAlerta(db.Model):
+    __tablename__ = 'registros_envios_alertas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    alerta_id = db.Column(db.Integer, db.ForeignKey('alertas_plazos_audiencias.id', ondelete='CASCADE'), nullable=True)
+    tarea_id = db.Column(db.Integer, db.ForeignKey('tareas.id', ondelete='CASCADE'), nullable=True)
+    dias_anticipacion = db.Column(db.Integer, nullable=False) # 30, 15, o 3
+    fecha_envio = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
