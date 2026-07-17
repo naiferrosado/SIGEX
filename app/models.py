@@ -91,6 +91,11 @@ class Expediente(db.Model):
     fecha_apertura = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     fecha_cierre = db.Column(db.DateTime(timezone=True), nullable=True) # Para auditoría
     razon_estado = db.Column(db.Text, nullable=True)
+    
+    # Nuevos campos de cierre y ciclo de vida/fases
+    tipo_finalizacion = db.Column(db.String(50), nullable=True)
+    fase_actual = db.Column(db.Integer, nullable=False, default=1)
+    fase_nota = db.Column(db.String(255), nullable=True)
  
     # Relaciones base
     documentos = db.relationship('Documento', backref='expediente', lazy=True, cascade="all, delete-orphan")

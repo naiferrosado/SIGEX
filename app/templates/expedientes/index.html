@@ -12,9 +12,14 @@
             <h2 class="fw-bold mb-1" style="color: #071c4d;">Gestión de Expedientes</h2>
             <p class="text-muted small mb-0">Administra y consulta la información procesal y administrativa de la firma.</p>
         </div>
-        <a href="{{ url_for('nuevo_expediente') }}" class="btn btn-primary shadow-sm fw-semibold d-flex align-items-center gap-2">
-            <i class="bi bi-plus-circle-fill fs-5"></i> Nuevo expediente
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('historial_expedientes_finalizados') }}" class="btn btn-outline-primary shadow-sm fw-semibold d-flex align-items-center gap-2" style="color: #00409A; border-color: #00409A;">
+                <i class="bi bi-clock-history fs-5"></i> Historial Finalizados
+            </a>
+            <a href="{{ url_for('nuevo_expediente') }}" class="btn btn-primary shadow-sm fw-semibold d-flex align-items-center gap-2" style="background-color: #00409A; border-color: #00409A;">
+                <i class="bi bi-plus-circle-fill fs-5"></i> Nuevo expediente
+            </a>
+        </div>
     </div>
 
     <!-- Alertas Flash -->
@@ -45,6 +50,7 @@
                         <option value="Todos">Todos los estados</option>
                         <option value="Abierto">Abiertos</option>
                         <option value="Suspendido">Suspendidos</option>
+                        <option value="Finalizado">Finalizados</option>
                         <option value="Archivado">Archivados</option>
                     </select>
                     <select class="form-select form-select-sm bg-light w-auto" id="typeFilter">
@@ -101,6 +107,9 @@
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-detalle" id="tabDetalleLink">Detalles Técnicos</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-progreso" id="tabProgresoLink">Progreso</a>
+                        </li>
                         {% if current_user.rol == 'Administrador' %}
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
@@ -119,6 +128,7 @@
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de Trámite:</span><span class="fw-semibold text-dark" id="detTipoTramite">—</span></div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Apertura:</span><span class="fw-semibold text-dark" id="detApertura">—</span></div>
                             <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Cierre:</span><span class="fw-semibold text-dark" id="detCierre">—</span></div>
+                            <div class="d-flex justify-content-between border-bottom py-2" id="detFinalizacionContainer" style="display: none !important;"><span class="text-muted">Tipo Finalización:</span><span class="fw-semibold text-info" id="detFinalizacion">—</span></div>
                             <div class="d-flex justify-content-between py-2" id="detRazonEstadoContainer" style="display: none !important;"><span class="text-muted">Justificación estado:</span><span class="fw-semibold text-danger" id="detRazonEstado">—</span></div>
                         </div>
 
@@ -164,8 +174,31 @@
                             <div id="auditLogList" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
                                 <div class="text-muted text-center py-3">No hay registros de auditoría.</div>
                             </div>
-                        </div>
                         {% endif %}
+                        <!-- Pestaña Progreso / Ciclo -->
+                        <div class="tab-pane fade" id="tab-progreso">
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Progreso y Nota del Expediente</div>
+                            
+                            <form method="POST" action="" id="formActualizarProgreso">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-muted mb-1">Fase Actual del Caso</label>
+                                    <select class="form-select form-select-sm" name="fase_actual" id="inputFaseActual">
+                                        <!-- Se rellenará dinámicamente con JS -->
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-muted mb-1">Nota de Actualización Rápida (para el cliente)</label>
+                                    <textarea class="form-control form-control-sm" name="fase_nota" id="inputFaseNota" rows="3" placeholder="Ej. Hemos radicado los documentos y esperamos resolución..."></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-sm btn-primary w-100 fw-semibold disabled" id="btnActualizarProgreso" style="background-color: #00409A; border-color: #00409A;">
+                                    Actualizar Progreso
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
@@ -181,17 +214,25 @@
                         <i class="bi bi-pencil-square me-1"></i> Editar Expediente
                     </a>
                     
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-1 flex-wrap">
                         <!-- Suspender / Reanudar -->
-                        <form method="POST" action="" id="formSuspender" style="flex: 1;">
+                        <form method="POST" action="" id="formSuspender" style="flex: 1; min-width: 90px;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnSuspender">
                                 <i class="bi bi-pause-fill me-1"></i> Suspender
                             </button>
                         </form>
+
+                        <!-- Finalizar Caso -->
+                        <form method="POST" action="" id="formFinalizar" style="flex: 1; min-width: 90px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnFinalizar">
+                                <i class="bi bi-check-circle-fill me-1 text-success"></i> Finalizar
+                            </button>
+                        </form>
                         
                         <!-- Archivar / Reabrir -->
-                        <form method="POST" action="" id="formArchivar" style="flex: 1;">
+                        <form method="POST" action="" id="formArchivar" style="flex: 1; min-width: 90px;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnArchivar">
                                 <i class="bi bi-archive-fill me-1"></i> Archivar
@@ -234,6 +275,45 @@
                 <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
                     <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-sm btn-primary fw-semibold">Confirmar Cambio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA FINALIZAR EXPEDIENTE -->
+<div class="modal fade" id="modalFinalizarReason" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-check-circle-fill text-success me-2"></i>Finalizar Expediente / Caso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="formFinalizarAction">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="text-muted small">Al finalizar este caso, se registrará la conclusión definitiva del trámite o litigio.</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tipo de Finalización <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" name="tipo_finalizacion" id="finalizarTipo" required>
+                            <option value="">Seleccione un motivo de cierre...</option>
+                            <option value="Resolución Natural">Resolución Natural (Sentencia / Trámite Exitoso)</option>
+                            <option value="Abandono del Cliente">Abandono del Cliente</option>
+                            <option value="Abandono de la Firma">Abandono de la Firma</option>
+                            <option value="Acuerdo/Transacción">Acuerdo / Transacción Extrajudicial</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Razón / Justificación Detallada <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" name="razon" id="finalizarRazon" rows="3" required placeholder="Describa el resultado final del caso, acuerdos alcanzados, sentencias, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-success fw-semibold text-white">Finalizar Caso</button>
                 </div>
             </form>
         </div>
@@ -359,6 +439,8 @@
                     badgeEstado = '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-1 px-2">Suspendido</span>';
                 } else if (e.estado === 'Archivado') {
                     badgeEstado = '<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 py-1 px-2">Archivado</span>';
+                } else if (e.estado === 'Finalizado') {
+                    badgeEstado = `<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-1 px-2" title="Tipo: ${e.tipo_finalizacion || 'No especificado'}">Finalizado (${e.tipo_finalizacion || 'N/A'})</span>`;
                 }
 
                 // Cambiar el avatar/icono
@@ -390,6 +472,15 @@
                     detRazonContainer.style.setProperty('display', 'flex', 'important');
                 } else {
                     detRazonContainer.style.setProperty('display', 'none', 'important');
+                }
+
+                // Mostrar/ocultar tipo de finalización
+                const detFinContainer = document.getElementById('detFinalizacionContainer');
+                if (e.estado === 'Finalizado' && e.tipo_finalizacion) {
+                    document.getElementById('detFinalizacion').innerText = e.tipo_finalizacion;
+                    detFinContainer.style.setProperty('display', 'flex', 'important');
+                } else {
+                    detFinContainer.style.setProperty('display', 'none', 'important');
                 }
 
                 // Llenar panel visual - Detalles específicos (Judicial / Admin)
@@ -433,6 +524,8 @@
                 const btnSuspender = document.getElementById('btnSuspender');
                 const btnArchivar = document.getElementById('btnArchivar');
                 const btnEliminar = document.getElementById('btnEliminar');
+                const btnFinalizar = document.getElementById('btnFinalizar');
+                const btnActualizarProgreso = document.getElementById('btnActualizarProgreso');
 
                 // Habilitar botones
                 btnVerDocumentos.classList.remove('disabled');
@@ -441,7 +534,43 @@
                 btnEditar.href = `/expedientes/${e.id}/editar`;
                 btnSuspender.classList.remove('disabled');
                 btnArchivar.classList.remove('disabled');
+                btnFinalizar.classList.remove('disabled');
+                btnActualizarProgreso.classList.remove('disabled');
                 if (btnEliminar) btnEliminar.classList.remove('disabled');
+
+                // Llenar panel visual - Progreso
+                document.getElementById('formActualizarProgreso').action = `/expedientes/${e.id}/actualizar_fase`;
+                const selFase = document.getElementById('inputFaseActual');
+                selFase.innerHTML = '';
+                
+                let fases = [];
+                if (e.tipo_tramite === 'Judicial') {
+                    fases = [
+                        {val: 1, text: '1. Demanda interpuesta'},
+                        {val: 2, text: '2. Admisión de demanda'},
+                        {val: 3, text: '3. Audiencia fijada'},
+                        {val: 4, text: '4. Conclusiones / Juicio'},
+                        {val: 5, text: '5. Sentencia / Finalización'}
+                    ];
+                } else {
+                    fases = [
+                        {val: 1, text: '1. Recepción de documentos'},
+                        {val: 2, text: '2. Preparación y radicación'},
+                        {val: 3, text: '3. Revisión institucional'},
+                        {val: 4, text: '4. Pago de tasas y arbitrio'},
+                        {val: 5, text: '5. Resolución / Entrega'}
+                    ];
+                }
+                
+                fases.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.val;
+                    opt.innerText = f.text;
+                    selFase.appendChild(opt);
+                });
+                
+                selFase.value = e.fase_actual || 1;
+                document.getElementById('inputFaseNota').value = e.fase_nota || '';
 
                 // Helper para configurar el modal de justificación
                 function bindStateChange(button, targetState) {
@@ -464,12 +593,33 @@
                     bindStateChange(btnSuspender, 'Suspendido');
                 }
 
+                // Lógica Finalizar / Reabrir
+                if (e.estado === 'Finalizado') {
+                    btnFinalizar.innerHTML = '<i class="bi bi-play-fill me-1"></i> Reabrir';
+                    btnFinalizar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                    bindStateChange(btnFinalizar, 'Abierto');
+                    btnSuspender.classList.add('disabled');
+                    btnActualizarProgreso.classList.add('disabled');
+                } else {
+                    btnFinalizar.innerHTML = '<i class="bi bi-check-circle-fill me-1 text-success"></i> Finalizar';
+                    btnFinalizar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
+                    btnFinalizar.onclick = () => {
+                        document.getElementById('formFinalizarAction').action = `/expedientes/${e.id}/cambiar_estado/Finalizado`;
+                        document.getElementById('finalizarTipo').value = '';
+                        document.getElementById('finalizarRazon').value = '';
+                        const modal = new bootstrap.Modal(document.getElementById('modalFinalizarReason'));
+                        modal.show();
+                    };
+                }
+
                 // Lógica Archivar / Reabrir
                 if (e.estado === 'Archivado') {
                     btnArchivar.innerHTML = '<i class="bi bi-folder-symlink-fill me-1"></i> Reabrir';
                     btnArchivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
                     bindStateChange(btnArchivar, 'Abierto');
                     btnSuspender.classList.add('disabled');
+                    btnFinalizar.classList.add('disabled');
+                    btnActualizarProgreso.classList.add('disabled');
                 } else {
                     btnArchivar.innerHTML = '<i class="bi bi-archive-fill me-1"></i> Archivar';
                     btnArchivar.className = 'btn btn-white btn-sm border border-secondary text-secondary w-100 fw-semibold';
