@@ -1,6 +1,37 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .stat-card {
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
+    }
+    .stat-card:active {
+        transform: translateY(-1px);
+    }
+    /* Estilos activos por estado */
+    .stat-card.active-pendiente {
+        background-color: rgba(108, 117, 125, 0.08) !important;
+        outline: 2px solid #6c757d;
+    }
+    .stat-card.active-progreso {
+        background-color: rgba(0, 64, 154, 0.08) !important;
+        outline: 2px solid #00409A;
+    }
+    .stat-card.active-vencidas {
+        background-color: rgba(220, 53, 69, 0.08) !important;
+        outline: 2px solid #dc3545;
+    }
+    .stat-card.active-completada {
+        background-color: rgba(25, 135, 84, 0.08) !important;
+        outline: 2px solid #198754;
+    }
+</style>
 <!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
 {% include 'components/sidebar.html' %}
 
@@ -41,8 +72,9 @@
     <!-- Tarjetas de Estadísticas -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100"
-                style="border-radius: 12px; border-left: 4px solid #6c757d !important;">
+            <div class="card border-0 shadow-sm h-100 stat-card {% if filtro_estado == 'Pendiente' %}active-pendiente{% endif %}"
+                style="border-radius: 12px; border-left: 4px solid #6c757d !important;"
+                onclick="filtrarPorEstado('Pendiente')">
                 <div class="card-body py-3">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
@@ -57,8 +89,9 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100"
-                style="border-radius: 12px; border-left: 4px solid #00409A !important;">
+            <div class="card border-0 shadow-sm h-100 stat-card {% if filtro_estado == 'En Progreso' %}active-progreso{% endif %}"
+                style="border-radius: 12px; border-left: 4px solid #00409A !important;"
+                onclick="filtrarPorEstado('En Progreso')">
                 <div class="card-body py-3">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
@@ -73,8 +106,9 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100"
-                style="border-radius: 12px; border-left: 4px solid #dc3545 !important;">
+            <div class="card border-0 shadow-sm h-100 stat-card {% if filtro_estado == 'Vencidas' %}active-vencidas{% endif %}"
+                style="border-radius: 12px; border-left: 4px solid #dc3545 !important;"
+                onclick="filtrarPorEstado('Vencidas')">
                 <div class="card-body py-3">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
@@ -89,8 +123,9 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100"
-                style="border-radius: 12px; border-left: 4px solid #198754 !important;">
+            <div class="card border-0 shadow-sm h-100 stat-card {% if filtro_estado == 'Completada' %}active-completada{% endif %}"
+                style="border-radius: 12px; border-left: 4px solid #198754 !important;"
+                onclick="filtrarPorEstado('Completada')">
                 <div class="card-body py-3">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
@@ -110,7 +145,7 @@
     <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
         <div class="card-body p-3">
             <form method="GET" action="{{ url_for('listar_tareas') }}" class="row g-2 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary mb-1">Buscar Tarea</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0 text-muted"><i
@@ -124,15 +159,13 @@
                     <select name="estado" class="form-select form-select-sm">
                         <option value="Activas" {% if filtro_estado=='Activas' %}selected{% endif %}>Activas</option>
                         <option value="Todos" {% if filtro_estado=='Todos' %}selected{% endif %}>Todos</option>
-                        <option value="Pendiente" {% if filtro_estado=='Pendiente' %}selected{% endif %}>Pendiente
-                        </option>
-                        <option value="En Progreso" {% if filtro_estado=='En Progreso' %}selected{% endif %}>En Progreso
-                        </option>
-                        <option value="Completada" {% if filtro_estado=='Completada' %}selected{% endif %}>Completada
-                        </option>
+                        <option value="Pendiente" {% if filtro_estado=='Pendiente' %}selected{% endif %}>Pendiente</option>
+                        <option value="En Progreso" {% if filtro_estado=='En Progreso' %}selected{% endif %}>En Progreso</option>
+                        <option value="Vencidas" {% if filtro_estado=='Vencidas' %}selected{% endif %}>Vencidas</option>
+                        <option value="Completada" {% if filtro_estado=='Completada' %}selected{% endif %}>Completada</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <label class="form-label small fw-semibold text-secondary mb-1">Prioridad</label>
                     <select name="prioridad" class="form-select form-select-sm">
                         <option value="Todas" {% if filtro_prioridad=='Todas' %}selected{% endif %}>Todas</option>
@@ -141,28 +174,43 @@
                         <option value="Baja" {% if filtro_prioridad=='Baja' %}selected{% endif %}>Baja</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Rango de Fecha</label>
+                    <select name="rango_fecha" class="form-select form-select-sm">
+                        <option value="Todos" {% if filtro_rango_fecha=='Todos' %}selected{% endif %}>Cualquier fecha</option>
+                        <option value="Hoy" {% if filtro_rango_fecha=='Hoy' %}selected{% endif %}>Creadas hoy</option>
+                        <option value="Semana" {% if filtro_rango_fecha=='Semana' %}selected{% endif %}>Última semana</option>
+                        <option value="Mes" {% if filtro_rango_fecha=='Mes' %}selected{% endif %}>Último mes</option>
+                        <option value="Anio" {% if filtro_rango_fecha=='Anio' %}selected{% endif %}>Último año</option>
+                    </select>
+                </div>
+                {% if usuario.rol in ['Socio', 'Administrador'] %}
+                <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary mb-1">Expediente / Caso</label>
                     <select name="expediente_id" class="form-select form-select-sm">
-                        <option value="Todos" {% if filtro_expediente=='Todos' %}selected{% endif %}>Todos los
-                            Expedientes</option>
+                        <option value="Todos" {% if filtro_expediente=='Todos' %}selected{% endif %}>Todos los Expedientes</option>
                         {% for e in expedientes_list %}
-                        <option value="{{ e.id }}" {% if filtro_expediente==e.id|string %}selected{% endif %}>{{
-                            e.nombre_caso }}</option>
+                        <option value="{{ e.id }}" {% if filtro_expediente==e.id|string %}selected{% endif %}>{{ e.nombre_caso }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
-                {% if usuario.rol in ['Socio', 'Administrador'] %}
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-secondary mb-1">Asignado a</label>
                     <select name="asignado_a_id" class="form-select form-select-sm">
                         <option value="Todos" {% if filtro_asignado=='Todos' %}selected{% endif %}>Cualquiera</option>
-                        <option value="General" {% if filtro_asignado=='General' %}selected{% endif %}>Asignadas a Todos
-                        </option>
+                        <option value="General" {% if filtro_asignado=='General' %}selected{% endif %}>Asignadas a Todos</option>
                         {% for u in usuarios_list %}
-                        <option value="{{ u.id }}" {% if filtro_asignado==u.id|string %}selected{% endif %}>{{ u.nombre
-                            }}</option>
+                        <option value="{{ u.id }}" {% if filtro_asignado==u.id|string %}selected{% endif %}>{{ u.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-secondary mb-1">Expediente / Caso</label>
+                    <select name="expediente_id" class="form-select form-select-sm">
+                        <option value="Todos" {% if filtro_expediente=='Todos' %}selected{% endif %}>Todos los Expedientes</option>
+                        {% for e in expedientes_list %}
+                        <option value="{{ e.id }}" {% if filtro_expediente==e.id|string %}selected{% endif %}>{{ e.nombre_caso }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -393,12 +441,18 @@
                             <i class="bi bi-clipboard2-x text-secondary opacity-50 mb-3"
                                 style="font-size: 3rem; display: block;"></i>
                             <h6 class="fw-bold mb-1 text-dark">No se encontraron tareas</h6>
-                            {% if filtro_q %}
-                            <p class="small text-muted mb-0">No hay tareas que coincidan con "{{ filtro_q }}" o con los
-                                filtros seleccionados.</p>
+                            {% if filtro_estado == 'Pendiente' %}
+                            <p class="small text-muted mb-0">No tienes tareas pendientes por realizar. ¡Buen trabajo!</p>
+                            {% elif filtro_estado == 'En Progreso' %}
+                            <p class="small text-muted mb-0">No hay tareas en progreso actualmente.</p>
+                            {% elif filtro_estado == 'Vencidas' %}
+                            <p class="small text-muted mb-0">¡Excelente! No tienes tareas con plazos vencidos.</p>
+                            {% elif filtro_estado == 'Completada' %}
+                            <p class="small text-muted mb-0">No hay tareas completadas para mostrar.</p>
+                            {% elif filtro_q %}
+                            <p class="small text-muted mb-0">No hay tareas que coincidan con "{{ filtro_q }}" o con los filtros seleccionados.</p>
                             {% else %}
-                            <p class="small text-muted mb-0">No hay tareas registradas o que coincidan con los filtros
-                                seleccionados.</p>
+                            <p class="small text-muted mb-0">No hay tareas registradas o que coincidan con los filtros seleccionados.</p>
                             {% endif %}
                         </td>
                     </tr>
@@ -604,6 +658,18 @@
 <script>
     let modalInstance;
     let modalElimInstance;
+
+    function filtrarPorEstado(estado) {
+        const selectEstado = document.querySelector('select[name="estado"]');
+        if (selectEstado) {
+            if (selectEstado.value === estado) {
+                selectEstado.value = 'Activas';
+            } else {
+                selectEstado.value = estado;
+            }
+            selectEstado.closest('form').submit();
+        }
+    }
 
     function toggleTaskAuditLogs() {
         const btn = document.getElementById('btnShowAllTaskAudit');

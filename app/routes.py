@@ -1,6 +1,6 @@
 import os
 import uuid  # Para generar el código único de la firma
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import urlparse
 
@@ -3055,8 +3055,10 @@ def register_routes(app):
         filtro_prioridad = request.args.get("prioridad", "Todas")
         filtro_expediente = request.args.get("expediente_id", "Todos")
         filtro_asignado = request.args.get("asignado_a_id", "Todos")
+        filtro_rango_fecha = request.args.get("rango_fecha", "Todos")
 
         query = Tarea.query
+        hoy = rd_now().date()
 
         # Filtrar por rol (Asociado/Paralegal solo ven las asignadas a ellos o a todos)
         if current_user.rol in ["Asociado", "Paralegal"]:
@@ -3076,6 +3078,8 @@ def register_routes(app):
 
         if filtro_estado == "Activas":
             query = query.filter(Tarea.estado != "Completada")
+        elif filtro_estado == "Vencidas":
+            query = query.filter(Tarea.estado != "Completada", Tarea.fecha_limite < hoy)
         elif filtro_estado != "Todos":
             query = query.filter_by(estado=filtro_estado)
         
@@ -3095,6 +3099,22 @@ def register_routes(app):
                 Tarea.titulo.ilike(f"%{filtro_q}%"),
                 Tarea.descripcion.ilike(f"%{filtro_q}%")
             ))
+
+        # Filtrar por fecha de creación (rango)
+        if filtro_rango_fecha != "Todos":
+            now_dt = rd_now()
+            if filtro_rango_fecha == "Hoy":
+                start_dt = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                query = query.filter(Tarea.fecha_creacion >= start_dt)
+            elif filtro_rango_fecha == "Semana":
+                start_dt = now_dt - timedelta(days=7)
+                query = query.filter(Tarea.fecha_creacion >= start_dt)
+            elif filtro_rango_fecha == "Mes":
+                start_dt = now_dt - timedelta(days=30)
+                query = query.filter(Tarea.fecha_creacion >= start_dt)
+            elif filtro_rango_fecha == "Anio":
+                start_dt = now_dt - timedelta(days=365)
+                query = query.filter(Tarea.fecha_creacion >= start_dt)
 
         tareas = query.order_by(Tarea.estado.desc(), Tarea.fecha_limite.asc(), Tarea.prioridad.asc()).all()
 
@@ -3116,12 +3136,26 @@ def register_routes(app):
                 Tarea.asignado_a_id == None
             ))
 
+        if filtro_rango_fecha != "Todos":
+            now_dt = rd_now()
+            if filtro_rango_fecha == "Hoy":
+                start_dt = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                stat_query = stat_query.filter(Tarea.fecha_creacion >= start_dt)
+            elif filtro_rango_fecha == "Semana":
+                start_dt = now_dt - timedelta(days=7)
+                stat_query = stat_query.filter(Tarea.fecha_creacion >= start_dt)
+            elif filtro_rango_fecha == "Mes":
+                start_dt = now_dt - timedelta(days=30)
+                stat_query = stat_query.filter(Tarea.fecha_creacion >= start_dt)
+            elif filtro_rango_fecha == "Anio":
+                start_dt = now_dt - timedelta(days=365)
+                stat_query = stat_query.filter(Tarea.fecha_creacion >= start_dt)
+
         stat_pendientes = stat_query.filter_by(estado="Pendiente").count()
         stat_progreso = stat_query.filter_by(estado="En Progreso").count()
         stat_completadas = stat_query.filter_by(estado="Completada").count()
         
         # Calcular tareas vencidas (no completadas y con fecha_limite menor a hoy)
-        hoy = rd_now().date()
         stat_vencidas = stat_query.filter(Tarea.estado != "Completada", Tarea.fecha_limite < hoy).count()
 
         # Obtener auditorías relacionadas con movimientos en tareas
@@ -3148,6 +3182,7 @@ def register_routes(app):
             filtro_prioridad=filtro_prioridad,
             filtro_expediente=filtro_expediente,
             filtro_asignado=filtro_asignado,
+            filtro_rango_fecha=filtro_rango_fecha,
             stat_pendientes=stat_pendientes,
             stat_progreso=stat_progreso,
             stat_vencidas=stat_vencidas,
