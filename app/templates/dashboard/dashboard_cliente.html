@@ -37,12 +37,22 @@
                         <i class="bi bi-calendar-event fs-4"></i>
                     </div>
                     <div>
-                        <div class="text-muted small fw-semibold">Próxima Audiencia</div>
+                        <div class="text-muted small fw-semibold">
+                            {% if estadisticas.caso_activo_principal and estadisticas.caso_activo_principal.tipo_tramite == 'Administrativo' %}
+                            Próximo Hito / Plazo
+                            {% else %}
+                            Próxima Audiencia
+                            {% endif %}
+                        </div>
                         <h6 class="fw-bold mb-0 text-dark">
                             {% if estadisticas.audiencia_proxima %}
-                            {{ estadisticas.audiencia_proxima.fecha_vencimiento.strftime('%d/%m/%Y %H:%M') }}
+                            <span title="{{ estadisticas.audiencia_proxima.titulo_hito }}">{{ estadisticas.audiencia_proxima.fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p') }}</span>
                             {% else %}
-                            Sin audiencias programadas
+                                {% if estadisticas.caso_activo_principal and estadisticas.caso_activo_principal.tipo_tramite == 'Administrativo' %}
+                                Sin plazos programados
+                                {% else %}
+                                Sin audiencias programadas
+                                {% endif %}
                             {% endif %}
                         </h6>
                     </div>
@@ -92,6 +102,15 @@
                     </div>
 
                     <!-- Timeline Horizontal de Fases -->
+                    {% set caso = estadisticas.caso_activo_principal %}
+                    {% if caso.tipo_tramite == 'Judicial' %}
+                        {% set f1, f2, f3, f4, f5 = '1. Demanda interpuesta', '2. Demanda admitida', '3. Audiencia fijada', '4. Conclusiones', '5. Sentencia / Cierre' %}
+                        {% set i1, i2, i3, i4, i5 = 'bi-file-earmark-text', 'bi-check-circle', 'bi-calendar-event', 'bi-chat-left-dots', 'bi-gavel' %}
+                    {% else %}
+                        {% set f1, f2, f3, f4, f5 = '1. Documentos recibidos', '2. Solicitud radicada', '3. Revisión oficial', '4. Pago de tasas', '5. Resolución / Cierre' %}
+                        {% set i1, i2, i3, i4, i5 = 'bi-folder', 'bi-file-earmark-arrow-up', 'bi-building-gear', 'bi-cash-coin', 'bi-clipboard2-check' %}
+                    {% endif %}
+                    
                     <div class="row text-center position-relative mb-4">
                         <!-- Línea de fondo -->
                         <div class="position-absolute top-50 start-0 translate-y-50 w-100 bg-secondary bg-opacity-25" style="height: 4px; z-index: 1;"></div>
@@ -99,44 +118,54 @@
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
                                 <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 1 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-file-earmark-text"></i>
+                                    <i class="bi {{ i1 }}"></i>
                                 </div>
-                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">1. Demanda interpuesta</div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f1 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
                                 <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 2 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-check-circle"></i>
+                                    <i class="bi {{ i2 }}"></i>
                                 </div>
-                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">2. Demanda admitida</div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f2 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
                                 <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 3 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-calendar-event"></i>
+                                    <i class="bi {{ i3 }}"></i>
                                 </div>
-                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">3. Audiencia fijada</div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f3 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
                                 <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 4 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-chat-left-dots"></i>
+                                    <i class="bi {{ i4 }}"></i>
                                 </div>
-                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">4. Conclusiones</div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f4 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
                                 <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 5 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-gavel"></i>
+                                    <i class="bi {{ i5 }}"></i>
                                 </div>
-                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">5. Sentencia</div>
+                                <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f5 }}</div>
                             </div>
                         </div>
                     </div>
+
+                    {% if caso.fase_nota %}
+                    <div class="alert alert-info border-0 shadow-sm rounded-3 py-2 px-3 mb-2 small d-flex align-items-center gap-2 text-start">
+                        <i class="bi bi-info-circle-fill fs-5 text-info"></i>
+                        <div>
+                            <span class="fw-bold d-block text-dark" style="font-size: 0.75rem;">Última actualización de progreso del abogado:</span>
+                            <span class="text-secondary" style="font-size: 0.75rem;">"{{ caso.fase_nota }}"</span>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% else %}
                     <div class="text-center py-4">
                         <i class="bi bi-folder2 text-muted fs-1"></i>

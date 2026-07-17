@@ -106,6 +106,11 @@ def _serialize_expedientes(expedientes):
             else None,
         }
         if exp.tipo_tramite == "Judicial":
+            next_hearing = (
+                AlertaPlazoAudiencia.query.filter_by(expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente")
+                .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
+                .first()
+            )
             item.update(
                 {
                     "rama_derecho": exp.rama_derecho,
@@ -119,15 +124,9 @@ def _serialize_expedientes(expedientes):
                     "contacto_contraparte": exp.contacto_contraparte,
                     "abogado_contraparte": exp.abogado_contraparte,
                     "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
-                    "monto_demanda": float(exp.monto_demanda)
-                    if exp.monto_demanda is not None
-                    else None,
-                    "fecha_audiencia": exp.fecha_audiencia.strftime("%Y-%m-%d")
-                    if exp.fecha_audiencia
-                    else None,
-                    "hora_audiencia": exp.hora_audiencia.strftime("%H:%M")
-                    if exp.hora_audiencia
-                    else None,
+                    "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
+                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime("%Y-%m-%d") if next_hearing else None,
+                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M") if next_hearing else None,
                 }
             )
         elif exp.tipo_tramite == "Administrativo":
@@ -605,16 +604,33 @@ def register_routes(app):
                 )
 
                 exp_ids = [e.id for e in expedientes_cliente]
+                
+                # 1. Buscar caso activo principal primero
+                caso_activo_principal = None
+                for e in expedientes_cliente:
+                    if e.estado in ["Abierto", "Suspendido"]:
+                        caso_activo_principal = e
+                        break
+                if not caso_activo_principal:
+                    for e in expedientes_cliente:
+                        if e.estado == "Finalizado":
+                            caso_activo_principal = e
+                            break
+
+                # 2. Obtener próximo evento según tipo de trámite
                 audiencia_proxima = None
                 if exp_ids:
-                    audiencia_proxima = (
-                        AlertaPlazoAudiencia.query.filter(
-                            AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
-                        )
-                        .filter(AlertaPlazoAudiencia.estado_alerta == "Pendiente")
-                        .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
-                        .first()
+                    query_audiencia = AlertaPlazoAudiencia.query.filter(
+                        AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
+                    ).filter(
+                        AlertaPlazoAudiencia.estado_alerta.in_(["Pending", "Pendiente"])
                     )
+
+                    # Si es Judicial, buscar específicamente audiencias. Si es Administrativo, buscar cualquier hito/plazo pendiente.
+                    if caso_activo_principal and caso_activo_principal.tipo_tramite == "Judicial":
+                        query_audiencia = query_audiencia.filter(AlertaPlazoAudiencia.es_audiencia == True)
+
+                    audiencia_proxima = query_audiencia.order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc()).first()
 
                 documentos_compartidos = []
                 if cliente_db:
@@ -647,29 +663,13 @@ def register_routes(app):
                         .all()
                     )
 
-                caso_activo_principal = None
-                for e in expedientes_cliente:
-                    if e.estado != "Archivado":
-                        caso_activo_principal = e
-                        break
-
-                # Fases del caso principal
+                # Fases del caso principal (Leídas de base de datos)
                 progreso_fase = 1
                 if caso_activo_principal:
-                    if caso_activo_principal.estado == "Archivado":
+                    if caso_activo_principal.estado in ["Archivado", "Finalizado"]:
                         progreso_fase = 5
                     else:
-                        has_hearing = False
-                        if caso_activo_principal.tipo_tramite == "Judicial":
-                            has_hearing = (
-                                caso_activo_principal.fecha_audiencia is not None
-                            )
-                        if has_hearing:
-                            progreso_fase = 3
-                        elif len(caso_activo_principal.documentos) > 2:
-                            progreso_fase = 2
-                        else:
-                            progreso_fase = 1
+                        progreso_fase = caso_activo_principal.fase_actual or 1
 
                 estadisticas = {
                     "expedientes_activos_count": expedientes_activos_count,
@@ -1460,6 +1460,118 @@ def register_routes(app):
         ]
         return jsonify(results)
 
+    @app.route("/expedientes/historial")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def historial_expedientes_finalizados():
+        from sqlalchemy import extract
+        anios = db.session.query(extract('year', Expediente.fecha_cierre)).filter(
+            Expediente.estado == "Finalizado",
+            Expediente.fecha_cierre.isnot(None)
+        ).distinct().order_by(extract('year', Expediente.fecha_cierre).asc()).all()
+        
+        lista_anios = [int(a[0]) for a in anios if a[0] is not None]
+        anio_actual = datetime.now().year
+        if anio_actual not in lista_anios:
+            lista_anios.append(anio_actual)
+        lista_anios.sort()
+        
+        return render_template("expedientes/historial.html", anios=lista_anios)
+
+    @app.route("/api/expedientes/finalizados")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def api_expedientes_finalizados():
+        q = request.args.get("q", "").strip()
+        anio_desde = request.args.get("anio_desde", type=int)
+        anio_hasta = request.args.get("anio_hasta", type=int)
+        tipo_finalizacion = request.args.get("tipo_finalizacion", "").strip()
+        tipo_tramite = request.args.get("tipo_tramite", "").strip()
+
+        query = Expediente.query.filter(Expediente.estado == "Finalizado")
+
+        if q:
+            query = query.join(Cliente, isouter=True).filter(
+                db.or_(
+                    Expediente.codigo_firma.ilike(f"%{q}%"),
+                    Expediente.nombre_caso.ilike(f"%{q}%"),
+                    Cliente.nombres.ilike(f"%{q}%"),
+                    Cliente.apellidos.ilike(f"%{q}%"),
+                )
+            )
+
+        if anio_desde:
+            from sqlalchemy import extract
+            query = query.filter(extract('year', Expediente.fecha_cierre) >= anio_desde)
+        if anio_hasta:
+            from sqlalchemy import extract
+            query = query.filter(extract('year', Expediente.fecha_cierre) <= anio_hasta)
+
+        if tipo_finalizacion:
+            query = query.filter(Expediente.tipo_finalizacion == tipo_finalizacion)
+
+        if tipo_tramite:
+            query = query.filter(Expediente.tipo_tramite == tipo_tramite)
+
+        expedientes = query.order_by(Expediente.fecha_cierre.desc()).all()
+
+        results = []
+        for exp in expedientes:
+            next_hearing = None
+            if exp.tipo_tramite == "Judicial":
+                next_hearing = (
+                    AlertaPlazoAudiencia.query.filter_by(expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente")
+                    .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
+                    .first()
+                )
+            
+            item = {
+                "id": exp.id,
+                "codigo_firma": exp.codigo_firma,
+                "nombre_caso": exp.nombre_caso,
+                "tipo_tramite": exp.tipo_tramite,
+                "cliente_nombre": exp.cliente.nombre_completo if exp.cliente else "N/A",
+                "abogado_responsable_nombre": exp.abogado_responsable.nombre if exp.abogado_responsable else "No asignado",
+                "rol_firma": exp.rol_firma,
+                "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d") if exp.fecha_apertura else None,
+                "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d") if exp.fecha_cierre else None,
+                "tipo_finalizacion": exp.tipo_finalizacion,
+                "razon_estado": exp.razon_estado,
+                "fase_actual": exp.fase_actual,
+                "fase_nota": exp.fase_nota,
+            }
+
+            if exp.tipo_tramite == "Judicial":
+                item.update({
+                    "rama_derecho": exp.rama_derecho,
+                    "sub_categoria": exp.sub_categoria,
+                    "tipo_accion": exp.tipo_accion,
+                    "jurisdiccion_actual": exp.jurisdiccion_actual,
+                    "tribunal_asignado": exp.tribunal_asignado,
+                    "numero_expediente_tribunal": exp.numero_expediente_tribunal,
+                    "juez_asignado": exp.juez_asignado,
+                    "nombre_contraparte": exp.nombre_contraparte,
+                    "contacto_contraparte": exp.contacto_contraparte,
+                    "abogado_contraparte": exp.abogado_contraparte,
+                    "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
+                    "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
+                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime("%Y-%m-%d") if next_hearing else None,
+                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M") if next_hearing else None,
+                })
+            else:
+                item.update({
+                    "tipo_proceso": exp.tipo_proceso,
+                    "sub_proceso": exp.sub_proceso,
+                    "institucion_encargada": exp.institucion_encargada,
+                    "numero_solicitud_oficial": exp.numero_solicitud_oficial,
+                    "descripcion_tramite": exp.descripcion_tramite,
+                    "monto_tasas_impuestos": float(exp.monto_tasas_impuestos) if exp.monto_tasas_impuestos is not None else None,
+                })
+
+            results.append(item)
+
+        return jsonify(results)
+
     @app.route("/expedientes/<int:expediente_id>/detalle")
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
@@ -1511,10 +1623,18 @@ def register_routes(app):
             "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d") if exp.fecha_apertura else None,
             "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d") if exp.fecha_cierre else None,
             "razon_estado": exp.razon_estado or "",
+            "tipo_finalizacion": exp.tipo_finalizacion or "",
+            "fase_actual": exp.fase_actual,
+            "fase_nota": exp.fase_nota or "",
             "auditorias": auditorias_data,
         }
 
         if exp.tipo_tramite == "Judicial":
+            next_hearing = (
+                AlertaPlazoAudiencia.query.filter_by(expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente")
+                .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
+                .first()
+            )
             item.update(
                 {
                     "rama_derecho": exp.rama_derecho,
@@ -1529,8 +1649,8 @@ def register_routes(app):
                     "abogado_contraparte": exp.abogado_contraparte or "",
                     "contacto_abogado_contraparte": exp.contacto_abogado_contraparte or "",
                     "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
-                    "fecha_audiencia": exp.fecha_audiencia.strftime("%Y-%m-%d") if exp.fecha_audiencia else None,
-                    "hora_audiencia": exp.hora_audiencia.strftime("%H:%M") if exp.hora_audiencia else None,
+                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime("%Y-%m-%d") if next_hearing else None,
+                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M") if next_hearing else None,
                 }
             )
         elif exp.tipo_tramite == "Administrativo":
@@ -1631,8 +1751,6 @@ def register_routes(app):
                     abogado_contraparte=form_judicial.abogado_contraparte.data,
                     contacto_abogado_contraparte=form_judicial.contacto_abogado_contraparte.data,
                     monto_demanda=form_judicial.monto_demanda.data,
-                    fecha_audiencia=form_judicial.fecha_audiencia.data,
-                    hora_audiencia=form_judicial.hora_audiencia.data,
                     tipo_tramite="Judicial",
                 )
 
@@ -1763,8 +1881,6 @@ def register_routes(app):
                     exp.contacto_abogado_contraparte
                 )
                 form.monto_demanda.data = exp.monto_demanda
-                form.fecha_audiencia.data = exp.fecha_audiencia
-                form.hora_audiencia.data = exp.hora_audiencia
             else:
                 form.tipo_proceso.data = exp.tipo_proceso
                 form.sub_proceso.data = exp.sub_proceso
@@ -1827,8 +1943,6 @@ def register_routes(app):
                     else None
                 )
                 exp.monto_demanda = form.monto_demanda.data
-                exp.fecha_audiencia = form.fecha_audiencia.data
-                exp.hora_audiencia = form.hora_audiencia.data
             else:
                 exp.tipo_proceso = form.tipo_proceso.data
                 exp.sub_proceso = (
@@ -1875,7 +1989,7 @@ def register_routes(app):
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def cambiar_estado_expediente(expediente_id, nuevo_estado):
-        if nuevo_estado not in ["Abierto", "Suspendido", "Archivado"]:
+        if nuevo_estado not in ["Abierto", "Suspendido", "Finalizado", "Archivado"]:
             flash("Estado inválido.", "danger")
             return redirect(url_for("expedientes"))
 
@@ -1887,14 +2001,27 @@ def register_routes(app):
             flash("Debe especificar una razón para cambiar el estado del expediente.", "danger")
             return redirect(url_for("expedientes"))
 
+        tipo_finalizacion = None
+        if nuevo_estado == "Finalizado":
+            tipo_finalizacion = request.form.get("tipo_finalizacion", "").strip()
+            if not tipo_finalizacion:
+                flash("Debe especificar el tipo de finalización del expediente.", "danger")
+                return redirect(url_for("expedientes"))
+
         estado_anterior = exp.estado
         exp.estado = nuevo_estado
         exp.razon_estado = razon
+        exp.tipo_finalizacion = tipo_finalizacion
 
-        if nuevo_estado == "Archivado":
+        if nuevo_estado in ["Archivado", "Finalizado"]:
             exp.fecha_cierre = datetime.utcnow()
+            if nuevo_estado == "Finalizado":
+                # Si se finaliza, por defecto lo colocamos en fase 5 (Finalizado/Sentencia)
+                exp.fase_actual = 5
         else:
             exp.fecha_cierre = None
+            if nuevo_estado == "Abierto" and estado_anterior in ["Finalizado", "Archivado"]:
+                exp.tipo_finalizacion = None
 
         try:
             db.session.commit()
@@ -1909,6 +2036,44 @@ def register_routes(app):
         except Exception as e:
             db.session.rollback()
             flash(f"Error al cambiar el estado del expediente: {str(e)}", "danger")
+
+        return redirect(url_for("expedientes"))
+
+    @app.route("/expedientes/<int:expediente_id>/actualizar_fase", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def actualizar_fase_expediente(expediente_id):
+        exp = Expediente.query.get_or_404(expediente_id)
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("expedientes"))
+
+        fase = request.form.get("fase_actual", type=int)
+        nota = request.form.get("fase_nota", "").strip()
+
+        if fase is not None and (fase < 1 or fase > 5):
+            flash("Fase de progreso inválida.", "danger")
+            return redirect(url_for("expedientes"))
+
+        fase_anterior = exp.fase_actual
+        if fase is not None:
+            exp.fase_actual = fase
+        
+        exp.fase_nota = nota if nota else None
+
+        try:
+            db.session.commit()
+            # Registrar en auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Fase actualizada",
+                detalles=f"Cambió la fase de progreso de '{fase_anterior}' a '{fase}'. Nota: {nota or 'Sin nota'}",
+                expediente_id=exp.id,
+            )
+            flash("Progreso del expediente actualizado correctamente.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al actualizar el progreso del expediente: {str(e)}", "danger")
 
         return redirect(url_for("expedientes"))
 
