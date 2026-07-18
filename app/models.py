@@ -23,6 +23,8 @@ class Usuario(UserMixin, db.Model):
     rol = db.Column(db.String(50), nullable=False) # 'Socio', 'Asociado', 'Paralegal', 'Administrador', 'Cliente'
     activo = db.Column(db.Boolean, nullable=False, default=True)
     requiere_cambio_password = db.Column(db.Boolean, nullable=False, default=True)
+    intentos_fallidos = db.Column(db.Integer, nullable=False, default=0)
+    bloqueado_hasta = db.Column(db.DateTime(timezone=True), nullable=True)
 
     # Propiedades helper
     @property

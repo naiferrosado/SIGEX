@@ -209,28 +209,66 @@ def register_routes(app):
         if form.validate_on_submit():
             usuario = Usuario.query.filter_by(email=form.email.data).first()
 
-            if usuario and check_password_hash(
-                usuario.password_hash, form.password.data
-            ):
-                if not usuario.activo:
+            if usuario:
+                ahora = rd_now()
+                # 1. Verificar si la cuenta está bloqueada temporalmente
+                if usuario.bloqueado_hasta and ahora < usuario.bloqueado_hasta:
+                    tiempo_restante = usuario.bloqueado_hasta - ahora
+                    minutos_restantes = int(tiempo_restante.total_seconds() / 60) + 1
                     flash(
-                        "Su cuenta está suspendida. Por favor, póngase en contacto con el administrador.",
+                        f"Su cuenta está bloqueada temporalmente debido a múltiples intentos fallidos. Intente de nuevo en {minutos_restantes} minuto(s).",
                         "danger",
                     )
                     return render_template("auth/login.html", form=form)
 
-                login_user(usuario, remember=form.recordarme.data)
-                next_page = request.args.get("next")
-                if next_page:
-                    parsed_url = urlparse(next_page)
-                    # Si tiene netloc o no comienza con /, se invalida la redirección externa
-                    if parsed_url.netloc or not next_page.startswith("/"):
-                        next_page = None
+                # 2. Verificar contraseña
+                if check_password_hash(usuario.password_hash, form.password.data):
+                    if not usuario.activo:
+                        flash(
+                            "Su cuenta está suspendida. Por favor, póngase en contacto con el administrador.",
+                            "danger",
+                        )
+                        return render_template("auth/login.html", form=form)
 
-                return (
-                    redirect(next_page) if next_page else redirect(url_for("dashboard"))
-                )
+                    # Resetear contador e intentos fallidos al iniciar sesión exitosamente
+                    usuario.intentos_fallidos = 0
+                    usuario.bloqueado_hasta = None
+                    db.session.commit()
+
+                    login_user(usuario, remember=form.recordarme.data)
+                    next_page = request.args.get("next")
+                    if next_page:
+                        parsed_url = urlparse(next_page)
+                        if parsed_url.netloc or not next_page.startswith("/"):
+                            next_page = None
+
+                    return (
+                        redirect(next_page) if next_page else redirect(url_for("dashboard"))
+                    )
+                else:
+                    # Contraseña incorrecta
+                    if usuario.bloqueado_hasta and ahora >= usuario.bloqueado_hasta:
+                        # Si el bloqueo ya expiró pero no se limpió, reiniciamos a 1
+                        usuario.intentos_fallidos = 1
+                        usuario.bloqueado_hasta = None
+                    else:
+                        usuario.intentos_fallidos += 1
+
+                    if usuario.intentos_fallidos >= 5:
+                        usuario.bloqueado_hasta = ahora + timedelta(minutes=30)
+                        flash(
+                            "Ha superado el límite de 5 intentos fallidos. Su cuenta ha sido bloqueada temporalmente por 30 minutos.",
+                            "danger",
+                        )
+                    else:
+                        intentos_restantes = 5 - usuario.intentos_fallidos
+                        flash(
+                            f"Credenciales incorrectas. Le quedan {intentos_restantes} intento(s) antes de bloquear su cuenta.",
+                            "danger",
+                        )
+                    db.session.commit()
             else:
+                # Mostrar error genérico si el correo no coincide con ningún usuario
                 flash(
                     "Credenciales incorrectas. Verifique su correo institucional y contraseña.",
                     "danger",
