@@ -864,12 +864,12 @@ def register_routes(app):
         cliente = Cliente.query.get_or_404(cliente_id)
         if cliente.usuario_id:
             flash("El cliente ya posee una cuenta de acceso vinculada.", "warning")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         email_limpio = cliente.email_contacto.strip().lower()
         if not email_limpio:
             flash("El cliente debe tener un correo de contacto configurado para habilitar acceso.", "danger")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         existente = Usuario.query.filter_by(email=email_limpio).first()
         if existente:
@@ -885,12 +885,12 @@ def register_routes(app):
                 flash("Cuenta de acceso existente vinculada con éxito.", "success")
             else:
                 flash(f"El correo electrónico '{email_limpio}' ya está en uso por un miembro de la firma.", "danger")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         clave_inicial = cliente.rnc_cedula.strip()
         if not clave_inicial:
             flash("El cliente debe poseer cédula o RNC para usar de contraseña inicial.", "danger")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         nuevo_usuario = Usuario(
             nombre=cliente.nombre_completo,
@@ -918,7 +918,7 @@ def register_routes(app):
             db.session.rollback()
             flash(f"Error al crear el usuario de acceso: {str(e)}", "danger")
 
-        return redirect(url_for("clientes"))
+        return redirect(url_for("clientes", id=cliente.id))
 
     @app.route("/clientes/<int:cliente_id>/desactivar_acceso", methods=["POST"])
     @login_required
@@ -927,7 +927,7 @@ def register_routes(app):
         cliente = Cliente.query.get_or_404(cliente_id)
         if not cliente.usuario_id:
             flash("El cliente no tiene una cuenta de acceso vinculada.", "warning")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         user = Usuario.query.get(cliente.usuario_id)
         if user:
@@ -947,7 +947,7 @@ def register_routes(app):
         else:
             flash("No se encontró la cuenta de acceso.", "danger")
 
-        return redirect(url_for("clientes"))
+        return redirect(url_for("clientes", id=cliente.id))
 
     @app.route("/clientes/<int:cliente_id>/reactivar_acceso", methods=["POST"])
     @login_required
@@ -956,7 +956,7 @@ def register_routes(app):
         cliente = Cliente.query.get_or_404(cliente_id)
         if not cliente.usuario_id:
             flash("El cliente no tiene una cuenta de acceso vinculada.", "warning")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         user = Usuario.query.get(cliente.usuario_id)
         if user:
@@ -976,7 +976,7 @@ def register_routes(app):
         else:
             flash("No se encontró la cuenta de acceso.", "danger")
 
-        return redirect(url_for("clientes"))
+        return redirect(url_for("clientes", id=cliente.id))
 
     @app.route("/clientes/<int:cliente_id>/restablecer_clave_acceso", methods=["POST"])
     @login_required
@@ -985,14 +985,14 @@ def register_routes(app):
         cliente = Cliente.query.get_or_404(cliente_id)
         if not cliente.usuario_id:
             flash("El cliente no tiene una cuenta de acceso vinculada.", "warning")
-            return redirect(url_for("clientes"))
+            return redirect(url_for("clientes", id=cliente.id))
 
         user = Usuario.query.get(cliente.usuario_id)
         if user:
             clave_inicial = cliente.rnc_cedula.strip()
             if not clave_inicial:
                 flash("El cliente debe poseer cédula o RNC para restablecer la contraseña.", "danger")
-                return redirect(url_for("clientes"))
+                return redirect(url_for("clientes", id=cliente.id))
 
             user.password_hash = generate_password_hash(clave_inicial)
             user.requiere_cambio_password = True
@@ -1011,7 +1011,7 @@ def register_routes(app):
         else:
             flash("No se encontró la cuenta de acceso.", "danger")
 
-        return redirect(url_for("clientes"))
+        return redirect(url_for("clientes", id=cliente.id))
 
     @app.route("/clientes/agregar", methods=["POST"])
     @login_required
@@ -1051,6 +1051,7 @@ def register_routes(app):
                     cliente_id=cliente.id,
                 )
                 flash("Cliente agregado correctamente.", "success")
+                return redirect(url_for("clientes", id=cliente.id))
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error al guardar el cliente: {str(e)}", "danger")
@@ -1074,7 +1075,7 @@ def register_routes(app):
             duplicado = Cliente.query.filter_by(rnc_cedula=form.rnc_cedula.data).first()
             if duplicado and duplicado.id != cliente.id:
                 flash("Ya existe un cliente con esa cédula o RNC.", "warning")
-                return redirect(url_for("clientes"))
+                return redirect(url_for("clientes", id=cliente.id))
 
             # Actualización
             cliente.nombres = form.nombre.data.strip()
@@ -1104,7 +1105,7 @@ def register_routes(app):
                 for error in errors:
                     flash(f"Error al editar: {error}", "danger")
 
-        return redirect(url_for("clientes"))
+        return redirect(url_for("clientes", id=cliente.id))
 
     @app.route("/clientes/<int:cliente_id>/desactivar", methods=["POST"])
     @login_required
@@ -1117,7 +1118,7 @@ def register_routes(app):
             razon = request.form.get("razon", "").strip()
             if not razon:
                 flash("Debe especificar una razón para desactivar al cliente.", "danger")
-                return redirect(url_for("clientes"))
+                return redirect(url_for("clientes", id=cliente.id))
 
             cliente.consentimiento_datos = False
             cliente.razon_desactivacion = razon
@@ -1152,7 +1153,7 @@ def register_routes(app):
                 db.session.rollback()
                 flash(f"Error al activar el cliente: {str(e)}", "danger")
 
-        return redirect(url_for("clientes"))
+        return redirect(url_for("clientes", id=cliente.id))
 
     @app.route("/logout")
     def logout():
@@ -2017,7 +2018,7 @@ def register_routes(app):
                     expediente_id=exp.id,
                 )
                 flash("Expediente actualizado exitosamente.", "success")
-                return redirect(url_for("expedientes"))
+                return redirect(url_for("expedientes", id=exp.id))
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error al actualizar el expediente: {str(e)}", "danger")
@@ -2041,14 +2042,14 @@ def register_routes(app):
         razon = request.form.get("razon", "").strip()
         if not razon:
             flash("Debe especificar una razón para cambiar el estado del expediente.", "danger")
-            return redirect(url_for("expedientes"))
+            return redirect(url_for("expedientes", id=exp.id))
 
         tipo_finalizacion = None
         if nuevo_estado == "Finalizado":
             tipo_finalizacion = request.form.get("tipo_finalizacion", "").strip()
             if not tipo_finalizacion:
                 flash("Debe especificar el tipo de finalización del expediente.", "danger")
-                return redirect(url_for("expedientes"))
+                return redirect(url_for("expedientes", id=exp.id))
 
         estado_anterior = exp.estado
         exp.estado = nuevo_estado
@@ -2079,7 +2080,7 @@ def register_routes(app):
             db.session.rollback()
             flash(f"Error al cambiar el estado del expediente: {str(e)}", "danger")
 
-        return redirect(url_for("expedientes"))
+        return redirect(url_for("expedientes", id=exp.id))
 
     @app.route("/expedientes/<int:expediente_id>/actualizar_fase", methods=["POST"])
     @login_required
@@ -2088,14 +2089,14 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
         if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
-            return redirect(url_for("expedientes"))
+            return redirect(url_for("expedientes", id=exp.id))
 
         fase = request.form.get("fase_actual", type=int)
         nota = request.form.get("fase_nota", "").strip()
 
         if fase is not None and (fase < 1 or fase > 5):
             flash("Fase de progreso inválida.", "danger")
-            return redirect(url_for("expedientes"))
+            return redirect(url_for("expedientes", id=exp.id))
 
         fase_anterior = exp.fase_actual
         if fase is not None:
@@ -2117,7 +2118,7 @@ def register_routes(app):
             db.session.rollback()
             flash(f"Error al actualizar el progreso del expediente: {str(e)}", "danger")
 
-        return redirect(url_for("expedientes"))
+        return redirect(url_for("expedientes", id=exp.id))
 
     @app.route("/expedientes/<int:expediente_id>/eliminar", methods=["POST"])
     @login_required

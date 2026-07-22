@@ -33,7 +33,7 @@
     <div class="row g-4">
         
         <!-- COLUMNA IZQUIERDA: Tabla -->
-        <div class="col-xl-8">
+        <div class="col-xl-6 col-lg-6 order-lg-2">
             <div class="card border-0 shadow-sm rounded-4">
                 
                 <div class="card-header bg-white border-bottom p-3 d-flex gap-2 align-items-center flex-wrap rounded-top-4">
@@ -51,14 +51,16 @@
                         <option value="Persona física">Persona física</option>
                         <option value="Persona jurídica">Persona jurídica</option>
                     </select>
+                    <button class="btn btn-sm btn-light border fw-medium text-muted" id="btnClearFilters" title="Limpiar filtros">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar
+                    </button>
                 </div>
 
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 small">
                         <thead class="table-light text-muted fw-semibold">
                             <tr>
-                                <th class="ps-4 py-3">Cliente</th>
-                                <th class="py-3 pe-4 text-end">Acciones</th>
+                                <th class="ps-4 pe-4 py-3">Cliente</th>
                             </tr>
                         </thead>
                         <tbody id="clientsTableBody">
@@ -77,10 +79,11 @@
         </div>
 
         <!-- COLUMNA DERECHA: Panel de Detalles -->
-        <div class="col-xl-4">
+        <div class="col-xl-6 col-lg-6 order-lg-1">
             <div class="card border-0 shadow-sm rounded-4 position-sticky shadow-sm" style="top: 20px;" id="detailsPanel">
-                <div class="card-header bg-white border-bottom p-3">
+                <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 fw-bold" style="color: #071c4d;"><i class="bi bi-eye-fill me-2 text-primary"></i>Detalle del cliente</h6>
+                    <button type="button" class="btn-close" aria-label="Close" id="btnCloseDetails" style="font-size: 0.75rem; display: none;"></button>
                 </div>
                 
                 <div class="card-body p-4 text-center">
@@ -107,16 +110,44 @@
                         <!-- Pestaña General -->
                         <div class="tab-pane fade show active" id="tab-general">
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Datos Personales</div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Cédula / RNC:</span><span class="fw-semibold text-dark" id="detCedula">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Nacimiento:</span><span class="fw-semibold text-dark" id="detNacimiento">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Teléfono:</span><span class="fw-semibold text-dark" id="detTelefono">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Correo:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detCorreo">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Dirección:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detDireccion" title="">—</span></div>
+                            <div class="row g-3 border-bottom pb-2">
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Cédula / RNC:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detCedula">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Nacimiento:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detNacimiento">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Teléfono:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detTelefono">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Correo:</span>
+                                    <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detCorreo">—</span>
+                                </div>
+                                <div class="col-12">
+                                    <span class="text-muted d-block small">Dirección:</span>
+                                    <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detDireccion" title="">—</span>
+                                </div>
+                            </div>
                             
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Información Adicional</div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de cliente:</span><span class="fw-semibold text-dark" id="detType">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Ley 172-13:</span><span class="fw-semibold text-success" id="detConsentimiento">—</span></div>
-                            <div class="d-flex justify-content-between py-2" id="detRazonDesactivacionContainer" style="display: none !important;"><span class="text-muted">Razón de inactividad:</span><span class="fw-semibold text-danger" id="detRazonDesactivacion">—</span></div>
+                            <div class="row g-3 border-bottom pb-2">
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Tipo de cliente:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detType">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Ley 172-13:</span>
+                                    <span class="fw-semibold text-success fs-6" id="detConsentimiento">—</span>
+                                </div>
+                                <div class="col-12" id="detRazonDesactivacionContainer" style="display: none !important;">
+                                    <span class="text-muted d-block small">Razón de inactividad:</span>
+                                    <span class="fw-semibold text-danger fs-6" id="detRazonDesactivacion">—</span>
+                                </div>
+                            </div>
                             
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Acceso al Portal</div>
                             <div class="border-bottom py-2 d-flex flex-column gap-2" id="portalAccessContainer">
@@ -143,6 +174,7 @@
                 </div>
 
                 <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex flex-column gap-2">
+                    <div class="text-uppercase text-primary fw-bold tracking-wider mb-1 text-start" style="font-size: 0.65rem;">Acciones del Cliente</div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-white btn-sm border flex-grow-1 fw-semibold disabled" id="btnEditarPanel"><i class="bi bi-pencil-square me-1"></i> Editar</button>
                         <form method="POST" action="" id="formDesactivarPanel" style="flex: 1;">
@@ -346,7 +378,7 @@
         
         const q = document.getElementById('searchInput').value.trim();
         if (!q) {
-            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>Ingrese un término de búsqueda para consultar clientes.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="1" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>Ingrese un término de búsqueda para consultar clientes.</td></tr>';
             document.getElementById('paginationInfo').innerText = 'Sin búsqueda activa';
             return;
         }
@@ -354,7 +386,7 @@
         document.getElementById('paginationInfo').innerText = `Mostrando ${clientes.length} resultados`;
 
         if (clientes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron clientes que coincidan con la búsqueda.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="1" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron clientes que coincidan con la búsqueda.</td></tr>';
             return;
         }
 
@@ -366,14 +398,11 @@
             const iniciales = c.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
             tr.innerHTML = `
-                <td class="ps-4">
+                <td class="ps-4 pe-4">
                     <div class="d-flex align-items-center gap-2">
                         <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.75rem;">${iniciales}</div>
                         <span class="fw-semibold text-dark">${c.nombre}</span>
                     </div>
-                </td>
-                <td class="pe-4 text-end">
-                    <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
                 </td>
             `;
 
@@ -415,11 +444,16 @@
         fetch(`/clientes/${id}/detalle`)
             .then(res => res.json())
             .then(c => {
+                // Mostrar botón de cerrar
+                document.getElementById('btnCloseDetails').style.display = 'block';
+
                 const badge = c.consentimiento_datos 
                     ? '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-1 px-2">Activo</span>' 
                     : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">Inactivo</span>';
 
-                document.getElementById('detAvatar').innerText = iniciales;
+                const computedIniciales = iniciales || c.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
+                document.getElementById('detAvatar').innerText = computedIniciales;
                 document.getElementById('detAvatar').className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold fs-2 text-white ${c.consentimiento_datos ? 'bg-primary' : 'bg-danger'}`;
                 document.getElementById('detName').innerText = c.nombre;
                 document.getElementById('detStatusBadgeContainer').innerHTML = badge;
@@ -564,6 +598,61 @@
             });
     }
 
+    function limpiarDetalleCliente() {
+        seleccionadoId = null;
+        
+        // Remover highlight de la tabla
+        document.querySelectorAll('#clientsTableBody tr').forEach(row => row.classList.remove('table-primary'));
+        
+        // Quitar parámetro de la URL sin recargar la página
+        const url = new URL(window.location);
+        url.searchParams.delete('id');
+        window.history.pushState({}, '', url);
+        
+        // Esconder botón de cerrar
+        document.getElementById('btnCloseDetails').style.display = 'none';
+        
+        // Reset avatar y cabecera
+        document.getElementById('detAvatar').innerText = "?";
+        document.getElementById('detAvatar').className = "bg-light rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 fw-bold text-secondary shadow-sm";
+        document.getElementById('detName').innerText = "Seleccione un registro";
+        document.getElementById('detStatusBadgeContainer').innerHTML = '<span class="badge bg-secondary">Ninguno</span>';
+        
+        // Reset campos General
+        document.getElementById('detCedula').innerText = "—";
+        document.getElementById('detTelefono').innerText = "—";
+        document.getElementById('detCorreo').innerText = "—";
+        document.getElementById('detNacimiento').innerText = "—";
+        document.getElementById('detDireccion').innerText = "—";
+        document.getElementById('detDireccion').title = "";
+        document.getElementById('detType').innerText = "—";
+        document.getElementById('detConsentimiento').innerText = "—";
+        document.getElementById('detConsentimiento').className = "";
+        
+        document.getElementById('detRazonDesactivacionContainer').style.setProperty('display', 'none', 'important');
+        
+        // Reset portal
+        document.getElementById('detPortalStatus').innerText = "—";
+        document.getElementById('portalAccessActions').innerHTML = '';
+        
+        // Reset auditoría si existe
+        const auditContainer = document.getElementById('auditLogList');
+        if (auditContainer) {
+            auditContainer.innerHTML = '<div class="text-muted text-center py-3">No hay registros de auditoría.</div>';
+        }
+        
+        // Deshabilitar botones footer
+        const btnEdit = document.getElementById('btnEditarPanel');
+        btnEdit.classList.add('disabled');
+        btnEdit.onclick = null;
+        
+        const btnDesactivar = document.getElementById('btnDesactivarPanel');
+        btnDesactivar.classList.add('disabled');
+        btnDesactivar.onclick = null;
+        btnDesactivar.innerHTML = '<i class="bi bi-toggle-off me-1"></i> Desactivar';
+        btnDesactivar.className = 'btn btn-white btn-sm border border-danger text-danger w-100 fw-semibold disabled';
+    }
+
     function renderAuditorias(auditorias) {
         const container = document.getElementById('auditLogList');
         container.innerHTML = '';
@@ -637,9 +726,44 @@
     document.getElementById('searchInput').addEventListener('input', debouncedBuscar);
     document.getElementById('statusFilter').addEventListener('change', buscarClientes);
     document.getElementById('typeFilter').addEventListener('change', buscarClientes);
+    document.getElementById('btnClearFilters').addEventListener('click', () => {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = 'Todos';
+        document.getElementById('typeFilter').value = 'Todos';
+        buscarClientes();
+        limpiarDetalleCliente();
+    });
 
     window.onload = () => {
-        renderTable();
+        // Enlazar botón cerrar detalle
+        document.getElementById('btnCloseDetails').addEventListener('click', limpiarDetalleCliente);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselectedId = urlParams.get('id');
+        
+        if (preselectedId) {
+            seleccionadoId = parseInt(preselectedId);
+            cargarDetalleCliente(seleccionadoId);
+            
+            // Buscar y listar este cliente específico en la tabla
+            fetch(`/clientes/${seleccionadoId}/detalle`)
+                .then(res => res.json())
+                .then(c => {
+                    clientes = [{
+                        id: c.id,
+                        nombre: c.nombre,
+                        rnc_cedula: c.rnc_cedula,
+                        consentimiento_datos: c.consentimiento_datos
+                    }];
+                    renderTable();
+                })
+                .catch(err => {
+                    console.error("Error al preseleccionar cliente:", err);
+                    renderTable();
+                });
+        } else {
+            renderTable();
+        }
     };
 </script>
 {% endblock %}

@@ -38,7 +38,7 @@
     <div class="row g-4">
         
         <!-- COLUMNA IZQUIERDA: Tabla (DataTable local) -->
-        <div class="col-xl-8">
+        <div class="col-xl-6 col-lg-6 order-lg-2">
             <div class="card border-0 shadow-sm rounded-4">
                 
                 <div class="card-header bg-white border-bottom p-3 d-flex gap-2 align-items-center flex-wrap rounded-top-4">
@@ -58,6 +58,9 @@
                         <option value="Judicial">Vía Jurisdiccional (Litigio)</option>
                         <option value="Administrativo">Vía Administrativa</option>
                     </select>
+                    <button class="btn btn-sm btn-light border fw-medium text-muted" id="btnClearFilters" title="Limpiar filtros">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar
+                    </button>
                 </div>
 
                 <div class="table-responsive">
@@ -65,8 +68,7 @@
                         <thead class="table-light text-muted fw-semibold">
                             <tr>
                                 <th class="ps-4 py-3">Código</th>
-                                <th class="py-3">Caso</th>
-                                <th class="py-3 pe-4 text-end">Acciones</th>
+                                <th class="py-3 pe-4">Caso</th>
                             </tr>
                         </thead>
                         <tbody id="expTableBody">
@@ -85,10 +87,11 @@
         </div>
 
         <!-- COLUMNA DERECHA: Panel de Detalles -->
-        <div class="col-xl-4">
+        <div class="col-xl-6 col-lg-6 order-lg-1">
             <div class="card border-0 shadow-sm rounded-4 position-sticky shadow-sm" style="top: 20px;" id="detailsPanel">
-                <div class="card-header bg-white border-bottom p-3">
+                <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 fw-bold" style="color: #071c4d;"><i class="bi bi-eye-fill me-2 text-primary"></i>Detalle del expediente</h6>
+                    <button type="button" class="btn-close" aria-label="Close" id="btnCloseDetails" style="font-size: 0.75rem; display: none;"></button>
                 </div>
                 
                 <div class="card-body p-4 text-center">
@@ -121,15 +124,44 @@
                         <!-- Pestaña General -->
                         <div class="tab-pane fade show active" id="tab-general">
                             <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Datos del Expediente</div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Código Firma:</span><span class="fw-semibold text-dark" id="detCodigo">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Cliente:</span><span class="fw-semibold text-dark" id="detCliente">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Responsable:</span><span class="fw-semibold text-dark" id="detResponsable">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rol de la Firma:</span><span class="fw-semibold text-dark" id="detRolFirma">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo de Trámite:</span><span class="fw-semibold text-dark" id="detTipoTramite">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Apertura:</span><span class="fw-semibold text-dark" id="detApertura">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha Cierre:</span><span class="fw-semibold text-dark" id="detCierre">—</span></div>
-                            <div class="d-flex justify-content-between border-bottom py-2" id="detFinalizacionContainer" style="display: none !important;"><span class="text-muted">Tipo Finalización:</span><span class="fw-semibold text-info" id="detFinalizacion">—</span></div>
-                            <div class="d-flex justify-content-between py-2" id="detRazonEstadoContainer" style="display: none !important;"><span class="text-muted">Justificación estado:</span><span class="fw-semibold text-danger" id="detRazonEstado">—</span></div>
+                            <div class="row g-3 border-bottom pb-2">
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Código Firma:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detCodigo">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Cliente:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detCliente">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Responsable:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detResponsable">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Rol de la Firma:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detRolFirma">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Tipo de Trámite:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detTipoTramite">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Fecha Apertura:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detApertura">—</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted d-block small">Fecha Cierre:</span>
+                                    <span class="fw-semibold text-dark fs-6" id="detCierre">—</span>
+                                </div>
+                                <div class="col-md-6" id="detFinalizacionContainer" style="display: none !important;">
+                                    <span class="text-muted d-block small">Tipo Finalización:</span>
+                                    <span class="fw-semibold text-info fs-6" id="detFinalizacion">—</span>
+                                </div>
+                                <div class="col-12" id="detRazonEstadoContainer" style="display: none !important;">
+                                    <span class="text-muted d-block small">Justificación estado:</span>
+                                    <span class="fw-semibold text-danger fs-6" id="detRazonEstado">—</span>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Pestaña de Detalles Técnicos -->
@@ -137,33 +169,91 @@
                             <!-- Detalles Judiciales -->
                             <div id="det-judicial" style="display: none;">
                                 <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Detalles del Proceso Judicial</div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rama del Derecho:</span><span class="fw-semibold text-dark" id="detJudRama">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Sub-categoría:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudSubCat">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo Acción:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAccion">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Instancia Actual:</span><span class="fw-semibold text-dark" id="detJudInstancia">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tribunal Asignado:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudTribunal">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Expediente Tribunal:</span><span class="fw-semibold text-dark" id="detJudNroExp">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Juez Asignado:</span><span class="fw-semibold text-dark" id="detJudJuez">—</span></div>
+                                <div class="row g-3 border-bottom pb-2">
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Rama del Derecho:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detJudRama">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Sub-categoría:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudSubCat">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Tipo Acción:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudAccion">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Instancia Actual:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detJudInstancia">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Tribunal Asignado:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudTribunal">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Expediente Tribunal:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detJudNroExp">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Juez Asignado:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detJudJuez">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Monto Demanda:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detJudMonto">—</span>
+                                    </div>
+                                </div>
                                 
                                 <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Contraparte y Abogados</div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Nombre Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudContraparte">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Contacto Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudContraContacto">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Abogado Contraparte:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAbogContra">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Contacto Abogado:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detJudAbogContraContacto">—</span></div>
-                                
-                                <div class="text-uppercase text-primary fw-bold tracking-wider mb-2 mt-3" style="font-size: 0.65rem;">Aspecto Financiero</div>
-                                <div class="d-flex justify-content-between py-2"><span class="text-muted">Monto Demanda:</span><span class="fw-semibold text-dark" id="detJudMonto">—</span></div>
+                                <div class="row g-3 border-bottom pb-2">
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Nombre Contraparte:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudContraparte">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Contacto Contraparte:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudContraContacto">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Abogado Contraparte:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudAbogContra">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Contacto Abogado:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detJudAbogContraContacto">—</span>
+                                    </div>
+                                </div>
                             </div>
-
+ 
                             <!-- Detalles Administrativos -->
                             <div id="det-admin" style="display: none;">
                                 <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Detalles del Proceso Administrativo</div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tipo Trámite:</span><span class="fw-semibold text-dark" id="detAdmTipo">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Sub-proceso:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detAdmSubProc">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Institución:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detAdmInst">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Nro. Solicitud:</span><span class="fw-semibold text-dark" id="detAdmTicket">—</span></div>
-                                <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Tasas Pagadas:</span><span class="fw-semibold text-dark" id="detAdmMonto">—</span></div>
-                                <div class="py-2"><span class="text-muted d-block mb-1">Descripción:</span><p class="fw-medium text-dark bg-light p-2 rounded-2 text-start mb-0" id="detAdmDesc" style="white-space: pre-line; max-height: 120px; overflow-y: auto;">—</p></div>
+                                <div class="row g-3 border-bottom pb-2">
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Tipo Trámite:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detAdmTipo">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Sub-proceso:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detAdmSubProc">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Institución:</span>
+                                        <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detAdmInst">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Nro. Solicitud:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detAdmTicket">—</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block small">Tasas Pagadas:</span>
+                                        <span class="fw-semibold text-dark fs-6" id="detAdmMonto">—</span>
+                                    </div>
+                                    <div class="col-12">
+                                        <span class="text-muted d-block mb-1 small">Descripción:</span>
+                                        <p class="fw-medium text-dark bg-light p-2 rounded-2 text-start mb-0" id="detAdmDesc" style="white-space: pre-line; max-height: 120px; overflow-y: auto;">—</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -204,46 +294,55 @@
                 </div>
 
                 <!-- Botones de Acción -->
-                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4 d-flex flex-column gap-2">
-                    <!-- Ver Documentos -->
-                    <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled" id="btnVerDocumentos">
-                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Ver Documentos
-                    </a>
-
-                    <!-- Editar Expediente -->
-                    <a href="" class="btn btn-primary btn-sm w-100 fw-semibold disabled" id="btnEditar">
-                        <i class="bi bi-pencil-square me-1"></i> Editar Expediente
-                    </a>
-                    
-                    <div class="d-flex gap-1 flex-wrap">
-                        <!-- Suspender / Reanudar -->
-                        <form method="POST" action="" id="formSuspender" style="flex: 1; min-width: 90px;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnSuspender">
-                                <i class="bi bi-pause-fill me-1"></i> Suspender
-                            </button>
-                        </form>
-
-                        <!-- Finalizar Caso -->
-                        <form method="POST" action="" id="formFinalizar" style="flex: 1; min-width: 90px;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnFinalizar">
-                                <i class="bi bi-check-circle-fill me-1 text-success"></i> Finalizar
-                            </button>
-                        </form>
-                        
-                        <!-- Archivar / Reabrir -->
-                        <form method="POST" action="" id="formArchivar" style="flex: 1; min-width: 90px;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnArchivar">
-                                <i class="bi bi-archive-fill me-1"></i> Archivar
-                            </button>
-                        </form>
+                <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4">
+                    <div class="text-uppercase text-primary fw-bold tracking-wider mb-3 text-start" style="font-size: 0.65rem;">Acciones del Expediente</div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-sm-6">
+                            <!-- Ver Documentos -->
+                            <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled" id="btnVerDocumentos">
+                                <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Ver Documentos
+                            </a>
+                        </div>
+                        <div class="col-sm-6">
+                            <!-- Editar Expediente -->
+                            <a href="" class="btn btn-primary btn-sm w-100 fw-semibold disabled" id="btnEditar">
+                                <i class="bi bi-pencil-square me-1"></i> Editar Expediente
+                            </a>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <!-- Suspender / Reanudar -->
+                            <form method="POST" action="" id="formSuspender" class="w-100">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnSuspender">
+                                    <i class="bi bi-pause-fill me-1"></i> Suspender
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-4">
+                            <!-- Finalizar Caso -->
+                            <form method="POST" action="" id="formFinalizar" class="w-100">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnFinalizar">
+                                    <i class="bi bi-check-circle-fill me-1 text-success"></i> Finalizar
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-4">
+                            <!-- Archivar / Reabrir -->
+                            <form method="POST" action="" id="formArchivar" class="w-100">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-white btn-sm border w-100 fw-semibold disabled" id="btnArchivar">
+                                    <i class="bi bi-archive-fill me-1"></i> Archivar
+                                </button>
+                            </form>
+                        </div>
                     </div>
 
                     <!-- Eliminar Expediente (Solo para Admin) -->
                     {% if current_user.rol == 'Administrador' %}
-                    <form method="POST" action="" id="formEliminar">
+                    <form method="POST" action="" id="formEliminar" class="mt-2">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="button" class="btn btn-sm btn-white border border-danger text-danger w-100 fw-semibold disabled" id="btnEliminar">
                             <i class="bi bi-trash3-fill me-1"></i> Eliminar Expediente
@@ -369,7 +468,7 @@
         
         const q = document.getElementById('searchInput').value.trim();
         if (!q) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>Ingrese un término de búsqueda para consultar expedientes.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>Ingrese un término de búsqueda para consultar expedientes.</td></tr>';
             document.getElementById('paginationInfo').innerText = 'Sin búsqueda activa';
             return;
         }
@@ -377,7 +476,7 @@
         document.getElementById('paginationInfo').innerText = `Mostrando ${expedientes.length} resultados`;
 
         if (expedientes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron expedientes que coincidan con la búsqueda.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i>No se encontraron expedientes que coincidan con la búsqueda.</td></tr>';
             return;
         }
 
@@ -388,10 +487,7 @@
 
             tr.innerHTML = `
                 <td class="ps-4 fw-bold text-dark">${e.codigo_firma}</td>
-                <td>${e.nombre_caso}</td>
-                <td class="pe-4 text-end">
-                    <button class="btn btn-sm btn-light border py-1 px-2 text-primary" title="Inspeccionar"><i class="bi bi-chevron-right"></i></button>
-                </td>
+                <td class="pe-4">${e.nombre_caso}</td>
             `;
 
             tr.onclick = () => {
@@ -432,6 +528,9 @@
         fetch(`/expedientes/${id}/detalle`)
             .then(res => res.json())
             .then(e => {
+                // Mostrar botón de cerrar
+                document.getElementById('btnCloseDetails').style.display = 'block';
+
                 // Badges para estados
                 let badgeEstado = '';
                 if (e.estado === 'Abierto') {
@@ -447,10 +546,10 @@
                 // Cambiar el avatar/icono
                 const detIcon = document.getElementById('detIcon');
                 if (e.tipo_tramite === 'Judicial') {
-                    detIcon.innerHTML = '<i class="bi bi-balance-scale"></i>';
+                    detIcon.innerHTML = '<i class="bi bi-bank"></i>';
                     detIcon.className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm fs-2 text-white bg-primary`;
                 } else {
-                    detIcon.innerHTML = '<i class="bi bi-folder-check"></i>';
+                    detIcon.innerHTML = '<i class="bi bi-briefcase-fill"></i>';
                     detIcon.className = `rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm fs-2 text-white bg-info`;
                 }
 
@@ -642,6 +741,77 @@
             });
     }
 
+    function limpiarDetalleExpediente() {
+        seleccionadoId = null;
+        
+        // Remover highlight de la tabla
+        document.querySelectorAll('#expTableBody tr').forEach(row => row.classList.remove('table-primary'));
+        
+        // Quitar parámetro de la URL sin recargar la página
+        const url = new URL(window.location);
+        url.searchParams.delete('id');
+        window.history.pushState({}, '', url);
+        
+        // Esconder botón de cerrar
+        document.getElementById('btnCloseDetails').style.display = 'none';
+        
+        // Reset cabecera detalles
+        const detIcon = document.getElementById('detIcon');
+        detIcon.innerHTML = '<i class="bi bi-briefcase-fill"></i>';
+        detIcon.className = "bg-light rounded-3 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm text-secondary";
+        
+        document.getElementById('detName').innerText = "Seleccione un registro";
+        document.getElementById('detStatusBadgeContainer').innerHTML = '<span class="badge bg-secondary">Ninguno</span>';
+        
+        // Reset campos General
+        document.getElementById('detCodigo').innerText = "—";
+        document.getElementById('detCliente').innerText = "—";
+        document.getElementById('detResponsable').innerText = "—";
+        document.getElementById('detRolFirma').innerText = "—";
+        document.getElementById('detTipoTramite').innerText = "—";
+        document.getElementById('detApertura').innerText = "—";
+        document.getElementById('detCierre').innerText = "—";
+        
+        document.getElementById('detRazonEstadoContainer').style.setProperty('display', 'none', 'important');
+        document.getElementById('detFinalizacionContainer').style.setProperty('display', 'none', 'important');
+        
+        // Ocultar sub-detalles
+        document.getElementById('det-judicial').style.display = 'none';
+        document.getElementById('det-admin').style.display = 'none';
+        
+        // Reset auditoría si existe el contenedor
+        const auditContainer = document.getElementById('auditLogList');
+        if (auditContainer) {
+            auditContainer.innerHTML = '<div class="text-muted text-center py-3">No hay registros de auditoría.</div>';
+        }
+        
+        // Deshabilitar botones de acción y limpiar hrefs
+        const btnVerDocumentos = document.getElementById('btnVerDocumentos');
+        const btnEditar = document.getElementById('btnEditar');
+        const btnSuspender = document.getElementById('btnSuspender');
+        const btnArchivar = document.getElementById('btnArchivar');
+        const btnEliminar = document.getElementById('btnEliminar');
+        const btnFinalizar = document.getElementById('btnFinalizar');
+        const btnActualizarProgreso = document.getElementById('btnActualizarProgreso');
+        
+        btnVerDocumentos.classList.add('disabled');
+        btnVerDocumentos.href = "";
+        btnEditar.classList.add('disabled');
+        btnEditar.href = "";
+        
+        btnSuspender.classList.add('disabled');
+        btnArchivar.classList.add('disabled');
+        btnFinalizar.classList.add('disabled');
+        btnActualizarProgreso.classList.add('disabled');
+        if (btnEliminar) btnEliminar.classList.add('disabled');
+        
+        // Limpiar fase y nota
+        const selFase = document.getElementById('inputFaseActual');
+        selFase.innerHTML = '';
+        document.getElementById('inputFaseNota').value = '';
+        document.getElementById('formActualizarProgreso').action = '';
+    }
+
     function renderAuditorias(auditorias) {
         const container = document.getElementById('auditLogList');
         container.innerHTML = '';
@@ -679,8 +849,18 @@
     document.getElementById('searchInput').addEventListener('input', debouncedBuscar);
     document.getElementById('statusFilter').addEventListener('change', buscarExpedientes);
     document.getElementById('typeFilter').addEventListener('change', buscarExpedientes);
+    document.getElementById('btnClearFilters').addEventListener('click', () => {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = 'Todos';
+        document.getElementById('typeFilter').value = 'Todos';
+        buscarExpedientes();
+        limpiarDetalleExpediente();
+    });
 
     window.onload = () => {
+        // Enlazar botón cerrar detalle
+        document.getElementById('btnCloseDetails').addEventListener('click', limpiarDetalleExpediente);
+
         const urlParams = new URLSearchParams(window.location.search);
         const preselectedId = urlParams.get('id');
         
