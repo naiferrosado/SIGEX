@@ -21,7 +21,7 @@
                         <i class="bi bi-search text-muted"></i>
                         <input type="text" id="headerSearchExpediente"
                             class="form-control form-control-sm border-0 p-0 shadow-none fw-semibold"
-                            placeholder="Buscar expediente..." autocomplete="off"
+                            placeholder="Buscar por código, caso, cédula..." autocomplete="off"
                             value="{% if expediente_preseleccionado %}{{ expediente_preseleccionado.codigo_firma }}{% endif %}">
                         {% if expediente_preseleccionado %}
                         <button class="btn btn-link p-0 text-muted" onclick="window.location.href='/documentos'"

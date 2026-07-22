@@ -1465,10 +1465,13 @@ def register_routes(app):
             return jsonify([])
 
         search_pattern = f"%{q}%"
-        query = Expediente.query.filter(
+        query = Expediente.query.join(Cliente).filter(
             db.or_(
                 Expediente.codigo_firma.ilike(search_pattern),
                 Expediente.nombre_caso.ilike(search_pattern),
+                Cliente.rnc_cedula.ilike(search_pattern),
+                Cliente.nombres.ilike(search_pattern),
+                Cliente.apellidos.ilike(search_pattern),
             )
         )
 
@@ -1535,6 +1538,7 @@ def register_routes(app):
                     Expediente.nombre_caso.ilike(f"%{q}%"),
                     Cliente.nombres.ilike(f"%{q}%"),
                     Cliente.apellidos.ilike(f"%{q}%"),
+                    Cliente.rnc_cedula.ilike(f"%{q}%"),
                 )
             )
 
