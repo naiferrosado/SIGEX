@@ -9,6 +9,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from email_validator import validate_email, EmailNotValidError
 
 from app import db
 from app.forms import (
@@ -29,6 +30,7 @@ from app.utils import (
     verify_reset_token,
     enviar_email_restablecimiento,
     enviar_email_alerta_preventiva,
+    enviar_email_credenciales_cliente,
 )
 from app.models import (
     AlertaPlazoAudiencia,
@@ -871,6 +873,13 @@ def register_routes(app):
             flash("El cliente debe tener un correo de contacto configurado para habilitar acceso.", "danger")
             return redirect(url_for("clientes", id=cliente.id))
 
+        # Validar la entregabilidad del correo de forma estricta (realiza consulta DNS MX)
+        try:
+            validate_email(email_limpio, check_deliverability=True)
+        except EmailNotValidError as e:
+            flash(f"El correo electrónico no es válido o no tiene un servidor de correo real: {str(e)}", "danger")
+            return redirect(url_for("clientes", id=cliente.id))
+
         existente = Usuario.query.filter_by(email=email_limpio).first()
         if existente:
             if existente.rol == "Cliente":
@@ -905,18 +914,24 @@ def register_routes(app):
             db.session.add(nuevo_usuario)
             db.session.flush()
             cliente.usuario_id = nuevo_usuario.id
+ 
+            # Enviar credenciales por correo antes de confirmar en BD
+            email_enviado = enviar_email_credenciales_cliente(cliente, email_limpio, clave_inicial)
+            if not email_enviado:
+                raise Exception("El servidor de correo rechazó el envío o la dirección de correo no es válida.")
+ 
             db.session.commit()
-
+ 
             registrar_auditoria(
                 usuario_id=current_user.id,
                 accion="Creación",
-                detalles=f"Habilitó acceso al portal del cliente. Creada cuenta de usuario '{email_limpio}' con clave inicial.",
+                detalles=f"Habilitó acceso al portal del cliente. Creada cuenta de usuario '{email_limpio}' con clave inicial y notificado por correo.",
                 cliente_id=cliente.id
             )
-            flash("Acceso al portal habilitado con éxito para este cliente.", "success")
+            flash("Acceso al portal habilitado con éxito. Se ha enviado un correo con las credenciales al cliente para verificar la validez de la cuenta.", "success")
         except Exception as e:
             db.session.rollback()
-            flash(f"Error al crear el usuario de acceso: {str(e)}", "danger")
+            flash(f"Error al verificar correo o habilitar acceso: {str(e)}", "danger")
 
         return redirect(url_for("clientes", id=cliente.id))
 
