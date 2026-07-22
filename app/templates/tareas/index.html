@@ -612,7 +612,19 @@
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">{{ form.expediente_id.label.text }} <span
                                     class="text-danger">*</span></label>
-                            {{ form.expediente_id(class="form-select form-select-sm") }}
+                            
+                            <!-- Buscador de Expedientes -->
+                            <div class="input-group input-group-sm mb-2">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control bg-light border-start-0" id="modalExpSearch" placeholder="Buscar expediente por código, caso, o cédula del cliente...">
+                            </div>
+
+                            <select name="expediente_id" id="expediente_id" class="form-select form-select-sm">
+                                <option value="0" data-search="">-- Seleccione un expediente --</option>
+                                {% for e in expedientes_list %}
+                                    <option value="{{ e.id }}" data-search="{{ e.codigo_firma }} {{ e.nombre_caso }} {{ e.cliente.rnc_cedula if e.cliente else '' }} {{ e.cliente.nombres if e.cliente else '' }} {{ e.cliente.apellidos if e.cliente else '' }}">{{ e.nombre_caso }} ({{ e.codigo_firma }})</option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer bg-light border-top-0 rounded-bottom-4 p-3">
@@ -689,10 +701,68 @@
         }
     }
 
+    let masterExpedienteOptions = [];
+
     document.addEventListener("DOMContentLoaded", function () {
         modalInstance = new bootstrap.Modal(document.getElementById('modalTarea'));
         modalElimInstance = new bootstrap.Modal(document.getElementById('modalEliminarTarea'));
+
+        // Cargar opciones master para filtrar el select de expediente en el modal de tareas
+        const select = document.getElementById('expediente_id');
+        if (select) {
+            masterExpedienteOptions = Array.from(select.options).map(opt => ({
+                value: opt.value,
+                text: opt.text,
+                search: opt.getAttribute('data-search') || ''
+            }));
+        }
+
+        // Registrar evento para filtrar
+        const searchInput = document.getElementById('modalExpSearch');
+        if (searchInput) searchInput.addEventListener('input', filtrarSelectExpedienteMaster);
     });
+
+    function filtrarSelectExpedienteMaster() {
+        const searchInput = document.getElementById('modalExpSearch');
+        const select = document.getElementById('expediente_id');
+
+        if (!select) return;
+
+        const query = searchInput ? searchInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+        const currentSelectedVal = select.value;
+
+        // Limpiar select
+        select.innerHTML = '';
+
+        // Filtrar y agregar
+        masterExpedienteOptions.forEach(opt => {
+            if (opt.value === '0') {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.text = opt.text;
+                select.appendChild(newOpt);
+                return;
+            }
+
+            const matchesQuery = opt.search.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query);
+
+            if (matchesQuery) {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.text = opt.text;
+                newOpt.setAttribute('data-search', opt.search);
+                select.appendChild(newOpt);
+            }
+        });
+
+        // Intentar restaurar el valor seleccionado
+        const matchesCurrent = Array.from(select.options).some(o => o.value === currentSelectedVal);
+        if (matchesCurrent) {
+            select.value = currentSelectedVal;
+        } else {
+            select.value = '0';
+        }
+    }
 
     function abrirModalCrear() {
         document.getElementById('modalTareaTitle').innerText = 'Crear Nueva Tarea';
@@ -705,8 +775,12 @@
         document.getElementById('fecha_limite').value = '';
         document.getElementById('prioridad').value = 'Media';
         document.getElementById('estado').value = 'Pendiente';
-        document.getElementById('expediente_id').value = '0';
         document.getElementById('asignado_a_id').value = '{{ current_user.id }}'; // Autoasignar por defecto
+
+        // Resetear buscador
+        if (document.getElementById('modalExpSearch')) document.getElementById('modalExpSearch').value = '';
+        document.getElementById('expediente_id').value = '0';
+        filtrarSelectExpedienteMaster();
 
         document.getElementById('btnSubmitForm').value = 'Crear Tarea';
         modalInstance.show();
@@ -732,8 +806,12 @@
         document.getElementById('fecha_limite').value = fechaLimite;
         document.getElementById('prioridad').value = prioridad;
         document.getElementById('estado').value = estado;
-        document.getElementById('expediente_id').value = expId ? expId : '0';
         document.getElementById('asignado_a_id').value = asignadoId;
+
+        // Resetear buscador antes de fijar el valor seleccionado
+        if (document.getElementById('modalExpSearch')) document.getElementById('modalExpSearch').value = '';
+        document.getElementById('expediente_id').value = expId ? expId : '0';
+        filtrarSelectExpedienteMaster();
 
         document.getElementById('btnSubmitForm').value = 'Guardar Cambios';
         modalInstance.show();
