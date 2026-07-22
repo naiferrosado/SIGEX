@@ -22,7 +22,7 @@
 
     <!-- Fila superior de tarjetas estadísticas -->
     <div class="row g-3 mb-4">
-        <div class="col-md-4 col-lg-2">
+        <div class="col-md-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body">
                     <div class="text-muted small fw-semibold mb-2"><i class="bi bi-people-fill text-primary bg-primary bg-opacity-10 p-1 rounded me-1"></i> Usuarios Activos</div>
@@ -31,7 +31,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4 col-lg-2">
+        <div class="col-md-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body">
                     <div class="text-muted small fw-semibold mb-2"><i class="bi bi-folder-fill text-success bg-success bg-opacity-10 p-1 rounded me-1"></i> Total Casos</div>
@@ -40,7 +40,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4 col-lg-2">
+        <div class="col-md-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body">
                     <div class="text-muted small fw-semibold mb-2"><i class="bi bi-file-earmark-code text-info bg-info bg-opacity-10 p-1 rounded me-1"></i> Documentos</div>
@@ -49,16 +49,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4 col-lg-2">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body">
-                    <div class="text-muted small fw-semibold mb-2"><i class="bi bi-hourglass-bottom text-warning bg-warning bg-opacity-10 p-1 rounded me-1"></i> Horas Reg.</div>
-                    <h3 class="fw-bold mb-0" style="color: #071c4d;">{{ estadisticas.horas_registradas }} h</h3>
-                    <div class="text-muted small mt-1">Acumulado total</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 col-lg-2">
+        <div class="col-md-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body">
                     <div class="text-muted small fw-semibold mb-2"><i class="bi bi-activity text-danger bg-danger bg-opacity-10 p-1 rounded me-1"></i> Audit. Hoy</div>
@@ -67,12 +58,12 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4 col-lg-2">
+        <div class="col-md-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body">
                     <div class="text-muted small fw-semibold mb-2"><i class="bi bi-database-check text-dark bg-secondary bg-opacity-10 p-1 rounded me-1"></i> Base Datos</div>
                     <h5 class="fw-bold mb-0 text-success"><i class="bi bi-check-circle-fill"></i> Conectado</h5>
-                    <div class="text-muted small mt-1">PostgreSQL 15</div>
+                    <div class="text-muted small mt-1">{{ estadisticas.db_version }}</div>
                 </div>
             </div>
         </div>
@@ -155,12 +146,12 @@
                             <span class="badge bg-success">Operativo</span>
                         </div>
                         <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
-                            <span class="small text-dark">Almacenamiento Cloud:</span>
-                            <span class="badge bg-success">Operativo</span>
+                            <span class="small text-dark">Almacenamiento Local:</span>
+                            <span class="badge bg-success">{{ estadisticas.almacenamiento_status }}</span>
                         </div>
                         <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
                             <span class="small text-dark">Servicio de Correos (Alertas):</span>
-                            <span class="badge bg-success">Activo</span>
+                            <span class="badge {{ estadisticas.mail_badge_class }}">{{ estadisticas.mail_status }}</span>
                         </div>
                     </div>
                 </div>

@@ -596,6 +596,46 @@ def register_routes(app):
                 ).count()
                 clientes_count = Usuario.query.filter_by(rol="Cliente").count()
 
+                # 1. Obtener versión real de PostgreSQL
+                try:
+                    db_version_row = db.session.execute(db.text("SHOW server_version;")).first()
+                    db_version = f"PostgreSQL {db_version_row[0].split()[0]}" if db_version_row else "PostgreSQL 15"
+                except Exception:
+                    db_version = "PostgreSQL 15"
+
+                # 2. Obtener almacenamiento libre de la carpeta uploads
+                import shutil
+                try:
+                    uploads_path = os.path.join(current_app.root_path, 'uploads')
+                    if not os.path.exists(uploads_path):
+                        os.makedirs(uploads_path)
+                    total, used, free = shutil.disk_usage(uploads_path)
+                    free_gb = free / (1024 ** 3)
+                    almacenamiento_status = f"{free_gb:.1f} GB Libres"
+                except Exception:
+                    almacenamiento_status = "Operativo"
+
+                # 3. Verificar estado del servicio de correos (SMTP)
+                import socket
+                mail_server = current_app.config.get('MAIL_SERVER')
+                mail_port = current_app.config.get('MAIL_PORT')
+                mail_username = current_app.config.get('MAIL_USERNAME')
+                mail_password = current_app.config.get('MAIL_PASSWORD')
+
+                if not mail_username or not mail_password:
+                    mail_status = "No configurado"
+                    mail_badge_class = "bg-warning text-dark"
+                else:
+                    try:
+                        # Test de conexión rápido (timeout de 1.0 segundos)
+                        s = socket.create_connection((mail_server, mail_port), timeout=1.0)
+                        s.close()
+                        mail_status = "Activo"
+                        mail_badge_class = "bg-success"
+                    except Exception:
+                        mail_status = "Error de Conexión"
+                        mail_badge_class = "bg-danger"
+
                 estadisticas = {
                     "usuarios_activos": usuarios_activos,
                     "expedientes_totales": expedientes_totales,
@@ -609,6 +649,10 @@ def register_routes(app):
                     "paralegales_count": paralegales_count,
                     "administradores_count": administradores_count,
                     "clientes_count": clientes_count,
+                    "db_version": db_version,
+                    "almacenamiento_status": almacenamiento_status,
+                    "mail_status": mail_status,
+                    "mail_badge_class": mail_badge_class,
                 }
                 return render_template(
                     "dashboard/dashboard_admin.html",
