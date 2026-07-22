@@ -1651,6 +1651,22 @@ def register_routes(app):
                 for log in auditorias_db
             ]
 
+        # 2b. Obtener el historial de proceso (bitácora visible para todos los roles)
+        historial_db = (
+            BitacoraAuditoria.query.filter_by(expediente_id=exp.id)
+            .order_by(BitacoraAuditoria.fecha_hora.desc())
+            .all()
+        )
+        historial_data = [
+            {
+                "fecha": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
+                "usuario": log.usuario.nombre if log.usuario else "Sistema",
+                "accion": log.accion_realizada,
+                "detalles": log.detalles_tecnicos
+            }
+            for log in historial_db if log.accion_realizada != "Visualización"
+        ]
+
         # 3. Serializar expediente
         item = {
             "id": exp.id,
@@ -1670,6 +1686,7 @@ def register_routes(app):
             "fase_actual": exp.fase_actual,
             "fase_nota": exp.fase_nota or "",
             "auditorias": auditorias_data,
+            "historial": historial_data,
         }
 
         if exp.tipo_tramite == "Judicial":
