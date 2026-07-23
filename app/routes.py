@@ -1787,6 +1787,39 @@ def register_routes(app):
             )
         return jsonify(item)
 
+    @app.route("/expedientes/<int:expediente_id>/bitacora")
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def bitacora_expediente(expediente_id):
+        exp = Expediente.query.get_or_404(expediente_id)
+        
+        # Obtener historial de proceso (bitácora) desde BitacoraAuditoria
+        historial_raw = (
+            BitacoraAuditoria.query.filter_by(expediente_id=exp.id)
+            .order_by(BitacoraAuditoria.fecha_hora.desc())
+            .all()
+        )
+        # Filtrar solo acciones relevantes de cambio de estado, fase o carga de documentos
+        historial_db = [
+            log for log in historial_raw
+            if "Visualización" not in log.accion_realizada and "Descarga" not in log.accion_realizada
+        ]
+        
+        # Registrar auditoría de visualización de bitácora
+        registrar_auditoria(
+            usuario_id=current_user.id,
+            accion="Visualización Bitácora",
+            detalles=f"Consultó la bitácora completa del expediente '{exp.nombre_caso}'.",
+            expediente_id=exp.id,
+        )
+        
+        return render_template(
+            "expedientes/bitacora.html",
+            expediente=exp,
+            historial=historial_db,
+            usuario=current_user
+        )
+
     # --- CREAR NUEVO EXPEDIENTE ---
     @app.route("/expedientes/nuevo", methods=["GET", "POST"])
     @login_required

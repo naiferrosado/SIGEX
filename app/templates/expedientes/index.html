@@ -113,9 +113,7 @@
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-progreso" id="tabProgresoLink">Progreso</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-historial" id="tabHistorialLink">Bitácora</a>
-                        </li>
+
                         {% if current_user.rol == 'Administrador' %}
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
@@ -293,13 +291,7 @@
                                 </button>
                             </form>
                         </div>
-                        <!-- Pestaña Bitácora / Historial de Proceso -->
-                        <div class="tab-pane fade" id="tab-historial">
-                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-3 text-start" style="font-size: 0.65rem;">Bitácora de Cambios del Caso</div>
-                            <div id="historialList" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
-                                <div class="text-muted text-center py-3">No hay registros en la bitácora.</div>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 
@@ -307,16 +299,22 @@
                 <div class="card-footer bg-light border-top-0 p-3 rounded-bottom-4">
                     <div class="text-uppercase text-primary fw-bold tracking-wider mb-3 text-start" style="font-size: 0.65rem;">Acciones del Expediente</div>
                     <div class="row g-2 mb-2">
-                        <div class="col-sm-6">
+                        <div class="col-sm-4">
                             <!-- Ver Documentos -->
-                            <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled" id="btnVerDocumentos">
-                                <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Ver Documentos
+                            <a href="" class="btn btn-info btn-sm text-white w-100 fw-semibold disabled text-truncate" id="btnVerDocumentos" style="font-size: 0.76rem;" title="Ver Documentos">
+                                <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Documentos
                             </a>
                         </div>
-                        <div class="col-sm-6">
+                        <div class="col-sm-4">
+                            <!-- Ver Bitácora -->
+                            <a href="" class="btn btn-warning btn-sm text-dark w-100 fw-semibold disabled text-truncate" id="btnVerBitacora" style="font-size: 0.76rem;" title="Ver Bitácora de Cambios">
+                                <i class="bi bi-clock-history me-1"></i> Bitácora
+                            </a>
+                        </div>
+                        <div class="col-sm-4">
                             <!-- Editar Expediente -->
-                            <a href="" class="btn btn-primary btn-sm w-100 fw-semibold disabled" id="btnEditar">
-                                <i class="bi bi-pencil-square me-1"></i> Editar Expediente
+                            <a href="" class="btn btn-primary btn-sm w-100 fw-semibold disabled text-truncate" id="btnEditar" style="font-size: 0.76rem;" title="Editar Expediente">
+                                <i class="bi bi-pencil-square me-1"></i> Editar
                             </a>
                         </div>
                     </div>
@@ -628,11 +626,9 @@
                      renderAuditorias(e.auditorias);
                  }
 
-                 // Renderizar bitácora de proceso
-                 renderHistorial(e.historial);
-
                 // Configurar Formularios y Botones de Acción
                 const btnVerDocumentos = document.getElementById('btnVerDocumentos');
+                const btnVerBitacora = document.getElementById('btnVerBitacora');
                 const btnEditar = document.getElementById('btnEditar');
                 const btnSuspender = document.getElementById('btnSuspender');
                 const btnArchivar = document.getElementById('btnArchivar');
@@ -643,6 +639,8 @@
                 // Habilitar botones
                 btnVerDocumentos.classList.remove('disabled');
                 btnVerDocumentos.href = `/documentos?expediente_id=${e.id}`;
+                btnVerBitacora.classList.remove('disabled');
+                btnVerBitacora.href = `/expedientes/${e.id}/bitacora`;
                 btnEditar.classList.remove('disabled');
                 btnEditar.href = `/expedientes/${e.id}/editar`;
                 btnSuspender.classList.remove('disabled');
@@ -797,15 +795,10 @@
         if (auditContainer) {
             auditContainer.innerHTML = '<div class="text-muted text-center py-3">No hay registros de auditoría.</div>';
         }
-
-        // Reset bitácora si existe el contenedor
-        const historialContainer = document.getElementById('historialList');
-        if (historialContainer) {
-            historialContainer.innerHTML = '<div class="text-muted text-center py-3">No hay registros en la bitácora.</div>';
-        }
         
-        // Deshabilitar botones de acción y limpiar hrefs
+        // Resetear botones
         const btnVerDocumentos = document.getElementById('btnVerDocumentos');
+        const btnVerBitacora = document.getElementById('btnVerBitacora');
         const btnEditar = document.getElementById('btnEditar');
         const btnSuspender = document.getElementById('btnSuspender');
         const btnArchivar = document.getElementById('btnArchivar');
@@ -815,6 +808,8 @@
         
         btnVerDocumentos.classList.add('disabled');
         btnVerDocumentos.href = "";
+        btnVerBitacora.classList.add('disabled');
+        btnVerBitacora.href = "";
         btnEditar.classList.add('disabled');
         btnEditar.href = "";
         
@@ -831,55 +826,7 @@
         document.getElementById('formActualizarProgreso').action = '';
     }
 
-    function renderHistorial(historial) {
-        const container = document.getElementById('historialList');
-        container.innerHTML = '';
-        if (!historial || historial.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-3">No hay registros en la bitácora.</div>';
-            return;
-        }
 
-        const timeline = document.createElement('div');
-        timeline.className = 'ps-2 pt-2';
-
-        historial.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'd-flex gap-3 mb-3 position-relative';
-            
-            // Determinar color del indicador según la acción
-            let indicatorBg = 'bg-primary';
-            if (item.accion === 'Creación') {
-                indicatorBg = 'bg-success';
-            } else if (item.accion === 'Fase actualizada' || item.accion === 'Fase actualizada') {
-                indicatorBg = 'bg-warning';
-            } else if (item.accion.includes('Estado') || item.accion === 'Desactivación' || item.accion === 'Activación') {
-                indicatorBg = 'bg-danger';
-            }
-
-            const showLine = index < historial.length - 1;
-            const lineHtml = showLine ? '<div class="flex-grow-1 border-start border-2 border-light-subtle my-1"></div>' : '';
-
-            div.innerHTML = `
-                <div class="d-flex flex-column align-items-center pt-1" style="width: 15px;">
-                    <div class="rounded-circle ${indicatorBg}" style="width: 10px; height: 10px; min-width: 10px; min-height: 10px;"></div>
-                    ${lineHtml}
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-baseline mb-1">
-                        <span class="fw-bold text-dark" style="font-size: 0.75rem;">${item.accion}</span>
-                        <span class="text-muted" style="font-size: 0.65rem;">${item.fecha}</span>
-                    </div>
-                    <div class="text-muted my-1" style="font-size: 0.7rem;">${item.detalles}</div>
-                    <div class="text-muted" style="font-size: 0.65rem;">
-                        <i class="bi bi-person-fill me-1"></i>${item.usuario}
-                    </div>
-                </div>
-            `;
-            timeline.appendChild(div);
-        });
-
-        container.appendChild(timeline);
-    }
 
     function renderAuditorias(auditorias) {
         const container = document.getElementById('auditLogList');
