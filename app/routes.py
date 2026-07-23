@@ -2232,7 +2232,33 @@ def register_routes(app):
             flash("Fase de progreso inválida.", "danger")
             return redirect(url_for("expedientes", id=exp.id))
 
-        fase_anterior = exp.fase_actual
+        fase_anterior = exp.fase_actual or 1
+
+        # Si hay cambio de fase, aplicar validaciones estrictas
+        if fase is not None and fase != fase_anterior:
+            # 1. Justificación obligatoria
+            if not nota:
+                flash("Para cambiar la fase del expediente es obligatorio ingresar una nota de justificación.", "danger")
+                return redirect(url_for("expedientes", id=exp.id))
+
+            # 2. Permisos de retroceso (Socio / Administrador)
+            if fase < fase_anterior:
+                if current_user.rol not in ["Socio", "Administrador"]:
+                    flash("Acceso denegado. Solo un Socio o Administrador puede retroceder un expediente a una fase anterior.", "danger")
+                    return redirect(url_for("expedientes", id=exp.id))
+
+            # 3. Secuencialidad y Tareas pendientes al avanzar
+            if fase > fase_anterior:
+                if fase != fase_anterior + 1:
+                    flash(f"Avance no permitido. Debe cambiar las fases de forma secuencial (siguiente fase: {fase_anterior + 1}).", "danger")
+                    return redirect(url_for("expedientes", id=exp.id))
+
+                # Validar tareas pendientes
+                tareas_pendientes = Tarea.query.filter(Tarea.expediente_id == exp.id, Tarea.estado != 'Completada').count()
+                if tareas_pendientes > 0:
+                    flash(f"No se puede avanzar a la siguiente fase porque el expediente tiene {tareas_pendientes} tareas pendientes de completar.", "danger")
+                    return redirect(url_for("expedientes", id=exp.id))
+
         if fase is not None:
             exp.fase_actual = fase
         

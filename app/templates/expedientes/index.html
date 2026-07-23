@@ -673,15 +673,42 @@
                     ];
                 }
                 
+                const currentFase = e.fase_actual || 1;
+                const isAdminOrSocio = (userRole === 'Administrador' || userRole === 'Socio');
+
                 fases.forEach(f => {
                     const opt = document.createElement('option');
                     opt.value = f.val;
                     opt.innerText = f.text;
+                    
+                    // Aplicar reglas de frontend
+                    // 1. Secuencialidad: No saltar fases hacia adelante
+                    if (f.val > currentFase + 1) {
+                        opt.disabled = true;
+                    }
+                    // 2. Solo Socio/Administrador pueden retroceder
+                    if (f.val < currentFase && !isAdminOrSocio) {
+                        opt.disabled = true;
+                    }
+                    
                     selFase.appendChild(opt);
                 });
                 
-                selFase.value = e.fase_actual || 1;
-                document.getElementById('inputFaseNota').value = e.fase_nota || '';
+                selFase.value = currentFase;
+                const inputNota = document.getElementById('inputFaseNota');
+                inputNota.value = e.fase_nota || '';
+                
+                // Configurar requerimiento de justificación interactiva
+                selFase.onchange = () => {
+                    if (parseInt(selFase.value) !== currentFase) {
+                        inputNota.placeholder = "Justificación del cambio de fase (Obligatorio)...";
+                        inputNota.required = true;
+                    } else {
+                        inputNota.placeholder = "Ej. Hemos radicado los documentos y esperamos resolución...";
+                        inputNota.required = false;
+                    }
+                };
+                selFase.onchange();
 
                 // Helper para configurar el modal de justificación
                 function bindStateChange(button, targetState) {
@@ -822,7 +849,10 @@
         // Limpiar fase y nota
         const selFase = document.getElementById('inputFaseActual');
         selFase.innerHTML = '';
-        document.getElementById('inputFaseNota').value = '';
+        const inputNota = document.getElementById('inputFaseNota');
+        inputNota.value = '';
+        inputNota.required = false;
+        inputNota.placeholder = 'Ej. Hemos radicado los documentos y esperamos resolución...';
         document.getElementById('formActualizarProgreso').action = '';
     }
 
