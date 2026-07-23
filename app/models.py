@@ -62,6 +62,8 @@ class Cliente(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='SET NULL'), nullable=True)
     razon_desactivacion = db.Column(db.Text, nullable=True)
 
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id], backref=db.backref('cliente_profile', uselist=False))
+
     expedientes = db.relationship(
     'Expediente',
     backref='cliente',
@@ -255,6 +257,8 @@ class VersionDocumento(db.Model):
     documento_id = db.Column(db.Integer, db.ForeignKey('documentos.id', ondelete='CASCADE'), nullable=False)
     # ON DELETE RESTRICT: No se puede borrar un usuario si tiene versiones subidas
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='RESTRICT'), nullable=False)
+    
+    cargador = db.relationship('Usuario', foreign_keys=[usuario_id], backref=db.backref('versiones_subidas', lazy=True))
     
     version_numero = db.Column(db.String(10), nullable=False)
     descripcion = db.Column(db.Text, nullable=True)

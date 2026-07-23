@@ -663,6 +663,7 @@ def register_routes(app):
 
             # --- CLIENTE ---
             elif rol == "Cliente":
+                tipos_documentos = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
                 cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
                 if not cliente_db:
                     estadisticas = {
@@ -678,6 +679,7 @@ def register_routes(app):
                         usuario=current_user,
                         estadisticas=estadisticas,
                         current_date=rd_now(),
+                        tipos_documentos=tipos_documentos,
                     )
 
                 expedientes_cliente = Expediente.query.filter_by(
@@ -737,17 +739,6 @@ def register_routes(app):
                             ).all()
                         )
 
-                alertas_recientes = []
-                if exp_ids:
-                    alertas_recientes = (
-                        AlertaPlazoAudiencia.query.filter(
-                            AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
-                        )
-                        .order_by(AlertaPlazoAudiencia.fecha_vencimiento.desc())
-                        .limit(5)
-                        .all()
-                    )
-
                 # Fases del caso principal (Leídas de base de datos)
                 progreso_fase = 1
                 if caso_activo_principal:
@@ -765,28 +756,22 @@ def register_routes(app):
                         .all()
                     )
 
-                # Cargar notificaciones del cliente recientes (límite 5)
-                notificaciones_recientes = NotificacionInterna.query.filter_by(
-                    usuario_id=current_user.id
-                ).order_by(NotificacionInterna.fecha_creacion.desc()).limit(5).all()
-
                 estadisticas = {
                     "expedientes_activos_count": expedientes_activos_count,
                     "audiencia_proxima": audiencia_proxima,
                     "documentos_disponibles_count": len(documentos_compartidos),
                     "expedientes": expedientes_cliente,
                     "documentos": documentos_compartidos,
-                    "actividades": alertas_recientes,
                     "caso_activo_principal": caso_activo_principal,
                     "progreso_fase": progreso_fase,
                     "hitostotal": hitostotal,
-                    "notificaciones": notificaciones_recientes,
                 }
                 return render_template(
                     "dashboard/dashboard_cliente.html",
                     usuario=current_user,
                     estadisticas=estadisticas,
                     current_date=rd_now(),
+                    tipos_documentos=tipos_documentos,
                 )
             else:
                 flash("Rol no identificado.", "danger")
@@ -2171,6 +2156,18 @@ def register_routes(app):
                 )
                 db.session.add(notif)
 
+                # Enviar notificación por correo electrónico
+                if exp.cliente.usuario:
+                    try:
+                        from app.utils import enviar_email_notificacion_cliente
+                        enviar_email_notificacion_cliente(
+                            usuario=exp.cliente.usuario,
+                            subject=f"Actualización de tu caso - SIGEX",
+                            mensaje=f"El estado de tu caso '{exp.nombre_caso}' ha cambiado a '{nuevo_estado}'. Razón: {razon}."
+                        )
+                    except Exception as e_mail:
+                        print(f"Error al enviar email por cambio de estado: {e_mail}")
+
             db.session.commit()
             # Registrar en auditoría
             registrar_auditoria(
@@ -2219,6 +2216,18 @@ def register_routes(app):
                     fecha_creacion=rd_now()
                 )
                 db.session.add(notif)
+
+                # Enviar notificación por correo electrónico
+                if exp.cliente.usuario:
+                    try:
+                        from app.utils import enviar_email_notificacion_cliente
+                        enviar_email_notificacion_cliente(
+                            usuario=exp.cliente.usuario,
+                            subject=f"Actualización de progreso de tu caso - SIGEX",
+                            mensaje=f"Se ha actualizado el progreso de tu caso '{exp.nombre_caso}' a la fase {fase}. Nota: {nota or 'Sin nota'}."
+                        )
+                    except Exception as e_mail:
+                        print(f"Error al enviar email por cambio de fase: {e_mail}")
 
             db.session.commit()
             # Registrar en auditoría
@@ -2582,6 +2591,18 @@ def register_routes(app):
                 )
                 db.session.add(notif)
 
+                # Enviar notificación por correo electrónico
+                if exp.cliente.usuario:
+                    try:
+                        from app.utils import enviar_email_notificacion_cliente
+                        enviar_email_notificacion_cliente(
+                            usuario=exp.cliente.usuario,
+                            subject=f"Nuevo documento compartido - SIGEX",
+                            mensaje=f"Se ha compartido un nuevo documento contigo: '{sec_filename}' en tu expediente '{exp.nombre_caso}'."
+                        )
+                    except Exception as e_mail:
+                        print(f"Error al enviar email por documento compartido: {e_mail}")
+
             db.session.commit()
 
             # Auditoría
@@ -2600,6 +2621,115 @@ def register_routes(app):
 
         # Mantener los filtros de contexto si existían
         return redirect(url_for("documentos", expediente_id=expediente_id))
+
+    @app.route("/portal/documentos/subir", methods=["POST"])
+    @login_required
+    @roles_permitidos("Cliente")
+    def subir_documento_cliente():
+        cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
+        if not cliente_db:
+            flash("No tienes un perfil de cliente asociado.", "danger")
+            return redirect(url_for("dashboard"))
+            
+        expediente_id = request.form.get("expediente_id", type=int)
+        tipo_documento_id = request.form.get("tipo_documento_id", type=int)
+        descripcion = request.form.get("descripcion", "").strip()
+
+        # Validaciones de archivos
+        if "archivo" not in request.files:
+            flash("No se seleccionó ningún archivo.", "danger")
+            return redirect(url_for("dashboard"))
+
+        archivo = request.files["archivo"]
+        if archivo.filename == "":
+            flash("El nombre de archivo está vacío.", "danger")
+            return redirect(url_for("dashboard"))
+
+        if not allowed_file(archivo.filename):
+            flash("Extensión de archivo no permitida.", "danger")
+            return redirect(url_for("dashboard"))
+
+        # Validar que el expediente pertenezca al cliente y esté activo
+        exp = Expediente.query.filter_by(id=expediente_id, cliente_id=cliente_db.id).first()
+        if not exp:
+            flash("Expediente no válido o no asignado a tu usuario.", "danger")
+            return redirect(url_for("dashboard"))
+
+        # Validar tipo de documento
+        tipo = TipoDocumento.query.get(tipo_documento_id)
+        if not tipo:
+            flash("El tipo de documento seleccionado no existe.", "danger")
+            return redirect(url_for("dashboard"))
+
+        try:
+            # Guardar archivo físico
+            sec_filename = secure_filename(archivo.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{sec_filename}"
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], unique_filename)
+            archivo.save(filepath)
+            tamano = os.path.getsize(filepath)
+
+            # Crear Documento lógico
+            nuevo_doc = Documento(
+                expediente_id=expediente_id,
+                tipo_documento_id=tipo_documento_id,
+                visibilidad="Compartido",
+                cliente_id=cliente_db.id
+            )
+            db.session.add(nuevo_doc)
+            db.session.flush()
+
+            # Crear primera versión
+            nueva_version = VersionDocumento(
+                documento_id=nuevo_doc.id,
+                usuario_id=current_user.id,
+                version_numero="1.0",
+                descripcion=descripcion or f"Cargado por el cliente {cliente_db.nombre_completo}",
+                tamano_bytes=tamano,
+                ruta_almacenamiento=unique_filename,
+                es_firmado=False
+            )
+            db.session.add(nueva_version)
+
+            # Notificar al abogado responsable del caso si está asignado
+            if exp.abogado_responsable_id:
+                notif = NotificacionInterna(
+                    usuario_id=exp.abogado_responsable_id,
+                    mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento: '{sec_filename}' en el expediente '{exp.nombre_caso}'.",
+                    leida=False,
+                    expediente_id=exp.id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif)
+                
+                if exp.abogado_responsable:
+                    try:
+                        from app.utils import enviar_email_notificacion_cliente
+                        enviar_email_notificacion_cliente(
+                            usuario=exp.abogado_responsable,
+                            subject=f"Cliente subió documento - SIGEX",
+                            mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento compartido: '{sec_filename}' en el expediente '{exp.nombre_caso}'."
+                        )
+                    except Exception as e_mail:
+                        print(f"Error al notificar al abogado del documento subido: {e_mail}")
+
+            db.session.commit()
+
+            # Auditoría
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="Cliente Carga Documento",
+                detalles=f"El cliente subió el documento '{sec_filename}' para el expediente '{exp.nombre_caso}'.",
+                expediente_id=exp.id,
+                cliente_id=cliente_db.id
+            )
+
+            flash(f"Documento '{sec_filename}' subido y compartido exitosamente.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al subir el archivo: {str(e)}", "danger")
+
+        return redirect(url_for("dashboard"))
 
     @app.route("/documentos/<int:documento_id>/nueva_version", methods=["POST"])
     @login_required
@@ -2668,6 +2798,18 @@ def register_routes(app):
                     fecha_creacion=rd_now()
                 )
                 db.session.add(notif)
+
+                # Enviar notificación por correo electrónico
+                if doc.expediente.cliente.usuario:
+                    try:
+                        from app.utils import enviar_email_notificacion_cliente
+                        enviar_email_notificacion_cliente(
+                            usuario=doc.expediente.cliente.usuario,
+                            subject=f"Nueva versión de documento - SIGEX",
+                            mensaje=f"Se ha subido una nueva versión ({version_input}) del documento compartido: '{sec_filename}' en tu expediente '{doc.expediente.nombre_caso}'."
+                        )
+                    except Exception as e_mail:
+                        print(f"Error al enviar email por nueva versión de documento: {e_mail}")
 
             db.session.commit()
 
@@ -2850,6 +2992,18 @@ def register_routes(app):
                     fecha_creacion=rd_now()
                 )
                 db.session.add(notif)
+
+                # Enviar notificación por correo electrónico
+                if target_cli.usuario:
+                    try:
+                        from app.utils import enviar_email_notificacion_cliente
+                        enviar_email_notificacion_cliente(
+                            usuario=target_cli.usuario,
+                            subject=f"Documento compartido - SIGEX",
+                            mensaje=f"Se ha compartido el documento '{filename}' contigo en tu expediente '{doc.expediente.nombre_caso if doc.expediente else 'N/A'}'."
+                        )
+                    except Exception as e_mail:
+                        print(f"Error al enviar email por cambio de visibilidad a compartido: {e_mail}")
 
         try:
             db.session.commit()
@@ -3850,6 +4004,18 @@ def register_routes(app):
                     )
                     db.session.add(notif)
 
+                    # Enviar notificación por correo electrónico
+                    if expediente.cliente.usuario:
+                        try:
+                            from app.utils import enviar_email_notificacion_cliente
+                            enviar_email_notificacion_cliente(
+                                usuario=expediente.cliente.usuario,
+                                subject=f"Nueva audiencia programada - SIGEX",
+                                mensaje=f"Se ha programado una nueva audiencia para tu caso '{expediente.nombre_caso}' el {fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p')}."
+                            )
+                        except Exception as e_mail:
+                            print(f"Error al enviar email por nueva audiencia: {e_mail}")
+
                 db.session.commit()
 
                 registrar_auditoria(
@@ -3887,6 +4053,18 @@ def register_routes(app):
                         fecha_creacion=rd_now()
                     )
                     db.session.add(notif)
+
+                    # Enviar notificación por correo electrónico
+                    if expediente.cliente.usuario:
+                        try:
+                            from app.utils import enviar_email_notificacion_cliente
+                            enviar_email_notificacion_cliente(
+                                usuario=expediente.cliente.usuario,
+                                subject=f"Nueva actividad/plazo registrado - SIGEX",
+                                mensaje=f"Se ha registrado una nueva actividad/plazo para tu caso '{expediente.nombre_caso}' con vencimiento el {fecha_venc.strftime('%d/%m/%Y')}."
+                            )
+                        except Exception as e_mail:
+                            print(f"Error al enviar email por nuevo plazo: {e_mail}")
 
                 db.session.commit()
 

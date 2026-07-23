@@ -297,3 +297,78 @@ def enviar_email_credenciales_cliente(cliente, email, clave_inicial):
         print("="*80 + "\n")
         return False
 
+
+def enviar_email_notificacion_cliente(usuario, subject, mensaje):
+    """
+    Envía un correo electrónico HTML al cliente notificándole sobre una novedad en su caso
+    (ej. nuevo documento compartido, cambio de fase o cambio de estado).
+    Si no hay credenciales SMTP configuradas en .env, simula el envío imprimiendo en consola.
+    """
+    body_html = f"""
+    <html>
+        <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #2d3748; background-color: #f7fafc; padding: 30px;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 30px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <h2 style="color: #00409A; font-weight: bold; margin-bottom: 20px; font-size: 1.5rem; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;">Notificación de Novedad - SIGEX</h2>
+                <p>Estimado/a <strong>{usuario.nombre}</strong>,</p>
+                <p>Le informamos sobre la siguiente novedad en su expediente:</p>
+                
+                <div style="background-color: #f7fafc; border-left: 4px solid #00409A; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; font-size: 0.95rem; color: #2d3748;">
+                    {mensaje}
+                </div>
+                
+                <p>Para ver los detalles completos, por favor ingrese a su portal de cliente en el siguiente enlace:</p>
+                <div style="margin: 30px 0; text-align: center;">
+                    <a href="http://localhost:5000/dashboard" style="background-color: #00409A; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(0,64,154,0.25);">
+                        Acceder al Portal de Cliente
+                    </a>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 25px 0;">
+                <p style="font-size: 0.8rem; color: #718096; text-align: center;">Este es un mensaje automático generado por el portal SIGEX de Rosado Méndez. Por favor, no responda a este correo.</p>
+            </div>
+        </body>
+    </html>
+    """
+    
+    server = current_app.config.get('MAIL_SERVER')
+    port = current_app.config.get('MAIL_PORT')
+    username = current_app.config.get('MAIL_USERNAME')
+    password = current_app.config.get('MAIL_PASSWORD')
+    sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+    use_tls = current_app.config.get('MAIL_USE_TLS', True)
+    
+    if not username or not password:
+        print("\n" + "="*80)
+        print(" [SIMULACIÓN DESARROLLO] CORREO DE NOTIFICACIÓN DE NOVEDAD")
+        print(f" Para: {usuario.email}")
+        print(f" Asunto: {subject}")
+        print(f" Mensaje: {mensaje}")
+        print("="*80 + "\n")
+        return True
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = usuario.email
+        
+        part = MIMEText(body_html, 'html')
+        msg.attach(part)
+        
+        smtp = smtplib.SMTP(server, port, timeout=10)
+        if use_tls:
+            smtp.starttls()
+        smtp.login(username, password)
+        smtp.sendmail(sender, [usuario.email], msg.as_string())
+        smtp.quit()
+        return True
+    except Exception as e:
+        print(f"Error SMTP al enviar email de notificación de novedad: {str(e)}")
+        print("\n" + "="*80)
+        print(" [FALLBACK DESARROLLO - ERROR SMTP] CORREO DE NOTIFICACIÓN DE NOVEDAD")
+        print(f" Para: {usuario.email}")
+        print(f" Asunto: {subject}")
+        print(f" Mensaje: {mensaje}")
+        print("="*80 + "\n")
+        return False
+

@@ -175,46 +175,7 @@
                 </div>
             </div>
 
-            <!-- Últimas Actividades -->
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-body p-4">
-                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-activity text-info me-2"></i>Últimos Hitos y Notificaciones Recientes</h6>
-                    
-                    {% if estadisticas.notificaciones or estadisticas.actividades %}
-                    <ul class="list-group list-group-flush">
-                        {% for notif in estadisticas.notificaciones %}
-                        <li class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-start">
-                            <div class="p-2 rounded-circle me-3 text-warning bg-warning bg-opacity-10 d-flex justify-content-center align-items-center" style="width: 32px; height: 32px; flex-shrink: 0;">
-                                <i class="bi bi-bell-fill" style="font-size: 0.85rem;"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1 text-dark small {% if not notif.leida %}fw-bold{% else %}fw-normal{% endif %}" style="font-size: 0.85rem; line-height: 1.3;">
-                                    {{ notif.mensaje }}
-                                </h6>
-                                <span class="small text-muted" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>{{ notif.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}</span>
-                            </div>
-                        </li>
-                        {% endfor %}
 
-                        {% for actividad in estadisticas.actividades %}
-                        <li class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-start">
-                            <div class="p-2 rounded-circle me-3 text-primary bg-primary bg-opacity-10 d-flex justify-content-center align-items-center" style="width: 32px; height: 32px; flex-shrink: 0;">
-                                <i class="bi bi-calendar2-check-fill" style="font-size: 0.85rem;"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1 small text-dark fw-bold" style="font-size: 0.85rem; line-height: 1.3;">
-                                    Próxima Audiencia / Plazo: {{ actividad.titulo_hito }}
-                                </h6>
-                                <span class="small text-muted" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>Fecha límite: {{ actividad.fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p') if actividad.es_audiencia else actividad.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <p class="text-muted small text-center py-3">No hay hitos ni notificaciones recientes.</p>
-                    {% endif %}
-                </div>
-            </div>
         </div>
 
         <!-- Detalles del Expediente y Descarga de Documentos -->
@@ -250,7 +211,14 @@
             <!-- Documentos Compartidos -->
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-folder-symlink-fill text-success me-2"></i>Documentos Compartidos</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0" style="color: #071c4d;"><i class="bi bi-folder-symlink-fill text-success me-2"></i>Documentos Compartidos</h6>
+                        {% if estadisticas.expedientes %}
+                        <button type="button" class="btn btn-primary btn-sm rounded-3 shadow-sm px-2 py-1 d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#modalSubirDocumento" style="font-size: 0.75rem;">
+                            <i class="bi bi-cloud-upload-fill"></i> Subir
+                        </button>
+                        {% endif %}
+                    </div>
                     
                     {% if estadisticas.documentos %}
                     <div class="list-group list-group-flush">
@@ -606,4 +574,48 @@
     }
     {% endif %}
 </script>
+<!-- MODAL DE SUBIR DOCUMENTO (CLIENTE) -->
+<div class="modal fade" id="modalSubirDocumento" tabindex="-1" aria-labelledby="modalSubirDocumentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form action="{{ url_for('subir_documento_cliente') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="modalSubirDocumentoLabel" style="color: #071c4d;">Compartir / Subir Documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div class="mb-3">
+                        <label for="expediente_id" class="form-label small fw-bold text-secondary">Expediente / Caso</label>
+                        <select name="expediente_id" id="expediente_id" class="form-select rounded-3 small" required>
+                            {% for exp in estadisticas.expedientes %}
+                                <option value="{{ exp.id }}">{{ exp.nombre_caso }} ({{ exp.codigo_firma }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tipo_documento_id" class="form-label small fw-bold text-secondary">Tipo / Categoría de Documento</label>
+                        <select name="tipo_documento_id" id="tipo_documento_id" class="form-select rounded-3 small" required>
+                            {% for tipo in tipos_documentos %}
+                                <option value="{{ tipo.id }}">{{ tipo.nombre_tipo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="archivo" class="form-label small fw-bold text-secondary">Seleccionar Archivo</label>
+                        <input type="file" name="archivo" id="archivo" class="form-control rounded-3 small" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label small fw-bold text-secondary">Descripción (Opcional)</label>
+                        <textarea name="descripcion" id="descripcion" rows="3" class="form-control rounded-3 small" placeholder="Describe brevemente este documento..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary rounded-3 btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-3 btn-sm shadow-sm"><i class="bi bi-cloud-upload me-1"></i> Subir y Compartir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
