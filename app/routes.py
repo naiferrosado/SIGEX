@@ -707,7 +707,8 @@ def register_routes(app):
                     query_audiencia = AlertaPlazoAudiencia.query.filter(
                         AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
                     ).filter(
-                        AlertaPlazoAudiencia.estado_alerta.in_(["Pending", "Pendiente"])
+                        AlertaPlazoAudiencia.estado_alerta.in_(["Pending", "Pendiente"]),
+                        AlertaPlazoAudiencia.fecha_vencimiento >= rd_now()
                     )
 
                     # Si es Judicial, buscar específicamente audiencias. Si es Administrativo, buscar cualquier hito/plazo pendiente.
@@ -755,6 +756,20 @@ def register_routes(app):
                     else:
                         progreso_fase = caso_activo_principal.fase_actual or 1
 
+                # Cargar todas las audiencias/hitos de este caso específico
+                hitostotal = []
+                if caso_activo_principal:
+                    hitostotal = (
+                        AlertaPlazoAudiencia.query.filter_by(expediente_id=caso_activo_principal.id)
+                        .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
+                        .all()
+                    )
+
+                # Cargar notificaciones del cliente recientes (límite 5)
+                notificaciones_recientes = NotificacionInterna.query.filter_by(
+                    usuario_id=current_user.id
+                ).order_by(NotificacionInterna.fecha_creacion.desc()).limit(5).all()
+
                 estadisticas = {
                     "expedientes_activos_count": expedientes_activos_count,
                     "audiencia_proxima": audiencia_proxima,
@@ -764,6 +779,8 @@ def register_routes(app):
                     "actividades": alertas_recientes,
                     "caso_activo_principal": caso_activo_principal,
                     "progreso_fase": progreso_fase,
+                    "hitostotal": hitostotal,
+                    "notificaciones": notificaciones_recientes,
                 }
                 return render_template(
                     "dashboard/dashboard_cliente.html",
@@ -2143,6 +2160,17 @@ def register_routes(app):
                 exp.tipo_finalizacion = None
 
         try:
+            # Notificar al cliente del expediente si tiene usuario vinculado
+            if exp.cliente and exp.cliente.usuario_id:
+                notif = NotificacionInterna(
+                    usuario_id=exp.cliente.usuario_id,
+                    mensaje=f"El estado de tu caso '{exp.nombre_caso}' ha cambiado a '{nuevo_estado}'. Razón: {razon}.",
+                    leida=False,
+                    expediente_id=exp.id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif)
+
             db.session.commit()
             # Registrar en auditoría
             registrar_auditoria(
@@ -2181,6 +2209,17 @@ def register_routes(app):
         exp.fase_nota = nota if nota else None
 
         try:
+            # Notificar al cliente si tiene usuario vinculado
+            if exp.cliente and exp.cliente.usuario_id:
+                notif = NotificacionInterna(
+                    usuario_id=exp.cliente.usuario_id,
+                    mensaje=f"Se ha actualizado el progreso de tu caso '{exp.nombre_caso}' a la fase {fase}. Nota: {nota or 'Sin nota'}.",
+                    leida=False,
+                    expediente_id=exp.id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif)
+
             db.session.commit()
             # Registrar en auditoría
             registrar_auditoria(
@@ -2531,6 +2570,18 @@ def register_routes(app):
                 es_firmado=False
             )
             db.session.add(nueva_version)
+
+            # Notificar al cliente si el documento es compartido
+            if visibilidad == "Compartido" and exp.cliente and exp.cliente.usuario_id:
+                notif = NotificacionInterna(
+                    usuario_id=exp.cliente.usuario_id,
+                    mensaje=f"Se ha compartido un nuevo documento contigo: '{sec_filename}' en tu expediente '{exp.nombre_caso}'.",
+                    leida=False,
+                    expediente_id=exp.id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif)
+
             db.session.commit()
 
             # Auditoría
@@ -2606,6 +2657,18 @@ def register_routes(app):
                 es_firmado=False
             )
             db.session.add(nueva_version)
+
+            # Notificar al cliente si el documento es compartido
+            if doc.visibilidad == "Compartido" and doc.expediente and doc.expediente.cliente and doc.expediente.cliente.usuario_id:
+                notif = NotificacionInterna(
+                    usuario_id=doc.expediente.cliente.usuario_id,
+                    mensaje=f"Se ha subido una nueva versión ({version_input}) del documento compartido: '{sec_filename}' en tu expediente '{doc.expediente.nombre_caso}'.",
+                    leida=False,
+                    expediente_id=doc.expediente_id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif)
+
             db.session.commit()
 
             # Auditoría
@@ -2765,6 +2828,29 @@ def register_routes(app):
         vis_anterior = doc.visibilidad
         doc.visibilidad = nueva_vis
         doc.cliente_id = compartir_cliente_id if (nueva_vis == "Compartido" and compartir_cliente_id) else None
+
+        # Notificar al cliente si se cambia a compartido
+        if nueva_vis == "Compartido":
+            target_cli = None
+            if compartir_cliente_id:
+                target_cli = Cliente.query.get(compartir_cliente_id)
+            elif doc.expediente:
+                target_cli = doc.expediente.cliente
+            
+            # Obtener nombre original del archivo
+            ult_ver = VersionDocumento.query.filter_by(documento_id=doc.id).order_by(VersionDocumento.fecha_carga.desc()).first()
+            filename = ult_ver.ruta_almacenamiento.split('_', 1)[1] if (ult_ver and '_' in ult_ver.ruta_almacenamiento) else "documento"
+
+            if target_cli and target_cli.usuario_id:
+                notif = NotificacionInterna(
+                    usuario_id=target_cli.usuario_id,
+                    mensaje=f"Se ha compartido el documento '{filename}' contigo en tu expediente '{doc.expediente.nombre_caso if doc.expediente else 'N/A'}'.",
+                    leida=False,
+                    expediente_id=doc.expediente_id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif)
+
         try:
             db.session.commit()
             
@@ -3752,6 +3838,18 @@ def register_routes(app):
                     es_audiencia=True
                 )
                 db.session.add(alerta)
+
+                # Notificar al cliente
+                if expediente.cliente and expediente.cliente.usuario_id:
+                    notif = NotificacionInterna(
+                        usuario_id=expediente.cliente.usuario_id,
+                        mensaje=f"Se ha programado una nueva audiencia para tu caso '{expediente.nombre_caso}' el {fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p')}.",
+                        leida=False,
+                        expediente_id=expediente.id,
+                        fecha_creacion=rd_now()
+                    )
+                    db.session.add(notif)
+
                 db.session.commit()
 
                 registrar_auditoria(
@@ -3778,6 +3876,18 @@ def register_routes(app):
                     es_audiencia=False
                 )
                 db.session.add(alerta)
+
+                # Notificar al cliente
+                if expediente.cliente and expediente.cliente.usuario_id:
+                    notif = NotificacionInterna(
+                        usuario_id=expediente.cliente.usuario_id,
+                        mensaje=f"Se ha registrado una nueva actividad/plazo para tu caso '{expediente.nombre_caso}' con vencimiento el {fecha_venc.strftime('%d/%m/%Y')}.",
+                        leida=False,
+                        expediente_id=expediente.id,
+                        fecha_creacion=rd_now()
+                    )
+                    db.session.add(notif)
+
                 db.session.commit()
 
                 registrar_auditoria(
@@ -4026,14 +4136,14 @@ def register_routes(app):
 
     @app.route("/notificaciones")
     @login_required
-    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador", "Cliente")
     def ver_notificaciones():
         notificaciones = NotificacionInterna.query.filter_by(usuario_id=current_user.id).order_by(NotificacionInterna.fecha_creacion.desc()).all()
         return render_template("notificaciones/index.html", notificaciones=notificaciones, current_date=rd_now())
 
     @app.route("/notificaciones/<int:notificacion_id>/leer", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador", "Cliente")
     def marcar_notificacion_leida(notificacion_id):
         notif = NotificacionInterna.query.filter_by(id=notificacion_id, usuario_id=current_user.id).first_or_404()
         notif.leida = True
@@ -4046,7 +4156,7 @@ def register_routes(app):
 
     @app.route("/notificaciones/leer_todas", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador", "Cliente")
     def marcar_todas_notificaciones_leidas():
         notifs = NotificacionInterna.query.filter_by(usuario_id=current_user.id, leida=False).all()
         for notif in notifs:
@@ -4134,6 +4244,22 @@ def procesar_alertas_preventivas():
                 db.session.add(notif)
             except Exception as e:
                 print(f"[PLANIFICADOR] Error al despachar alerta al usuario {abogado.id}: {e}")
+
+        # También notificar al cliente del expediente si tiene portal de acceso
+        if exp and exp.cliente and exp.cliente.usuario_id:
+            try:
+                enviar_email_alerta_preventiva(exp.cliente.usuario, plazo, anticipacion)
+                msj_cliente = f"[Recordatorio {anticipacion} días] La {tipo_nombre} '{plazo.titulo_hito}' programada para el caso '{exp.nombre_caso}' ocurre el {venc_local.strftime('%d/%m/%Y')}."
+                notif_cliente = NotificacionInterna(
+                    usuario_id=exp.cliente.usuario_id,
+                    mensaje=msj_cliente,
+                    leida=False,
+                    expediente_id=exp.id,
+                    fecha_creacion=rd_now()
+                )
+                db.session.add(notif_cliente)
+            except Exception as e:
+                print(f"[PLANIFICADOR] Error al despachar alerta al cliente {exp.cliente.id}: {e}")
                 
         try:
             registro = RegistroEnvioAlerta(

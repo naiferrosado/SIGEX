@@ -117,41 +117,41 @@
                         
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
-                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 1 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                <button type="button" onclick="mostrarModalFase(1)" class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 btn p-0 shadow-sm {% if estadisticas.progreso_fase >= 1 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 42px; height: 42px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                                     <i class="bi {{ i1 }}"></i>
-                                </div>
+                                </button>
                                 <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f1 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
-                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 2 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                <button type="button" onclick="mostrarModalFase(2)" class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 btn p-0 shadow-sm {% if estadisticas.progreso_fase >= 2 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 42px; height: 42px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                                     <i class="bi {{ i2 }}"></i>
-                                </div>
+                                </button>
                                 <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f2 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
-                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 3 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                <button type="button" onclick="mostrarModalFase(3)" class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 btn p-0 shadow-sm {% if estadisticas.progreso_fase >= 3 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 42px; height: 42px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                                     <i class="bi {{ i3 }}"></i>
-                                </div>
+                                </button>
                                 <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f3 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
-                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 4 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                <button type="button" onclick="mostrarModalFase(4)" class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 btn p-0 shadow-sm {% if estadisticas.progreso_fase >= 4 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 42px; height: 42px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                                     <i class="bi {{ i4 }}"></i>
-                                </div>
+                                </button>
                                 <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f4 }}</div>
                             </div>
                         </div>
                         <div class="col col-lg">
                             <div class="position-relative" style="z-index: 2;">
-                                <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 {% if estadisticas.progreso_fase >= 5 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 40px; height: 40px;">
+                                <button type="button" onclick="mostrarModalFase(5)" class="rounded-circle mx-auto d-flex align-items-center justify-content-center border border-2 btn p-0 shadow-sm {% if estadisticas.progreso_fase >= 5 %}bg-success text-white border-success{% else %}bg-white text-muted border-secondary{% endif %}" style="width: 42px; height: 42px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                                     <i class="bi {{ i5 }}"></i>
-                                </div>
+                                </button>
                                 <div class="small fw-bold mt-2 text-dark" style="font-size: 0.8rem;">{{ f5 }}</div>
                             </div>
                         </div>
@@ -180,22 +180,38 @@
                 <div class="card-body p-4">
                     <h6 class="fw-bold mb-3" style="color: #071c4d;"><i class="bi bi-activity text-info me-2"></i>Últimos Hitos y Notificaciones Recientes</h6>
                     
-                    {% if estadisticas.actividades %}
+                    {% if estadisticas.notificaciones or estadisticas.actividades %}
                     <ul class="list-group list-group-flush">
-                        {% for actividad in estadisticas.actividades %}
-                        <li class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-center">
-                            <div class="bg-light p-2 rounded-circle me-3 text-primary">
-                                <i class="bi bi-check-circle"></i>
+                        {% for notif in estadisticas.notificaciones %}
+                        <li class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-start">
+                            <div class="p-2 rounded-circle me-3 text-warning bg-warning bg-opacity-10 d-flex justify-content-center align-items-center" style="width: 32px; height: 32px; flex-shrink: 0;">
+                                <i class="bi bi-bell-fill" style="font-size: 0.85rem;"></i>
                             </div>
-                            <div>
-                                <h6 class="fw-bold mb-0 small text-dark">{{ actividad.titulo_hito }}</h6>
-                                <span class="small text-muted">Fecha límite: {{ actividad.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 text-dark small {% if not notif.leida %}fw-bold{% else %}fw-normal{% endif %}" style="font-size: 0.85rem; line-height: 1.3;">
+                                    {{ notif.mensaje }}
+                                </h6>
+                                <span class="small text-muted" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>{{ notif.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+
+                        {% for actividad in estadisticas.actividades %}
+                        <li class="list-group-item px-0 py-3 border-0 border-bottom d-flex align-items-start">
+                            <div class="p-2 rounded-circle me-3 text-primary bg-primary bg-opacity-10 d-flex justify-content-center align-items-center" style="width: 32px; height: 32px; flex-shrink: 0;">
+                                <i class="bi bi-calendar2-check-fill" style="font-size: 0.85rem;"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 small text-dark fw-bold" style="font-size: 0.85rem; line-height: 1.3;">
+                                    Próxima Audiencia / Plazo: {{ actividad.titulo_hito }}
+                                </h6>
+                                <span class="small text-muted" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>Fecha límite: {{ actividad.fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p') if actividad.es_audiencia else actividad.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
                             </div>
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <p class="text-muted small text-center py-3">No hay hitos ni actividades registradas recientemente.</p>
+                    <p class="text-muted small text-center py-3">No hay hitos ni notificaciones recientes.</p>
                     {% endif %}
                 </div>
             </div>
@@ -349,5 +365,245 @@
             }
         }, 300);
     }
+</script>
+
+<!-- Modal para Detalles de la Fase -->
+<div class="modal fade" id="modalFaseDetalle" tabindex="-1" aria-labelledby="modalFaseDetalleLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="modalFaseDetalleLabel" style="color: #071c4d;">Detalles de la Fase</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3" id="modalFaseBody">
+                <!-- Se poblará dinámicamente con JavaScript -->
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary rounded-3 btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Serializar información del caso principal e hitos para usar en JS
+    {% if caso %}
+    const servidorAhora = {{ current_date.timestamp() * 1000 }};
+
+    const casoInfo = {
+        tipo_tramite: "{{ caso.tipo_tramite }}",
+        fase_actual: {{ estadisticas.progreso_fase }},
+        nombre_caso: "{{ caso.nombre_caso | replace('"', '\\"') }}",
+        codigo_firma: "{{ caso.codigo_firma | replace('"', '\\"') }}",
+        // Campos Judiciales
+        jurisdiccion_actual: "{{ caso.jurisdiccion_actual | replace('"', '\\"') if caso.tipo_tramite == 'Judicial' and caso.jurisdiccion_actual else '' }}",
+        tribunal_asignado: "{{ caso.tribunal_asignado | replace('"', '\\"') if caso.tipo_tramite == 'Judicial' and caso.tribunal_asignado else '' }}",
+        numero_expediente_tribunal: "{{ caso.numero_expediente_tribunal | replace('"', '\\"') if caso.tipo_tramite == 'Judicial' and caso.numero_expediente_tribunal else '' }}",
+        juez_asignado: "{{ caso.juez_asignado | replace('"', '\\"') if caso.tipo_tramite == 'Judicial' and caso.juez_asignado else '' }}",
+        // Campos Administrativos
+        tipo_proceso: "{{ caso.tipo_proceso | replace('"', '\\"') if caso.tipo_tramite == 'Administrativo' and caso.tipo_proceso else '' }}",
+        sub_proceso: "{{ caso.sub_proceso | replace('"', '\\"') if caso.tipo_tramite == 'Administrativo' and caso.sub_proceso else '' }}",
+        institucion_encargada: "{{ caso.institucion_encargada | replace('"', '\\"') if caso.tipo_tramite == 'Administrativo' and caso.institucion_encargada else '' }}",
+        numero_solicitud_oficial: "{{ caso.numero_solicitud_oficial | replace('"', '\\"') if caso.tipo_tramite == 'Administrativo' and caso.numero_solicitud_oficial else '' }}",
+        monto_tasas_impuestos: {{ (caso.monto_tasas_impuestos | float) if (caso.tipo_tramite == 'Administrativo' and caso.monto_tasas_impuestos) else 0.0 }},
+        descripcion_tramite: "{{ (caso.descripcion_tramite or '') | replace('\"', '\\\"') | replace('\n', ' ') | replace('\r', '') }}"
+    };
+
+    const hitosInfo = [
+        {% for h in estadisticas.hitostotal %}
+        {
+            titulo: "{{ h.titulo_hito | replace('"', '\\"') }}",
+            fecha: "{{ h.fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p') }}",
+            timestamp: {{ h.fecha_vencimiento.timestamp() * 1000 }},
+            estado: "{{ h.estado_alerta }}",
+            es_audiencia: {{ 'true' if h.es_audiencia else 'false' }}
+        },
+        {% endfor %}
+    ];
+
+    function mostrarModalFase(faseNum) {
+        const modalTitle = document.getElementById('modalFaseDetalleLabel');
+        const modalBody = document.getElementById('modalFaseBody');
+        
+        let htmlContent = '';
+        
+        if (casoInfo.tipo_tramite === 'Judicial') {
+            const fasesNombres = [
+                '1. Demanda interpuesta',
+                '2. Demanda admitida',
+                '3. Audiencia fijada',
+                '4. Conclusiones',
+                '5. Sentencia / Cierre'
+            ];
+            
+            modalTitle.innerText = fasesNombres[faseNum - 1];
+            const estaCompletada = casoInfo.fase_actual >= faseNum;
+            const statusBadge = estaCompletada 
+                ? '<span class="badge bg-success mb-3"><i class="bi bi-check-circle-fill me-1"></i>Completada / Activa</span>'
+                : '<span class="badge bg-secondary mb-3">Pendiente</span>';
+
+            htmlContent += statusBadge;
+
+            if (faseNum === 1) {
+                htmlContent += `
+                    <p class="text-secondary small">La demanda inicial ha sido elaborada y depositada formalmente por nuestro equipo legal en el tribunal correspondiente.</p>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="mb-2"><strong>Caso:</strong> ${casoInfo.nombre_caso}</div>
+                        <div class="mb-2"><strong>Código Interno:</strong> ${casoInfo.codigo_firma}</div>
+                        <div><strong>Estado de Fase:</strong> El caso ha sido iniciado formalmente.</div>
+                    </div>
+                `;
+            } else if (faseNum === 2) {
+                htmlContent += `
+                    <p class="text-secondary small">El tribunal ha verificado los requisitos de admisibilidad y admitió formalmente a trámite la demanda interpuesta.</p>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="mb-2"><strong>Tribunal Asignado:</strong> ${casoInfo.tribunal_asignado || 'Pendiente de asignar'}</div>
+                        <div class="mb-2"><strong>No. Expediente Tribunal:</strong> ${casoInfo.numero_expediente_tribunal || 'Pendiente'}</div>
+                        <div class="mb-2"><strong>Jurisdicción:</strong> ${casoInfo.jurisdiccion_actual || 'No especificada'}</div>
+                        <div><strong>Juez Asignado:</strong> ${casoInfo.juez_asignado || 'No especificado'}</div>
+                    </div>
+                `;
+            } else if (faseNum === 3) {
+                const audiencias = hitosInfo.filter(h => h.es_audiencia);
+                
+                // Ordenar: Pendientes primero (por fecha ascendente), Celebradas/Pasadas después (por fecha descendente)
+                audiencias.sort((x, y) => {
+                    const xPendiente = !(x.estado === 'Atendida' || x.estado === 'Completada') && !(x.estado === 'Escalada') && x.timestamp >= servidorAhora;
+                    const yPendiente = !(y.estado === 'Atendida' || y.estado === 'Completada') && !(y.estado === 'Escalada') && y.timestamp >= servidorAhora;
+                    
+                    if (xPendiente && !yPendiente) return -1;
+                    if (!xPendiente && yPendiente) return 1;
+                    
+                    if (xPendiente) {
+                        return x.timestamp - y.timestamp; // Pendiente más cercana primero
+                    } else {
+                        return y.timestamp - x.timestamp; // Celebrada más reciente primero
+                    }
+                });
+
+                htmlContent += `
+                    <p class="text-secondary small">Historial y programación de las audiencias citadas ante el tribunal para este caso.</p>
+                `;
+                
+                if (audiencias.length === 0) {
+                    htmlContent += `
+                        <div class="text-center py-3 text-muted bg-light rounded-3 small">
+                            <i class="bi bi-calendar-x fs-4 d-block mb-1"></i>
+                            No hay audiencias registradas todavía para este caso.
+                        </div>
+                    `;
+                } else {
+                    htmlContent += '<div class="list-group shadow-sm rounded-3 small">';
+                    audiencias.forEach(a => {
+                        let badgeClass = 'bg-warning text-dark';
+                        let badgeText = 'Pendiente';
+                        const yaPaso = a.timestamp < servidorAhora;
+                        
+                        if (a.estado === 'Atendida' || a.estado === 'Completada') {
+                            badgeClass = 'bg-success';
+                            badgeText = 'Celebrada';
+                        } else if (a.estado === 'Escalada') {
+                            badgeClass = 'bg-danger';
+                            badgeText = 'Postergada / Alerta';
+                        } else if (yaPaso) {
+                            badgeClass = 'bg-success';
+                            badgeText = 'Celebrada';
+                        }
+                        
+                        htmlContent += `
+                            <div class="list-group-item d-flex justify-content-between align-items-center py-3 bg-white">
+                                <div>
+                                    <div class="fw-bold text-dark">${a.titulo}</div>
+                                    <div class="text-muted" style="font-size: 0.8rem;"><i class="bi bi-clock me-1"></i>${a.fecha}</div>
+                                </div>
+                                <span class="badge ${badgeClass}">${badgeText}</span>
+                            </div>
+                        `;
+                    });
+                    htmlContent += '</div>';
+                }
+            } else if (faseNum === 4) {
+                htmlContent += `
+                    <p class="text-secondary small">Fase final de debates y comparecencia donde ambas partes presentan sus escritos de conclusiones al tribunal para fallo.</p>
+                    <div class="p-3 bg-light rounded-3 small text-center text-muted">
+                        <i class="bi bi-chat-left-text fs-4 d-block mb-1"></i>
+                        Fase de conclusiones y deliberación final del tribunal.
+                    </div>
+                `;
+            } else if (faseNum === 5) {
+                htmlContent += `
+                    <p class="text-secondary small">Fase de sentencia y cierre definitivo del caso en los tribunales.</p>
+                    <div class="p-3 bg-light rounded-3 small text-center text-muted">
+                        <i class="bi bi-gavel fs-4 d-block mb-1"></i>
+                        Cierre definitivo del expediente y archivo del caso.
+                    </div>
+                `;
+            }
+        } else {
+            const fasesNombres = [
+                '1. Documentos recibidos',
+                '2. Solicitud radicada',
+                '3. Revisión oficial',
+                '4. Pago de tasas',
+                '5. Resolución / Cierre'
+            ];
+            
+            modalTitle.innerText = fasesNombres[faseNum - 1];
+            const estaCompletada = casoInfo.fase_actual >= faseNum;
+            const statusBadge = estaCompletada 
+                ? '<span class="badge bg-success mb-3"><i class="bi bi-check-circle-fill me-1"></i>Completada / Activa</span>'
+                : '<span class="badge bg-secondary mb-3">Pendiente</span>';
+
+            htmlContent += statusBadge;
+
+            if (faseNum === 1) {
+                htmlContent += `
+                    <p class="text-secondary small">Recepción y validación de los documentos iniciales requeridos para iniciar la gestión administrativa.</p>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="mb-2"><strong>Trámite:</strong> ${casoInfo.tipo_proceso || 'No especificado'}</div>
+                        <div class="mb-2"><strong>Sub-proceso:</strong> ${casoInfo.sub_proceso || 'No especificado'}</div>
+                        <div><strong>Descripción:</strong> ${casoInfo.descripcion_tramite || 'Sin descripción'}</div>
+                    </div>
+                `;
+            } else if (faseNum === 2) {
+                htmlContent += `
+                    <p class="text-secondary small">La solicitud ha sido formalmente radicada y depositada ante la entidad gubernamental correspondiente.</p>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="mb-2"><strong>Institución Encargada:</strong> ${casoInfo.institucion_encargada || 'No especificada'}</div>
+                        <div><strong>No. Solicitud Oficial:</strong> ${casoInfo.numero_solicitud_oficial || 'No provisto'}</div>
+                    </div>
+                `;
+            } else if (faseNum === 3) {
+                htmlContent += `
+                    <p class="text-secondary small">La institución se encuentra analizando y evaluando la documentación presentada para emitir una resolución.</p>
+                    <div class="p-3 bg-light rounded-3 small text-center text-muted">
+                        <i class="bi bi-building-gear fs-4 d-block mb-1"></i>
+                        Bajo revisión oficial del departamento técnico.
+                    </div>
+                `;
+            } else if (faseNum === 4) {
+                htmlContent += `
+                    <p class="text-secondary small">Liquidación y abono de las tasas e impuestos oficiales requeridos para la finalización del trámite.</p>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="mb-2"><strong>Impuestos Oficiales:</strong> RD$ ${(casoInfo.monto_tasas_impuestos || 0).toLocaleString('es-DO', {minimumFractionDigits: 2})}</div>
+                        <div><strong>Estado de Pago:</strong> Completado / Abonado</div>
+                    </div>
+                `;
+            } else if (faseNum === 5) {
+                htmlContent += `
+                    <p class="text-secondary small">Emisión de la resolución final del trámite y entrega de la certificación correspondiente.</p>
+                    <div class="p-3 bg-light rounded-3 small text-center text-muted">
+                        <i class="bi bi-clipboard2-check fs-4 d-block mb-1"></i>
+                        Resolución definitiva emitida y expediente administrativamente archivado.
+                    </div>
+                `;
+            }
+        }
+
+        modalBody.innerHTML = htmlContent;
+        const myModal = new bootstrap.Modal(document.getElementById('modalFaseDetalle'));
+        myModal.show();
+    }
+    {% endif %}
 </script>
 {% endblock %}

@@ -143,6 +143,15 @@
                         <span class="menu-text">Dashboard</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('ver_notificaciones') }}" class="nav-link {% if request.endpoint == 'ver_notificaciones' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                        <i class="bi bi-bell-fill me-3"></i> 
+                        <span class="menu-text">Notificaciones</span>
+                        {% if notificaciones_pendientes_count > 0 %}
+                        <span class="badge bg-danger ms-auto rounded-pill" style="font-size: 0.7rem; padding: 0.25em 0.6em;">{{ notificaciones_pendientes_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
 
                 {% if current_user.rol in ['Socio', 'Asociado', 'Paralegal', 'Administrador'] %}
                 <li class="nav-item">
@@ -173,15 +182,6 @@
                     <a href="{{ url_for('listar_tareas') }}" class="nav-link {% if request.endpoint == 'listar_tareas' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                         <i class="bi bi-clipboard2-check-fill me-3"></i> 
                         <span class="menu-text">Mis Tareas</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ url_for('ver_notificaciones') }}" class="nav-link {% if request.endpoint == 'ver_notificaciones' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
-                        <i class="bi bi-bell-fill me-3"></i> 
-                        <span class="menu-text">Notificaciones</span>
-                        {% if notificaciones_pendientes_count > 0 %}
-                        <span class="badge bg-danger ms-auto rounded-pill" style="font-size: 0.7rem; padding: 0.25em 0.6em;">{{ notificaciones_pendientes_count }}</span>
-                        {% endif %}
                     </a>
                 </li>
                 {% endif %}
