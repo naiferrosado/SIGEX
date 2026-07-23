@@ -183,10 +183,15 @@
                     <!-- Expediente Vinculado (Común) -->
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Expediente <span class="text-danger">*</span></label>
+                        <!-- Buscador de Expedientes -->
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control bg-light border-start-0" id="agendaExpSearch" placeholder="Buscar expediente por código, caso, o cédula del cliente...">
+                        </div>
                         <select class="form-select form-select-sm" id="eventoExpedienteId" required>
-                            <option value="" disabled selected>-- Seleccione Expediente --</option>
+                            <option value="" disabled selected data-search="">-- Seleccione Expediente --</option>
                             {% for exp in expedientes_select %}
-                            <option value="{{ exp.id }}" data-tipo="{{ exp.tipo_tramite }}">{{ exp.codigo_firma }} - {{ exp.nombre_caso }}</option>
+                            <option value="{{ exp.id }}" data-tipo="{{ exp.tipo_tramite }}" data-search="{{ exp.codigo_firma }} {{ exp.nombre_caso }} {{ exp.cliente.rnc_cedula if exp.cliente else '' }} {{ exp.cliente.nombres if exp.cliente else '' }} {{ exp.cliente.apellidos if exp.cliente else '' }}">{{ exp.codigo_firma }} - {{ exp.nombre_caso }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -329,9 +334,27 @@
     let modalDetalle;
     let isEditing = false;
     const userRole = '{{ current_user.rol }}';
+    let masterAgendaExpedienteOptions = [];
 
     document.addEventListener('DOMContentLoaded', function() {
         modalCrear = new bootstrap.Modal(document.getElementById('modalCrearEvento'));
+        
+        // Cargar opciones master para filtrar el select de expediente en el modal de agenda
+        const select = document.getElementById('eventoExpedienteId');
+        if (select) {
+            masterAgendaExpedienteOptions = Array.from(select.options).map(opt => ({
+                value: opt.value,
+                text: opt.text,
+                tipo: opt.getAttribute('data-tipo') || '',
+                search: opt.getAttribute('data-search') || ''
+            }));
+        }
+
+        // Registrar evento para filtrar
+        const searchInput = document.getElementById('agendaExpSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', filtrarSelectExpedienteAgenda);
+        }
         modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleEvento'));
         const calendarEl = document.getElementById('calendar');
 
@@ -437,6 +460,10 @@
     function abrirModalCrear(dateStr = '') {
         isEditing = false;
         document.getElementById('formCrearEvento').reset();
+        if (document.getElementById('agendaExpSearch')) {
+            document.getElementById('agendaExpSearch').value = '';
+            filtrarSelectExpedienteAgenda();
+        }
         document.getElementById('eventoTipo').disabled = false;
         document.getElementById('eventoExpedienteId').disabled = false;
         document.getElementById('modalCrearEvento').querySelector('.modal-title').innerHTML = '<i class="bi bi-calendar-plus-fill text-primary me-2"></i>Nuevo Evento de Agenda';
@@ -459,6 +486,11 @@
         isEditing = true;
         const raw = selectedEventData.raw_data;
         const type = selectedEventData.type;
+
+        if (document.getElementById('agendaExpSearch')) {
+            document.getElementById('agendaExpSearch').value = '';
+            filtrarSelectExpedienteAgenda();
+        }
 
         const typeSelect = document.getElementById('eventoTipo');
         const expSelect = document.getElementById('eventoExpedienteId');
@@ -780,6 +812,53 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
             </div>
         `;
+    }
+
+    function filtrarSelectExpedienteAgenda() {
+        const searchInput = document.getElementById('agendaExpSearch');
+        const select = document.getElementById('eventoExpedienteId');
+
+        if (!select) return;
+
+        const query = searchInput ? searchInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+        const currentSelectedVal = select.value;
+
+        // Limpiar select
+        select.innerHTML = '';
+
+        // Filtrar y agregar
+        masterAgendaExpedienteOptions.forEach(opt => {
+            if (opt.value === '') {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.text = opt.text;
+                newOpt.disabled = true;
+                if (!query) {
+                    newOpt.selected = true;
+                }
+                select.appendChild(newOpt);
+                return;
+            }
+
+            const matchesQuery = opt.search.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query);
+
+            if (matchesQuery) {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.text = opt.text;
+                newOpt.setAttribute('data-tipo', opt.tipo);
+                newOpt.setAttribute('data-search', opt.search);
+                select.appendChild(newOpt);
+            }
+        });
+
+        // Intentar restaurar el valor seleccionado
+        const matchesCurrent = Array.from(select.options).some(o => o.value === currentSelectedVal);
+        if (matchesCurrent && currentSelectedVal !== '') {
+            select.value = currentSelectedVal;
+        } else {
+            select.value = '';
+        }
     }
 </script>
 {% endblock %}
