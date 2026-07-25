@@ -4,63 +4,89 @@ from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import urlparse
 
-from flask import flash, jsonify, redirect, render_template, request, url_for, send_from_directory, current_app
+from email_validator import EmailNotValidError, validate_email
+from flask import (
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    url_for,
+)
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from email_validator import validate_email, EmailNotValidError
 
 from app import db
 from app.forms import (
+    ChangePasswordForm,
     ClienteForm,
     ExpedienteAdministrativoForm,
     ExpedienteJudicialForm,
-    LoginForm,
-    UsuarioForm,
     ForgotPasswordForm,
+    LoginForm,
+    RequiredChangePasswordForm,
     ResetPasswordForm,
     TareaForm,
     UserProfileForm,
-    ChangePasswordForm,
-    RequiredChangePasswordForm,
-)
-from app.utils import (
-    generate_reset_token,
-    verify_reset_token,
-    enviar_email_restablecimiento,
-    enviar_email_alerta_preventiva,
-    enviar_email_credenciales_cliente,
+    UsuarioForm,
 )
 from app.models import (
     AlertaPlazoAudiencia,
     BitacoraAuditoria,
     BitacoraTiempoTarea,
+    Carpeta,
     Cliente,
     Documento,
-    TipoDocumento,
-    Carpeta,
     Expediente,
     ExpedienteAdministrativo,
     ExpedienteJudicial,
     FacturaHonorario,
+    NotificacionInterna,
+    RegistroEnvioAlerta,
+    Tarea,
+    TipoDocumento,
     Usuario,
     VersionDocumento,
     rd_now,
-    Tarea,
-    NotificacionInterna,
-    RegistroEnvioAlerta,
+)
+from app.utils import (
+    enviar_email_alerta_preventiva,
+    enviar_email_credenciales_cliente,
+    enviar_email_restablecimiento,
+    generate_reset_token,
+    verify_reset_token,
 )
 
 ALLOWED_EXTENSIONS = {
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-    "txt", "rtf", "odt", "png", "jpg", "jpeg", "gif", "webp",
-    "zip", "rar", "7z", "tar", "gz"
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "txt",
+    "rtf",
+    "odt",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "zip",
+    "rar",
+    "7z",
+    "tar",
+    "gz",
 }
 
+
 def allowed_file(filename):
-    return "." in filename and \
-           filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def _serialize_clientes(clientes):
@@ -109,7 +135,9 @@ def _serialize_expedientes(expedientes):
         }
         if exp.tipo_tramite == "Judicial":
             next_hearing = (
-                AlertaPlazoAudiencia.query.filter_by(expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente")
+                AlertaPlazoAudiencia.query.filter_by(
+                    expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente"
+                )
                 .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
                 .first()
             )
@@ -126,9 +154,17 @@ def _serialize_expedientes(expedientes):
                     "contacto_contraparte": exp.contacto_contraparte,
                     "abogado_contraparte": exp.abogado_contraparte,
                     "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
-                    "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
-                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime("%Y-%m-%d") if next_hearing else None,
-                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M") if next_hearing else None,
+                    "monto_demanda": float(exp.monto_demanda)
+                    if exp.monto_demanda is not None
+                    else None,
+                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime(
+                        "%Y-%m-%d"
+                    )
+                    if next_hearing
+                    else None,
+                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M")
+                    if next_hearing
+                    else None,
                 }
             )
         elif exp.tipo_tramite == "Administrativo":
@@ -148,10 +184,16 @@ def _serialize_expedientes(expedientes):
     return data
 
 
-def registrar_auditoria(usuario_id, accion, detalles, cliente_id=None, expediente_id=None):
+def registrar_auditoria(
+    usuario_id, accion, detalles, cliente_id=None, expediente_id=None
+):
     try:
         ip = request.remote_addr or "127.0.0.1"
-        dispositivo = request.user_agent.string[:255] if request.user_agent and request.user_agent.string else "Desconocido"
+        dispositivo = (
+            request.user_agent.string[:255]
+            if request.user_agent and request.user_agent.string
+            else "Desconocido"
+        )
         log = BitacoraAuditoria(
             usuario_id=usuario_id,
             accion_realizada=accion[:50],
@@ -245,7 +287,9 @@ def register_routes(app):
                             next_page = None
 
                     return (
-                        redirect(next_page) if next_page else redirect(url_for("dashboard"))
+                        redirect(next_page)
+                        if next_page
+                        else redirect(url_for("dashboard"))
                     )
                 else:
                     # Contraseña incorrecta
@@ -291,7 +335,7 @@ def register_routes(app):
                 enviar_email_restablecimiento(usuario, reset_url)
             flash(
                 "Si el correo electrónico ingresado está registrado, recibirás un mensaje con las instrucciones para restablecer tu contraseña.",
-                "success"
+                "success",
             )
             return redirect(url_for("login"))
         return render_template("auth/reset_password_request.html", form=form)
@@ -304,7 +348,7 @@ def register_routes(app):
         if not user_id:
             flash("El enlace de restablecimiento es inválido o ha expirado.", "danger")
             return redirect(url_for("reset_password_request"))
-        
+
         usuario = Usuario.query.get(user_id)
         if not usuario:
             flash("El usuario no existe.", "danger")
@@ -316,7 +360,10 @@ def register_routes(app):
             usuario.requiere_cambio_password = False
             try:
                 db.session.commit()
-                flash("Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.", "success")
+                flash(
+                    "Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.",
+                    "success",
+                )
                 return redirect(url_for("login"))
             except Exception as e:
                 db.session.rollback()
@@ -511,14 +558,16 @@ def register_routes(app):
                 expedientes_activos = Expediente.query.filter(
                     Expediente.estado != "Archivado"
                 ).count()
-                total_tareas_pendientes = Tarea.query.filter(
-                    Tarea.estado != "Completada"
-                ).filter(
-                    db.or_(
-                        Tarea.asignado_a_id == current_user.id,
-                        Tarea.asignado_a_id == None
+                total_tareas_pendientes = (
+                    Tarea.query.filter(Tarea.estado != "Completada")
+                    .filter(
+                        db.or_(
+                            Tarea.asignado_a_id == current_user.id,
+                            Tarea.asignado_a_id == None,
+                        )
                     )
-                ).count()
+                    .count()
+                )
                 mis_documentos_cargados = VersionDocumento.query.filter_by(
                     usuario_id=current_user.id
                 ).count()
@@ -598,29 +647,37 @@ def register_routes(app):
 
                 # 1. Obtener versión real de PostgreSQL
                 try:
-                    db_version_row = db.session.execute(db.text("SHOW server_version;")).first()
-                    db_version = f"PostgreSQL {db_version_row[0].split()[0]}" if db_version_row else "PostgreSQL 15"
+                    db_version_row = db.session.execute(
+                        db.text("SHOW server_version;")
+                    ).first()
+                    db_version = (
+                        f"PostgreSQL {db_version_row[0].split()[0]}"
+                        if db_version_row
+                        else "PostgreSQL 15"
+                    )
                 except Exception:
                     db_version = "PostgreSQL 15"
 
                 # 2. Obtener almacenamiento libre de la carpeta uploads
                 import shutil
+
                 try:
-                    uploads_path = os.path.join(current_app.root_path, 'uploads')
+                    uploads_path = os.path.join(current_app.root_path, "uploads")
                     if not os.path.exists(uploads_path):
                         os.makedirs(uploads_path)
                     total, used, free = shutil.disk_usage(uploads_path)
-                    free_gb = free / (1024 ** 3)
+                    free_gb = free / (1024**3)
                     almacenamiento_status = f"{free_gb:.1f} GB Libres"
                 except Exception:
                     almacenamiento_status = "Operativo"
 
                 # 3. Verificar estado del servicio de correos (SMTP)
                 import socket
-                mail_server = current_app.config.get('MAIL_SERVER')
-                mail_port = current_app.config.get('MAIL_PORT')
-                mail_username = current_app.config.get('MAIL_USERNAME')
-                mail_password = current_app.config.get('MAIL_PASSWORD')
+
+                mail_server = current_app.config.get("MAIL_SERVER")
+                mail_port = current_app.config.get("MAIL_PORT")
+                mail_username = current_app.config.get("MAIL_USERNAME")
+                mail_password = current_app.config.get("MAIL_PASSWORD")
 
                 if not mail_username or not mail_password:
                     mail_status = "No configurado"
@@ -628,7 +685,9 @@ def register_routes(app):
                 else:
                     try:
                         # Test de conexión rápido (timeout de 1.0 segundos)
-                        s = socket.create_connection((mail_server, mail_port), timeout=1.0)
+                        s = socket.create_connection(
+                            (mail_server, mail_port), timeout=1.0
+                        )
                         s.close()
                         mail_status = "Activo"
                         mail_badge_class = "bg-success"
@@ -663,7 +722,9 @@ def register_routes(app):
 
             # --- CLIENTE ---
             elif rol == "Cliente":
-                tipos_documentos = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
+                tipos_documentos = TipoDocumento.query.order_by(
+                    TipoDocumento.nombre_tipo.asc()
+                ).all()
                 cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
                 if not cliente_db:
                     estadisticas = {
@@ -690,7 +751,7 @@ def register_routes(app):
                 )
 
                 exp_ids = [e.id for e in expedientes_cliente]
-                
+
                 # 1. Buscar caso activo principal primero
                 caso_activo_principal = None
                 for e in expedientes_cliente:
@@ -709,35 +770,44 @@ def register_routes(app):
                     query_audiencia = AlertaPlazoAudiencia.query.filter(
                         AlertaPlazoAudiencia.expediente_id.in_(exp_ids)
                     ).filter(
-                        AlertaPlazoAudiencia.estado_alerta.in_(["Pending", "Pendiente"]),
-                        AlertaPlazoAudiencia.fecha_vencimiento >= rd_now()
+                        AlertaPlazoAudiencia.estado_alerta.in_(
+                            ["Pending", "Pendiente"]
+                        ),
+                        AlertaPlazoAudiencia.fecha_vencimiento >= rd_now(),
                     )
 
                     # Si es Judicial, buscar específicamente audiencias. Si es Administrativo, buscar cualquier hito/plazo pendiente.
-                    if caso_activo_principal and caso_activo_principal.tipo_tramite == "Judicial":
-                        query_audiencia = query_audiencia.filter(AlertaPlazoAudiencia.es_audiencia == True)
+                    if (
+                        caso_activo_principal
+                        and caso_activo_principal.tipo_tramite == "Judicial"
+                    ):
+                        query_audiencia = query_audiencia.filter(
+                            AlertaPlazoAudiencia.es_audiencia == True
+                        )
 
-                    audiencia_proxima = query_audiencia.order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc()).first()
+                    audiencia_proxima = query_audiencia.order_by(
+                        AlertaPlazoAudiencia.fecha_vencimiento.asc()
+                    ).first()
 
                 documentos_compartidos = []
                 if cliente_db:
                     if exp_ids:
                         documentos_compartidos = (
-                            Documento.query.filter(Documento.visibilidad == "Compartido")
+                            Documento.query.filter(
+                                Documento.visibilidad == "Compartido"
+                            )
                             .filter(
                                 db.or_(
                                     Documento.expediente_id.in_(exp_ids),
-                                    Documento.cliente_id == cliente_db.id
+                                    Documento.cliente_id == cliente_db.id,
                                 )
-                            ).all()
+                            )
+                            .all()
                         )
                     else:
-                        documentos_compartidos = (
-                            Documento.query.filter_by(
-                                visibilidad="Compartido",
-                                cliente_id=cliente_db.id
-                            ).all()
-                        )
+                        documentos_compartidos = Documento.query.filter_by(
+                            visibilidad="Compartido", cliente_id=cliente_db.id
+                        ).all()
 
                 # Fases del caso principal (Leídas de base de datos)
                 progreso_fase = 1
@@ -751,7 +821,9 @@ def register_routes(app):
                 hitostotal = []
                 if caso_activo_principal:
                     hitostotal = (
-                        AlertaPlazoAudiencia.query.filter_by(expediente_id=caso_activo_principal.id)
+                        AlertaPlazoAudiencia.query.filter_by(
+                            expediente_id=caso_activo_principal.id
+                        )
                         .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
                         .all()
                     )
@@ -830,7 +902,7 @@ def register_routes(app):
             {
                 "id": c.id,
                 "nombre": f"{c.nombres} {c.apellidos}",
-                "consentimiento_datos": bool(c.consentimiento_datos)
+                "consentimiento_datos": bool(c.consentimiento_datos),
             }
             for c in clientes_db
         ]
@@ -880,7 +952,7 @@ def register_routes(app):
                 usuario_info = {
                     "id": user.id,
                     "email": user.email,
-                    "activo": user.activo
+                    "activo": user.activo,
                 }
 
         # 4. Retornar detalles con auditorías
@@ -916,14 +988,20 @@ def register_routes(app):
 
         email_limpio = cliente.email_contacto.strip().lower()
         if not email_limpio:
-            flash("El cliente debe tener un correo de contacto configurado para habilitar acceso.", "danger")
+            flash(
+                "El cliente debe tener un correo de contacto configurado para habilitar acceso.",
+                "danger",
+            )
             return redirect(url_for("clientes", id=cliente.id))
 
         # Validar la entregabilidad del correo de forma estricta (realiza consulta DNS MX)
         try:
             validate_email(email_limpio, check_deliverability=True)
         except EmailNotValidError as e:
-            flash(f"El correo electrónico no es válido o no tiene un servidor de correo real: {str(e)}", "danger")
+            flash(
+                f"El correo electrónico no es válido o no tiene un servidor de correo real: {str(e)}",
+                "danger",
+            )
             return redirect(url_for("clientes", id=cliente.id))
 
         existente = Usuario.query.filter_by(email=email_limpio).first()
@@ -935,16 +1013,22 @@ def register_routes(app):
                     usuario_id=current_user.id,
                     accion="Activación",
                     detalles=f"Vinculó la cuenta de acceso existente del cliente {cliente.nombre_completo}.",
-                    cliente_id=cliente.id
+                    cliente_id=cliente.id,
                 )
                 flash("Cuenta de acceso existente vinculada con éxito.", "success")
             else:
-                flash(f"El correo electrónico '{email_limpio}' ya está en uso por un miembro de la firma.", "danger")
+                flash(
+                    f"El correo electrónico '{email_limpio}' ya está en uso por un miembro de la firma.",
+                    "danger",
+                )
             return redirect(url_for("clientes", id=cliente.id))
 
         clave_inicial = cliente.rnc_cedula.strip()
         if not clave_inicial:
-            flash("El cliente debe poseer cédula o RNC para usar de contraseña inicial.", "danger")
+            flash(
+                "El cliente debe poseer cédula o RNC para usar de contraseña inicial.",
+                "danger",
+            )
             return redirect(url_for("clientes", id=cliente.id))
 
         nuevo_usuario = Usuario(
@@ -953,28 +1037,35 @@ def register_routes(app):
             rol="Cliente",
             password_hash=generate_password_hash(clave_inicial),
             activo=True,
-            requiere_cambio_password=True
+            requiere_cambio_password=True,
         )
 
         try:
             db.session.add(nuevo_usuario)
             db.session.flush()
             cliente.usuario_id = nuevo_usuario.id
- 
+
             # Enviar credenciales por correo antes de confirmar en BD
-            email_enviado = enviar_email_credenciales_cliente(cliente, email_limpio, clave_inicial)
+            email_enviado = enviar_email_credenciales_cliente(
+                cliente, email_limpio, clave_inicial
+            )
             if not email_enviado:
-                raise Exception("El servidor de correo rechazó el envío o la dirección de correo no es válida.")
- 
+                raise Exception(
+                    "El servidor de correo rechazó el envío o la dirección de correo no es válida."
+                )
+
             db.session.commit()
- 
+
             registrar_auditoria(
                 usuario_id=current_user.id,
                 accion="Creación",
                 detalles=f"Habilitó acceso al portal del cliente. Creada cuenta de usuario '{email_limpio}' con clave inicial y notificado por correo.",
-                cliente_id=cliente.id
+                cliente_id=cliente.id,
             )
-            flash("Acceso al portal habilitado con éxito. Se ha enviado un correo con las credenciales al cliente para verificar la validez de la cuenta.", "success")
+            flash(
+                "Acceso al portal habilitado con éxito. Se ha enviado un correo con las credenciales al cliente para verificar la validez de la cuenta.",
+                "success",
+            )
         except Exception as e:
             db.session.rollback()
             flash(f"Error al verificar correo o habilitar acceso: {str(e)}", "danger")
@@ -999,9 +1090,12 @@ def register_routes(app):
                     usuario_id=current_user.id,
                     accion="Desactivación",
                     detalles=f"Desactivó la cuenta de acceso del cliente ({user.email}).",
-                    cliente_id=cliente.id
+                    cliente_id=cliente.id,
                 )
-                flash("Acceso al portal desactivado temporalmente para este cliente.", "success")
+                flash(
+                    "Acceso al portal desactivado temporalmente para este cliente.",
+                    "success",
+                )
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error al suspender cuenta de acceso: {str(e)}", "danger")
@@ -1028,9 +1122,12 @@ def register_routes(app):
                     usuario_id=current_user.id,
                     accion="Activación",
                     detalles=f"Reactivó la cuenta de acceso del cliente ({user.email}).",
-                    cliente_id=cliente.id
+                    cliente_id=cliente.id,
                 )
-                flash("Acceso al portal reactivado con éxito para este cliente.", "success")
+                flash(
+                    "Acceso al portal reactivado con éxito para este cliente.",
+                    "success",
+                )
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error al reactivar cuenta de acceso: {str(e)}", "danger")
@@ -1052,7 +1149,10 @@ def register_routes(app):
         if user:
             clave_inicial = cliente.rnc_cedula.strip()
             if not clave_inicial:
-                flash("El cliente debe poseer cédula o RNC para restablecer la contraseña.", "danger")
+                flash(
+                    "El cliente debe poseer cédula o RNC para restablecer la contraseña.",
+                    "danger",
+                )
                 return redirect(url_for("clientes", id=cliente.id))
 
             user.password_hash = generate_password_hash(clave_inicial)
@@ -1062,10 +1162,13 @@ def register_routes(app):
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="Edición",
-                    detalles=f"Restableció la contraseña de acceso del cliente a su cédula/RNC inicial.",
-                    cliente_id=cliente.id
+                    detalles="Restableció la contraseña de acceso del cliente a su cédula/RNC inicial.",
+                    cliente_id=cliente.id,
                 )
-                flash("Contraseña restablecida con éxito a la cédula/RNC del cliente.", "success")
+                flash(
+                    "Contraseña restablecida con éxito a la cédula/RNC del cliente.",
+                    "success",
+                )
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error al restablecer contraseña: {str(e)}", "danger")
@@ -1178,7 +1281,9 @@ def register_routes(app):
             # Desactivar requiere razón
             razon = request.form.get("razon", "").strip()
             if not razon:
-                flash("Debe especificar una razón para desactivar al cliente.", "danger")
+                flash(
+                    "Debe especificar una razón para desactivar al cliente.", "danger"
+                )
                 return redirect(url_for("clientes", id=cliente.id))
 
             cliente.consentimiento_datos = False
@@ -1236,9 +1341,12 @@ def register_routes(app):
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="Edición",
-                    detalles="Estableció una contraseña nueva por requerimiento de primer inicio de sesión."
+                    detalles="Estableció una contraseña nueva por requerimiento de primer inicio de sesión.",
                 )
-                flash("Contraseña actualizada con éxito. Bienvenido al sistema.", "success")
+                flash(
+                    "Contraseña actualizada con éxito. Bienvenido al sistema.",
+                    "success",
+                )
                 return redirect(url_for("dashboard"))
             except Exception as e:
                 db.session.rollback()
@@ -1256,7 +1364,7 @@ def register_routes(app):
             usuario=current_user,
             profile_form=profile_form,
             password_form=password_form,
-            current_date=rd_now()
+            current_date=rd_now(),
         )
 
     @app.route("/perfil/editar", methods=["POST"])
@@ -1264,9 +1372,14 @@ def register_routes(app):
     def editar_perfil():
         form = UserProfileForm()
         if form.validate_on_submit():
-            existente = Usuario.query.filter(Usuario.email == form.email.data, Usuario.id != current_user.id).first()
+            existente = Usuario.query.filter(
+                Usuario.email == form.email.data, Usuario.id != current_user.id
+            ).first()
             if existente:
-                flash("El correo electrónico ya está registrado por otro usuario.", "danger")
+                flash(
+                    "El correo electrónico ya está registrado por otro usuario.",
+                    "danger",
+                )
                 return redirect(url_for("ver_perfil"))
 
             old_nombre = current_user.nombre
@@ -1279,7 +1392,7 @@ def register_routes(app):
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="Edición",
-                    detalles=f"Actualizó sus datos personales de perfil: Nombre '{old_nombre}' -> '{current_user.nombre}', Correo '{old_email}' -> '{current_user.email}'."
+                    detalles=f"Actualizó sus datos personales de perfil: Nombre '{old_nombre}' -> '{current_user.nombre}', Correo '{old_email}' -> '{current_user.email}'.",
                 )
                 flash("Datos personales actualizados correctamente.", "success")
             except Exception as e:
@@ -1288,7 +1401,9 @@ def register_routes(app):
         else:
             for field, errors in form.errors.items():
                 for error in errors:
-                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+                    flash(
+                        f"Error en {getattr(form, field).label.text}: {error}", "danger"
+                    )
 
         return redirect(url_for("ver_perfil"))
 
@@ -1297,7 +1412,9 @@ def register_routes(app):
     def cambiar_password_perfil():
         form = ChangePasswordForm()
         if form.validate_on_submit():
-            if not check_password_hash(current_user.password_hash, form.current_password.data):
+            if not check_password_hash(
+                current_user.password_hash, form.current_password.data
+            ):
                 flash("La contraseña actual es incorrecta.", "danger")
                 return redirect(url_for("ver_perfil"))
 
@@ -1307,7 +1424,7 @@ def register_routes(app):
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="Edición",
-                    detalles="Cambió voluntariamente su contraseña de acceso desde su perfil de usuario."
+                    detalles="Cambió voluntariamente su contraseña de acceso desde su perfil de usuario.",
                 )
                 flash("Su contraseña ha sido modificada con éxito.", "success")
             except Exception as e:
@@ -1316,7 +1433,9 @@ def register_routes(app):
         else:
             for field, errors in form.errors.items():
                 for error in errors:
-                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+                    flash(
+                        f"Error en {getattr(form, field).label.text}: {error}", "danger"
+                    )
 
         return redirect(url_for("ver_perfil"))
 
@@ -1468,7 +1587,7 @@ def register_routes(app):
                     BitacoraAuditoria.detalles_tecnicos.ilike(search_pattern),
                     BitacoraAuditoria.accion_realizada.ilike(search_pattern),
                     BitacoraAuditoria.ip_direccion.ilike(search_pattern),
-                    Usuario.nombre.ilike(search_pattern)
+                    Usuario.nombre.ilike(search_pattern),
                 )
             )
 
@@ -1488,7 +1607,9 @@ def register_routes(app):
         )
 
         # Obtener listado de acciones únicas para los filtros
-        acciones_query = db.session.query(BitacoraAuditoria.accion_realizada).distinct().all()
+        acciones_query = (
+            db.session.query(BitacoraAuditoria.accion_realizada).distinct().all()
+        )
         acciones_disponibles = [a[0] for a in acciones_query if a[0]]
 
         # Obtener listado de todos los usuarios para los filtros
@@ -1557,7 +1678,7 @@ def register_routes(app):
                 "id": exp.id,
                 "codigo_firma": exp.codigo_firma,
                 "nombre_caso": exp.nombre_caso,
-                "cliente": exp.cliente.nombre_completo if exp.cliente else "N/A"
+                "cliente": exp.cliente.nombre_completo if exp.cliente else "N/A",
             }
             for exp in lista_exp
         ]
@@ -1568,17 +1689,23 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def historial_expedientes_finalizados():
         from sqlalchemy import extract
-        anios = db.session.query(extract('year', Expediente.fecha_cierre)).filter(
-            Expediente.estado == "Finalizado",
-            Expediente.fecha_cierre.isnot(None)
-        ).distinct().order_by(extract('year', Expediente.fecha_cierre).asc()).all()
-        
+
+        anios = (
+            db.session.query(extract("year", Expediente.fecha_cierre))
+            .filter(
+                Expediente.estado == "Finalizado", Expediente.fecha_cierre.isnot(None)
+            )
+            .distinct()
+            .order_by(extract("year", Expediente.fecha_cierre).asc())
+            .all()
+        )
+
         lista_anios = [int(a[0]) for a in anios if a[0] is not None]
         anio_actual = datetime.now().year
         if anio_actual not in lista_anios:
             lista_anios.append(anio_actual)
         lista_anios.sort()
-        
+
         return render_template("expedientes/historial.html", anios=lista_anios)
 
     @app.route("/api/expedientes/finalizados")
@@ -1606,10 +1733,12 @@ def register_routes(app):
 
         if anio_desde:
             from sqlalchemy import extract
-            query = query.filter(extract('year', Expediente.fecha_cierre) >= anio_desde)
+
+            query = query.filter(extract("year", Expediente.fecha_cierre) >= anio_desde)
         if anio_hasta:
             from sqlalchemy import extract
-            query = query.filter(extract('year', Expediente.fecha_cierre) <= anio_hasta)
+
+            query = query.filter(extract("year", Expediente.fecha_cierre) <= anio_hasta)
 
         if tipo_finalizacion:
             query = query.filter(Expediente.tipo_finalizacion == tipo_finalizacion)
@@ -1624,21 +1753,31 @@ def register_routes(app):
             next_hearing = None
             if exp.tipo_tramite == "Judicial":
                 next_hearing = (
-                    AlertaPlazoAudiencia.query.filter_by(expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente")
+                    AlertaPlazoAudiencia.query.filter_by(
+                        expediente_id=exp.id,
+                        es_audiencia=True,
+                        estado_alerta="Pendiente",
+                    )
                     .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
                     .first()
                 )
-            
+
             item = {
                 "id": exp.id,
                 "codigo_firma": exp.codigo_firma,
                 "nombre_caso": exp.nombre_caso,
                 "tipo_tramite": exp.tipo_tramite,
                 "cliente_nombre": exp.cliente.nombre_completo if exp.cliente else "N/A",
-                "abogado_responsable_nombre": exp.abogado_responsable.nombre if exp.abogado_responsable else "No asignado",
+                "abogado_responsable_nombre": exp.abogado_responsable.nombre
+                if exp.abogado_responsable
+                else "No asignado",
                 "rol_firma": exp.rol_firma,
-                "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d") if exp.fecha_apertura else None,
-                "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d") if exp.fecha_cierre else None,
+                "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d")
+                if exp.fecha_apertura
+                else None,
+                "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d")
+                if exp.fecha_cierre
+                else None,
                 "tipo_finalizacion": exp.tipo_finalizacion,
                 "razon_estado": exp.razon_estado,
                 "fase_actual": exp.fase_actual,
@@ -1646,31 +1785,47 @@ def register_routes(app):
             }
 
             if exp.tipo_tramite == "Judicial":
-                item.update({
-                    "rama_derecho": exp.rama_derecho,
-                    "sub_categoria": exp.sub_categoria,
-                    "tipo_accion": exp.tipo_accion,
-                    "jurisdiccion_actual": exp.jurisdiccion_actual,
-                    "tribunal_asignado": exp.tribunal_asignado,
-                    "numero_expediente_tribunal": exp.numero_expediente_tribunal,
-                    "juez_asignado": exp.juez_asignado,
-                    "nombre_contraparte": exp.nombre_contraparte,
-                    "contacto_contraparte": exp.contacto_contraparte,
-                    "abogado_contraparte": exp.abogado_contraparte,
-                    "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
-                    "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
-                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime("%Y-%m-%d") if next_hearing else None,
-                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M") if next_hearing else None,
-                })
+                item.update(
+                    {
+                        "rama_derecho": exp.rama_derecho,
+                        "sub_categoria": exp.sub_categoria,
+                        "tipo_accion": exp.tipo_accion,
+                        "jurisdiccion_actual": exp.jurisdiccion_actual,
+                        "tribunal_asignado": exp.tribunal_asignado,
+                        "numero_expediente_tribunal": exp.numero_expediente_tribunal,
+                        "juez_asignado": exp.juez_asignado,
+                        "nombre_contraparte": exp.nombre_contraparte,
+                        "contacto_contraparte": exp.contacto_contraparte,
+                        "abogado_contraparte": exp.abogado_contraparte,
+                        "contacto_abogado_contraparte": exp.contacto_abogado_contraparte,
+                        "monto_demanda": float(exp.monto_demanda)
+                        if exp.monto_demanda is not None
+                        else None,
+                        "fecha_audiencia": next_hearing.fecha_vencimiento.strftime(
+                            "%Y-%m-%d"
+                        )
+                        if next_hearing
+                        else None,
+                        "hora_audiencia": next_hearing.fecha_vencimiento.strftime(
+                            "%H:%M"
+                        )
+                        if next_hearing
+                        else None,
+                    }
+                )
             else:
-                item.update({
-                    "tipo_proceso": exp.tipo_proceso,
-                    "sub_proceso": exp.sub_proceso,
-                    "institucion_encargada": exp.institucion_encargada,
-                    "numero_solicitud_oficial": exp.numero_solicitud_oficial,
-                    "descripcion_tramite": exp.descripcion_tramite,
-                    "monto_tasas_impuestos": float(exp.monto_tasas_impuestos) if exp.monto_tasas_impuestos is not None else None,
-                })
+                item.update(
+                    {
+                        "tipo_proceso": exp.tipo_proceso,
+                        "sub_proceso": exp.sub_proceso,
+                        "institucion_encargada": exp.institucion_encargada,
+                        "numero_solicitud_oficial": exp.numero_solicitud_oficial,
+                        "descripcion_tramite": exp.descripcion_tramite,
+                        "monto_tasas_impuestos": float(exp.monto_tasas_impuestos)
+                        if exp.monto_tasas_impuestos is not None
+                        else None,
+                    }
+                )
 
             results.append(item)
 
@@ -1723,9 +1878,10 @@ def register_routes(app):
                 "fecha": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p"),
                 "usuario": log.usuario.nombre if log.usuario else "Sistema",
                 "accion": log.accion_realizada,
-                "detalles": log.detalles_tecnicos
+                "detalles": log.detalles_tecnicos,
             }
-            for log in historial_db if log.accion_realizada != "Visualización"
+            for log in historial_db
+            if log.accion_realizada != "Visualización"
         ]
 
         # 3. Serializar expediente
@@ -1733,15 +1889,23 @@ def register_routes(app):
             "id": exp.id,
             "codigo_firma": exp.codigo_firma,
             "cliente_id": exp.cliente_id,
-            "cliente_nombre": exp.cliente.nombre_completo if exp.cliente else "Desconocido",
+            "cliente_nombre": exp.cliente.nombre_completo
+            if exp.cliente
+            else "Desconocido",
             "abogado_responsable_id": exp.abogado_responsable_id,
-            "abogado_responsable_nombre": exp.abogado_responsable.nombre if exp.abogado_responsable else "No asignado",
+            "abogado_responsable_nombre": exp.abogado_responsable.nombre
+            if exp.abogado_responsable
+            else "No asignado",
             "nombre_caso": exp.nombre_caso,
             "rol_firma": exp.rol_firma,
             "tipo_tramite": exp.tipo_tramite,
             "estado": exp.estado,
-            "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d") if exp.fecha_apertura else None,
-            "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d") if exp.fecha_cierre else None,
+            "fecha_apertura": exp.fecha_apertura.strftime("%Y-%m-%d")
+            if exp.fecha_apertura
+            else None,
+            "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d")
+            if exp.fecha_cierre
+            else None,
             "razon_estado": exp.razon_estado or "",
             "tipo_finalizacion": exp.tipo_finalizacion or "",
             "fase_actual": exp.fase_actual,
@@ -1752,7 +1916,9 @@ def register_routes(app):
 
         if exp.tipo_tramite == "Judicial":
             next_hearing = (
-                AlertaPlazoAudiencia.query.filter_by(expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente")
+                AlertaPlazoAudiencia.query.filter_by(
+                    expediente_id=exp.id, es_audiencia=True, estado_alerta="Pendiente"
+                )
                 .order_by(AlertaPlazoAudiencia.fecha_vencimiento.asc())
                 .first()
             )
@@ -1768,10 +1934,19 @@ def register_routes(app):
                     "nombre_contraparte": exp.nombre_contraparte or "",
                     "contacto_contraparte": exp.contacto_contraparte or "",
                     "abogado_contraparte": exp.abogado_contraparte or "",
-                    "contacto_abogado_contraparte": exp.contacto_abogado_contraparte or "",
-                    "monto_demanda": float(exp.monto_demanda) if exp.monto_demanda is not None else None,
-                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime("%Y-%m-%d") if next_hearing else None,
-                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M") if next_hearing else None,
+                    "contacto_abogado_contraparte": exp.contacto_abogado_contraparte
+                    or "",
+                    "monto_demanda": float(exp.monto_demanda)
+                    if exp.monto_demanda is not None
+                    else None,
+                    "fecha_audiencia": next_hearing.fecha_vencimiento.strftime(
+                        "%Y-%m-%d"
+                    )
+                    if next_hearing
+                    else None,
+                    "hora_audiencia": next_hearing.fecha_vencimiento.strftime("%H:%M")
+                    if next_hearing
+                    else None,
                 }
             )
         elif exp.tipo_tramite == "Administrativo":
@@ -1782,7 +1957,9 @@ def register_routes(app):
                     "institucion_encargada": exp.institucion_encargada or "",
                     "numero_solicitud_oficial": exp.numero_solicitud_oficial or "",
                     "descripcion_tramite": exp.descripcion_tramite or "",
-                    "monto_tasas_impuestos": float(exp.monto_tasas_impuestos) if exp.monto_tasas_impuestos is not None else None,
+                    "monto_tasas_impuestos": float(exp.monto_tasas_impuestos)
+                    if exp.monto_tasas_impuestos is not None
+                    else None,
                 }
             )
         return jsonify(item)
@@ -1792,7 +1969,7 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def bitacora_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
-        
+
         # Obtener historial de proceso (bitácora) desde BitacoraAuditoria
         historial_raw = (
             BitacoraAuditoria.query.filter_by(expediente_id=exp.id)
@@ -1801,10 +1978,12 @@ def register_routes(app):
         )
         # Filtrar solo acciones relevantes de cambio de estado, fase o carga de documentos
         historial_db = [
-            log for log in historial_raw
-            if "Visualización" not in log.accion_realizada and "Descarga" not in log.accion_realizada
+            log
+            for log in historial_raw
+            if "Visualización" not in log.accion_realizada
+            and "Descarga" not in log.accion_realizada
         ]
-        
+
         # Registrar auditoría de visualización de bitácora
         registrar_auditoria(
             usuario_id=current_user.id,
@@ -1812,12 +1991,12 @@ def register_routes(app):
             detalles=f"Consultó la bitácora completa del expediente '{exp.nombre_caso}'.",
             expediente_id=exp.id,
         )
-        
+
         return render_template(
             "expedientes/bitacora.html",
             expediente=exp,
             historial=historial_db,
-            usuario=current_user
+            usuario=current_user,
         )
 
     # --- CREAR NUEVO EXPEDIENTE ---
@@ -2152,14 +2331,19 @@ def register_routes(app):
         # Requiere justificación/razón
         razon = request.form.get("razon", "").strip()
         if not razon:
-            flash("Debe especificar una razón para cambiar el estado del expediente.", "danger")
+            flash(
+                "Debe especificar una razón para cambiar el estado del expediente.",
+                "danger",
+            )
             return redirect(url_for("expedientes", id=exp.id))
 
         tipo_finalizacion = None
         if nuevo_estado == "Finalizado":
             tipo_finalizacion = request.form.get("tipo_finalizacion", "").strip()
             if not tipo_finalizacion:
-                flash("Debe especificar el tipo de finalización del expediente.", "danger")
+                flash(
+                    "Debe especificar el tipo de finalización del expediente.", "danger"
+                )
                 return redirect(url_for("expedientes", id=exp.id))
 
         estado_anterior = exp.estado
@@ -2174,7 +2358,10 @@ def register_routes(app):
                 exp.fase_actual = 5
         else:
             exp.fecha_cierre = None
-            if nuevo_estado == "Abierto" and estado_anterior in ["Finalizado", "Archivado"]:
+            if nuevo_estado == "Abierto" and estado_anterior in [
+                "Finalizado",
+                "Archivado",
+            ]:
                 exp.tipo_finalizacion = None
 
         try:
@@ -2185,7 +2372,7 @@ def register_routes(app):
                     mensaje=f"El estado de tu caso '{exp.nombre_caso}' ha cambiado a '{nuevo_estado}'. Razón: {razon}.",
                     leida=False,
                     expediente_id=exp.id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif)
 
@@ -2193,10 +2380,11 @@ def register_routes(app):
                 if exp.cliente.usuario:
                     try:
                         from app.utils import enviar_email_notificacion_cliente
+
                         enviar_email_notificacion_cliente(
                             usuario=exp.cliente.usuario,
-                            subject=f"Actualización de tu caso - SIGEX",
-                            mensaje=f"El estado de tu caso '{exp.nombre_caso}' ha cambiado a '{nuevo_estado}'. Razón: {razon}."
+                            subject="Actualización de tu caso - SIGEX",
+                            mensaje=f"El estado de tu caso '{exp.nombre_caso}' ha cambiado a '{nuevo_estado}'. Razón: {razon}.",
                         )
                     except Exception as e_mail:
                         print(f"Error al enviar email por cambio de estado: {e_mail}")
@@ -2221,7 +2409,10 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def actualizar_fase_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and exp.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("expedientes", id=exp.id))
 
@@ -2238,30 +2429,44 @@ def register_routes(app):
         if fase is not None and fase != fase_anterior:
             # 1. Justificación obligatoria
             if not nota:
-                flash("Para cambiar la fase del expediente es obligatorio ingresar una nota de justificación.", "danger")
+                flash(
+                    "Para cambiar la fase del expediente es obligatorio ingresar una nota de justificación.",
+                    "danger",
+                )
                 return redirect(url_for("expedientes", id=exp.id))
 
             # 2. Permisos de retroceso (Socio / Administrador)
             if fase < fase_anterior:
                 if current_user.rol not in ["Socio", "Administrador"]:
-                    flash("Acceso denegado. Solo un Socio o Administrador puede retroceder un expediente a una fase anterior.", "danger")
+                    flash(
+                        "Acceso denegado. Solo un Socio o Administrador puede retroceder un expediente a una fase anterior.",
+                        "danger",
+                    )
                     return redirect(url_for("expedientes", id=exp.id))
 
             # 3. Secuencialidad y Tareas pendientes al avanzar
             if fase > fase_anterior:
                 if fase != fase_anterior + 1:
-                    flash(f"Avance no permitido. Debe cambiar las fases de forma secuencial (siguiente fase: {fase_anterior + 1}).", "danger")
+                    flash(
+                        f"Avance no permitido. Debe cambiar las fases de forma secuencial (siguiente fase: {fase_anterior + 1}).",
+                        "danger",
+                    )
                     return redirect(url_for("expedientes", id=exp.id))
 
                 # Validar tareas pendientes
-                tareas_pendientes = Tarea.query.filter(Tarea.expediente_id == exp.id, Tarea.estado != 'Completada').count()
+                tareas_pendientes = Tarea.query.filter(
+                    Tarea.expediente_id == exp.id, Tarea.estado != "Completada"
+                ).count()
                 if tareas_pendientes > 0:
-                    flash(f"No se puede avanzar a la siguiente fase porque el expediente tiene {tareas_pendientes} tareas pendientes de completar.", "danger")
+                    flash(
+                        f"No se puede avanzar a la siguiente fase porque el expediente tiene {tareas_pendientes} tareas pendientes de completar.",
+                        "danger",
+                    )
                     return redirect(url_for("expedientes", id=exp.id))
 
         if fase is not None:
             exp.fase_actual = fase
-        
+
         exp.fase_nota = nota if nota else None
 
         try:
@@ -2272,7 +2477,7 @@ def register_routes(app):
                     mensaje=f"Se ha actualizado el progreso de tu caso '{exp.nombre_caso}' a la fase {fase}. Nota: {nota or 'Sin nota'}.",
                     leida=False,
                     expediente_id=exp.id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif)
 
@@ -2280,10 +2485,11 @@ def register_routes(app):
                 if exp.cliente.usuario:
                     try:
                         from app.utils import enviar_email_notificacion_cliente
+
                         enviar_email_notificacion_cliente(
                             usuario=exp.cliente.usuario,
-                            subject=f"Actualización de progreso de tu caso - SIGEX",
-                            mensaje=f"Se ha actualizado el progreso de tu caso '{exp.nombre_caso}' a la fase {fase}. Nota: {nota or 'Sin nota'}."
+                            subject="Actualización de progreso de tu caso - SIGEX",
+                            mensaje=f"Se ha actualizado el progreso de tu caso '{exp.nombre_caso}' a la fase {fase}. Nota: {nota or 'Sin nota'}.",
                         )
                     except Exception as e_mail:
                         print(f"Error al enviar email por cambio de fase: {e_mail}")
@@ -2345,25 +2551,38 @@ def register_routes(app):
     def documentos():
         expediente_id = request.args.get("expediente_id", type=int)
         cliente_id = request.args.get("cliente_id", type=int)
-        
+
         rol = current_user.rol
         if rol == "Cliente":
-            flash("Acceso denegado. No tiene permisos para acceder al gestor documental.", "danger")
+            flash(
+                "Acceso denegado. No tiene permisos para acceder al gestor documental.",
+                "danger",
+            )
             return redirect(url_for("dashboard"))
-        
+
         # Cargar lista de expedientes para el selector
         expedientes_select = []
         if rol == "Cliente":
             cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
             if cliente_db:
-                expedientes_select = [e for e in cliente_db.expedientes if e.estado != "Archivado"]
+                expedientes_select = [
+                    e for e in cliente_db.expedientes if e.estado != "Archivado"
+                ]
         elif rol == "Asociado":
-            expedientes_select = Expediente.query.filter(
-                Expediente.estado != "Archivado",
-                Expediente.abogado_responsable_id == current_user.id
-            ).order_by(Expediente.nombre_caso.asc()).all()
+            expedientes_select = (
+                Expediente.query.filter(
+                    Expediente.estado != "Archivado",
+                    Expediente.abogado_responsable_id == current_user.id,
+                )
+                .order_by(Expediente.nombre_caso.asc())
+                .all()
+            )
         else:
-            expedientes_select = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
+            expedientes_select = (
+                Expediente.query.filter(Expediente.estado != "Archivado")
+                .order_by(Expediente.nombre_caso.asc())
+                .all()
+            )
 
         # Validar permisos de Cliente si se provee expediente_id
         if rol == "Cliente" and expediente_id:
@@ -2380,17 +2599,21 @@ def register_routes(app):
         expediente_preseleccionado = None
         if expediente_id:
             expediente_preseleccionado = Expediente.query.get(expediente_id)
-            if expediente_preseleccionado and rol == "Asociado" and expediente_preseleccionado.abogado_responsable_id != current_user.id:
+            if (
+                expediente_preseleccionado
+                and rol == "Asociado"
+                and expediente_preseleccionado.abogado_responsable_id != current_user.id
+            ):
                 flash("Acceso denegado. No está asignado a este expediente.", "danger")
                 return redirect(url_for("documentos"))
-        
+
         documentos_lista = []
         audit_logs = []
         usuarios_audit_select = []
         q = request.args.get("q", "").strip()
         tipo_filtro = request.args.get("tipo", "Todos")
         visibilidad_filtro = request.args.get("visibilidad", "Todos")
-        
+
         audit_doc = ""
         audit_action = "Todos"
         audit_user = "Todos"
@@ -2402,7 +2625,11 @@ def register_routes(app):
 
         # Solo si se ha seleccionado un expediente, cargar documentos y bitácora
         if expediente_preseleccionado:
-            carpetas = Carpeta.query.filter_by(expediente_id=expediente_id).order_by(Carpeta.nombre.asc()).all()
+            carpetas = (
+                Carpeta.query.filter_by(expediente_id=expediente_id)
+                .order_by(Carpeta.nombre.asc())
+                .all()
+            )
             query = Documento.query.filter_by(expediente_id=expediente_id)
 
             # Filtro por carpeta
@@ -2419,12 +2646,10 @@ def register_routes(app):
             if rol == "Cliente":
                 cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
                 if cliente_db:
-                    query = query.filter(
-                        Documento.visibilidad == "Compartido"
-                    ).filter(
+                    query = query.filter(Documento.visibilidad == "Compartido").filter(
                         db.or_(
                             Documento.cliente_id == None,
-                            Documento.cliente_id == cliente_db.id
+                            Documento.cliente_id == cliente_db.id,
                         )
                     )
                 else:
@@ -2435,17 +2660,17 @@ def register_routes(app):
                 query = query.join(VersionDocumento).filter(
                     db.or_(
                         VersionDocumento.descripcion.ilike(search_pattern),
-                        VersionDocumento.ruta_almacenamiento.ilike(search_pattern)
+                        VersionDocumento.ruta_almacenamiento.ilike(search_pattern),
                     )
                 )
-                
+
             if tipo_filtro != "Todos":
                 try:
                     tipo_id = int(tipo_filtro)
                     query = query.filter(Documento.tipo_documento_id == tipo_id)
                 except ValueError:
                     pass
-                    
+
             if visibilidad_filtro != "Todos" and rol != "Cliente":
                 query = query.filter(Documento.visibilidad == visibilidad_filtro)
 
@@ -2461,8 +2686,10 @@ def register_routes(app):
             audit_hasta = ""
 
             if current_user.rol == "Administrador":
-                audit_query = BitacoraAuditoria.query.filter_by(expediente_id=expediente_id)
-                
+                audit_query = BitacoraAuditoria.query.filter_by(
+                    expediente_id=expediente_id
+                )
+
                 # Filtros de bitácora
                 audit_doc = request.args.get("audit_doc", "").strip()
                 audit_action = request.args.get("audit_action", "Todos").strip()
@@ -2471,31 +2698,46 @@ def register_routes(app):
                 audit_hasta = request.args.get("audit_hasta", "").strip()
 
                 if audit_doc:
-                    audit_query = audit_query.filter(BitacoraAuditoria.detalles_tecnicos.ilike(f"%{audit_doc}%"))
+                    audit_query = audit_query.filter(
+                        BitacoraAuditoria.detalles_tecnicos.ilike(f"%{audit_doc}%")
+                    )
                 if audit_action != "Todos":
-                    audit_query = audit_query.filter(BitacoraAuditoria.accion_realizada == audit_action)
+                    audit_query = audit_query.filter(
+                        BitacoraAuditoria.accion_realizada == audit_action
+                    )
                 if audit_user != "Todos":
                     try:
                         u_id = int(audit_user)
-                        audit_query = audit_query.filter(BitacoraAuditoria.usuario_id == u_id)
+                        audit_query = audit_query.filter(
+                            BitacoraAuditoria.usuario_id == u_id
+                        )
                     except ValueError:
                         pass
                 if audit_desde:
                     try:
                         desde_dt = datetime.strptime(audit_desde, "%Y-%m-%d")
-                        audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora >= desde_dt)
+                        audit_query = audit_query.filter(
+                            BitacoraAuditoria.fecha_hora >= desde_dt
+                        )
                     except ValueError:
                         pass
                 if audit_hasta:
                     try:
                         hasta_dt = datetime.strptime(audit_hasta, "%Y-%m-%d")
                         from datetime import timedelta
-                        audit_query = audit_query.filter(BitacoraAuditoria.fecha_hora < hasta_dt + timedelta(days=1))
+
+                        audit_query = audit_query.filter(
+                            BitacoraAuditoria.fecha_hora < hasta_dt + timedelta(days=1)
+                        )
                     except ValueError:
                         pass
 
-                audit_logs = audit_query.order_by(BitacoraAuditoria.fecha_hora.desc()).all()
-                usuarios_audit_select = Usuario.query.order_by(Usuario.nombre.asc()).all()
+                audit_logs = audit_query.order_by(
+                    BitacoraAuditoria.fecha_hora.desc()
+                ).all()
+                usuarios_audit_select = Usuario.query.order_by(
+                    Usuario.nombre.asc()
+                ).all()
 
         # Datos para los selectores del modal de subida (solo para internos)
         clientes_select = []
@@ -2503,11 +2745,15 @@ def register_routes(app):
 
         if rol != "Cliente":
             clientes_select = Cliente.query.order_by(Cliente.nombres.asc()).all()
-            tipos_documentos = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
+            tipos_documentos = TipoDocumento.query.order_by(
+                TipoDocumento.nombre_tipo.asc()
+            ).all()
 
         # Estadísticas rápidas
         total_docs = len(documentos_lista)
-        compartidos_docs = sum(1 for d in documentos_lista if d.visibilidad == "Compartido")
+        compartidos_docs = sum(
+            1 for d in documentos_lista if d.visibilidad == "Compartido"
+        )
         internos_docs = sum(1 for d in documentos_lista if d.visibilidad == "Interno")
 
         # Conteos no filtrados para el listado de carpetas
@@ -2532,7 +2778,6 @@ def register_routes(app):
             q=q,
             tipo_filtro=tipo_filtro,
             visibilidad_filtro=visibilidad_filtro,
-            
             # Auditoría
             audit_logs=audit_logs,
             usuarios_audit_select=usuarios_audit_select,
@@ -2541,7 +2786,6 @@ def register_routes(app):
             audit_user=audit_user,
             audit_desde=audit_desde,
             audit_hasta=audit_hasta,
-
             total_docs=total_docs,
             compartidos_docs=compartidos_docs,
             internos_docs=internos_docs,
@@ -2550,7 +2794,7 @@ def register_routes(app):
             carpetas=carpetas,
             carpeta_filtro=carpeta_filtro,
             usuario=current_user,
-            current_date=datetime.now()
+            current_date=datetime.now(),
         )
 
     @app.route("/documentos/subir", methods=["POST"])
@@ -2581,7 +2825,10 @@ def register_routes(app):
             return redirect(url_for("documentos", expediente_id=expediente_id))
 
         if not allowed_file(archivo.filename):
-            flash("Extensión de archivo no permitida. Solo se admiten documentos estándar, imágenes y comprimidos.", "danger")
+            flash(
+                "Extensión de archivo no permitida. Solo se admiten documentos estándar, imágenes y comprimidos.",
+                "danger",
+            )
             return redirect(url_for("documentos", expediente_id=expediente_id))
 
         # Validaciones de relaciones
@@ -2590,7 +2837,10 @@ def register_routes(app):
             flash("El expediente seleccionado no existe.", "danger")
             return redirect(url_for("documentos"))
 
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and exp.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
 
@@ -2603,8 +2853,10 @@ def register_routes(app):
             # Nombre físico único
             sec_filename = secure_filename(archivo.filename)
             unique_filename = f"{uuid.uuid4().hex}_{sec_filename}"
-            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], unique_filename)
-            
+            filepath = os.path.join(
+                current_app.config["UPLOAD_FOLDER"], unique_filename
+            )
+
             # Guardar archivo físico
             archivo.save(filepath)
             tamano = os.path.getsize(filepath)
@@ -2613,7 +2865,10 @@ def register_routes(app):
             if carpeta_id:
                 carpeta = Carpeta.query.get(carpeta_id)
                 if not carpeta or carpeta.expediente_id != expediente_id:
-                    flash("La carpeta seleccionada no es válida para este expediente.", "danger")
+                    flash(
+                        "La carpeta seleccionada no es válida para este expediente.",
+                        "danger",
+                    )
                     return redirect(url_for("documentos", expediente_id=expediente_id))
 
             # Crear Documento lógico
@@ -2622,10 +2877,12 @@ def register_routes(app):
                 tipo_documento_id=tipo_documento_id,
                 visibilidad=visibilidad,
                 carpeta_id=carpeta_id if carpeta_id else None,
-                cliente_id=compartir_cliente_id if (visibilidad == "Compartido" and compartir_cliente_id) else None
+                cliente_id=compartir_cliente_id
+                if (visibilidad == "Compartido" and compartir_cliente_id)
+                else None,
             )
             db.session.add(nuevo_doc)
-            db.session.flush() # Para obtener el ID del documento lógico
+            db.session.flush()  # Para obtener el ID del documento lógico
 
             # Crear primera VersionDocumento
             nueva_version = VersionDocumento(
@@ -2635,7 +2892,7 @@ def register_routes(app):
                 descripcion=descripcion or f"Carga inicial de {sec_filename}",
                 tamano_bytes=tamano,
                 ruta_almacenamiento=unique_filename,
-                es_firmado=False
+                es_firmado=False,
             )
             db.session.add(nueva_version)
 
@@ -2646,7 +2903,7 @@ def register_routes(app):
                     mensaje=f"Se ha compartido un nuevo documento contigo: '{sec_filename}' en tu expediente '{exp.nombre_caso}'.",
                     leida=False,
                     expediente_id=exp.id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif)
 
@@ -2654,13 +2911,16 @@ def register_routes(app):
                 if exp.cliente.usuario:
                     try:
                         from app.utils import enviar_email_notificacion_cliente
+
                         enviar_email_notificacion_cliente(
                             usuario=exp.cliente.usuario,
-                            subject=f"Nuevo documento compartido - SIGEX",
-                            mensaje=f"Se ha compartido un nuevo documento contigo: '{sec_filename}' en tu expediente '{exp.nombre_caso}'."
+                            subject="Nuevo documento compartido - SIGEX",
+                            mensaje=f"Se ha compartido un nuevo documento contigo: '{sec_filename}' en tu expediente '{exp.nombre_caso}'.",
                         )
                     except Exception as e_mail:
-                        print(f"Error al enviar email por documento compartido: {e_mail}")
+                        print(
+                            f"Error al enviar email por documento compartido: {e_mail}"
+                        )
 
             db.session.commit()
 
@@ -2670,10 +2930,13 @@ def register_routes(app):
                 accion="Carga Documento",
                 detalles=f"Subió el documento '{sec_filename}' para el expediente '{exp.nombre_caso}'. Visibilidad: {visibilidad}.",
                 expediente_id=exp.id,
-                cliente_id=exp.cliente_id
+                cliente_id=exp.cliente_id,
             )
 
-            flash(f"Documento '{sec_filename}' subido exitosamente como versión 1.0.", "success")
+            flash(
+                f"Documento '{sec_filename}' subido exitosamente como versión 1.0.",
+                "success",
+            )
         except Exception as e:
             db.session.rollback()
             flash(f"Error al subir el archivo: {str(e)}", "danger")
@@ -2689,7 +2952,7 @@ def register_routes(app):
         if not cliente_db:
             flash("No tienes un perfil de cliente asociado.", "danger")
             return redirect(url_for("dashboard"))
-            
+
         expediente_id = request.form.get("expediente_id", type=int)
         tipo_documento_id = request.form.get("tipo_documento_id", type=int)
         descripcion = request.form.get("descripcion", "").strip()
@@ -2709,7 +2972,9 @@ def register_routes(app):
             return redirect(url_for("dashboard"))
 
         # Validar que el expediente pertenezca al cliente y esté activo
-        exp = Expediente.query.filter_by(id=expediente_id, cliente_id=cliente_db.id).first()
+        exp = Expediente.query.filter_by(
+            id=expediente_id, cliente_id=cliente_db.id
+        ).first()
         if not exp:
             flash("Expediente no válido o no asignado a tu usuario.", "danger")
             return redirect(url_for("dashboard"))
@@ -2724,7 +2989,9 @@ def register_routes(app):
             # Guardar archivo físico
             sec_filename = secure_filename(archivo.filename)
             unique_filename = f"{uuid.uuid4().hex}_{sec_filename}"
-            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], unique_filename)
+            filepath = os.path.join(
+                current_app.config["UPLOAD_FOLDER"], unique_filename
+            )
             archivo.save(filepath)
             tamano = os.path.getsize(filepath)
 
@@ -2733,7 +3000,7 @@ def register_routes(app):
                 expediente_id=expediente_id,
                 tipo_documento_id=tipo_documento_id,
                 visibilidad="Compartido",
-                cliente_id=cliente_db.id
+                cliente_id=cliente_db.id,
             )
             db.session.add(nuevo_doc)
             db.session.flush()
@@ -2743,10 +3010,11 @@ def register_routes(app):
                 documento_id=nuevo_doc.id,
                 usuario_id=current_user.id,
                 version_numero="1.0",
-                descripcion=descripcion or f"Cargado por el cliente {cliente_db.nombre_completo}",
+                descripcion=descripcion
+                or f"Cargado por el cliente {cliente_db.nombre_completo}",
                 tamano_bytes=tamano,
                 ruta_almacenamiento=unique_filename,
-                es_firmado=False
+                es_firmado=False,
             )
             db.session.add(nueva_version)
 
@@ -2757,20 +3025,23 @@ def register_routes(app):
                     mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento: '{sec_filename}' en el expediente '{exp.nombre_caso}'.",
                     leida=False,
                     expediente_id=exp.id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif)
-                
+
                 if exp.abogado_responsable:
                     try:
                         from app.utils import enviar_email_notificacion_cliente
+
                         enviar_email_notificacion_cliente(
                             usuario=exp.abogado_responsable,
-                            subject=f"Cliente subió documento - SIGEX",
-                            mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento compartido: '{sec_filename}' en el expediente '{exp.nombre_caso}'."
+                            subject="Cliente subió documento - SIGEX",
+                            mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento compartido: '{sec_filename}' en el expediente '{exp.nombre_caso}'.",
                         )
                     except Exception as e_mail:
-                        print(f"Error al notificar al abogado del documento subido: {e_mail}")
+                        print(
+                            f"Error al notificar al abogado del documento subido: {e_mail}"
+                        )
 
             db.session.commit()
 
@@ -2780,10 +3051,13 @@ def register_routes(app):
                 accion="Cliente Carga Documento",
                 detalles=f"El cliente subió el documento '{sec_filename}' para el expediente '{exp.nombre_caso}'.",
                 expediente_id=exp.id,
-                cliente_id=cliente_db.id
+                cliente_id=cliente_db.id,
             )
 
-            flash(f"Documento '{sec_filename}' subido y compartido exitosamente.", "success")
+            flash(
+                f"Documento '{sec_filename}' subido y compartido exitosamente.",
+                "success",
+            )
         except Exception as e:
             db.session.rollback()
             flash(f"Error al subir el archivo: {str(e)}", "danger")
@@ -2795,7 +3069,10 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def nueva_version_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
-        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and doc.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
         version_input = request.form.get("version_numero", "").strip()
@@ -2811,12 +3088,19 @@ def register_routes(app):
             return redirect(url_for("documentos", expediente_id=doc.expediente_id))
 
         if not allowed_file(archivo.filename):
-            flash("Extensión de archivo no permitida. Solo se admiten documentos estándar, imágenes y comprimidos.", "danger")
+            flash(
+                "Extensión de archivo no permitida. Solo se admiten documentos estándar, imágenes y comprimidos.",
+                "danger",
+            )
             return redirect(url_for("documentos", expediente_id=doc.expediente_id))
 
         try:
             # Obtener última versión para auto-calcular si no se provee
-            ult_version = VersionDocumento.query.filter_by(documento_id=doc.id).order_by(VersionDocumento.fecha_carga.desc()).first()
+            ult_version = (
+                VersionDocumento.query.filter_by(documento_id=doc.id)
+                .order_by(VersionDocumento.fecha_carga.desc())
+                .first()
+            )
             if not version_input:
                 if ult_version:
                     try:
@@ -2829,8 +3113,10 @@ def register_routes(app):
 
             sec_filename = secure_filename(archivo.filename)
             unique_filename = f"{uuid.uuid4().hex}_{sec_filename}"
-            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], unique_filename)
-            
+            filepath = os.path.join(
+                current_app.config["UPLOAD_FOLDER"], unique_filename
+            )
+
             # Guardar archivo físico
             archivo.save(filepath)
             tamano = os.path.getsize(filepath)
@@ -2843,18 +3129,23 @@ def register_routes(app):
                 descripcion=descripcion or f"Actualización a versión {version_input}",
                 tamano_bytes=tamano,
                 ruta_almacenamiento=unique_filename,
-                es_firmado=False
+                es_firmado=False,
             )
             db.session.add(nueva_version)
 
             # Notificar al cliente si el documento es compartido
-            if doc.visibilidad == "Compartido" and doc.expediente and doc.expediente.cliente and doc.expediente.cliente.usuario_id:
+            if (
+                doc.visibilidad == "Compartido"
+                and doc.expediente
+                and doc.expediente.cliente
+                and doc.expediente.cliente.usuario_id
+            ):
                 notif = NotificacionInterna(
                     usuario_id=doc.expediente.cliente.usuario_id,
                     mensaje=f"Se ha subido una nueva versión ({version_input}) del documento compartido: '{sec_filename}' en tu expediente '{doc.expediente.nombre_caso}'.",
                     leida=False,
                     expediente_id=doc.expediente_id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif)
 
@@ -2862,13 +3153,16 @@ def register_routes(app):
                 if doc.expediente.cliente.usuario:
                     try:
                         from app.utils import enviar_email_notificacion_cliente
+
                         enviar_email_notificacion_cliente(
                             usuario=doc.expediente.cliente.usuario,
-                            subject=f"Nueva versión de documento - SIGEX",
-                            mensaje=f"Se ha subido una nueva versión ({version_input}) del documento compartido: '{sec_filename}' en tu expediente '{doc.expediente.nombre_caso}'."
+                            subject="Nueva versión de documento - SIGEX",
+                            mensaje=f"Se ha subido una nueva versión ({version_input}) del documento compartido: '{sec_filename}' en tu expediente '{doc.expediente.nombre_caso}'.",
                         )
                     except Exception as e_mail:
-                        print(f"Error al enviar email por nueva versión de documento: {e_mail}")
+                        print(
+                            f"Error al enviar email por nueva versión de documento: {e_mail}"
+                        )
 
             db.session.commit()
 
@@ -2878,10 +3172,13 @@ def register_routes(app):
                 accion="Nueva Versión",
                 detalles=f"Subió la versión {version_input} del documento ID {doc.id} ({sec_filename}).",
                 expediente_id=doc.expediente_id,
-                cliente_id=doc.expediente.cliente_id
+                cliente_id=doc.expediente.cliente_id,
             )
 
-            flash(f"Nueva versión {version_input} del documento cargada con éxito.", "success")
+            flash(
+                f"Nueva versión {version_input} del documento cargada con éxito.",
+                "success",
+            )
         except Exception as e:
             db.session.rollback()
             flash(f"Error al subir la versión: {str(e)}", "danger")
@@ -2894,7 +3191,10 @@ def register_routes(app):
         version = VersionDocumento.query.get_or_404(version_id)
         doc = version.documento_maestro
 
-        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and doc.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
 
@@ -2904,20 +3204,31 @@ def register_routes(app):
             if not cliente_db or doc.visibilidad != "Compartido":
                 flash("No tiene permisos para descargar este documento.", "danger")
                 return redirect(url_for("dashboard"))
-            
-            tiene_acceso = (doc.expediente.cliente_id == cliente_db.id) or (doc.cliente_id == cliente_db.id)
+
+            tiene_acceso = (doc.expediente.cliente_id == cliente_db.id) or (
+                doc.cliente_id == cliente_db.id
+            )
             if not tiene_acceso:
                 flash("No tiene permisos para descargar este documento.", "danger")
                 return redirect(url_for("dashboard"))
 
         # Verificar si el archivo existe físicamente
-        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento)
+        filepath = os.path.join(
+            current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento
+        )
         if not os.path.exists(filepath):
-            flash("El archivo físico no se encuentra en el servidor. Puede que haya sido eliminado del almacenamiento local.", "danger")
+            flash(
+                "El archivo físico no se encuentra en el servidor. Puede que haya sido eliminado del almacenamiento local.",
+                "danger",
+            )
             return redirect(url_for("documentos", expediente_id=doc.expediente_id))
 
         # Reconstruir nombre de descarga original quitando el UUID prefijo
-        orig_filename = version.ruta_almacenamiento.split("_", 1)[-1] if "_" in version.ruta_almacenamiento else version.ruta_almacenamiento
+        orig_filename = (
+            version.ruta_almacenamiento.split("_", 1)[-1]
+            if "_" in version.ruta_almacenamiento
+            else version.ruta_almacenamiento
+        )
 
         # Auditoría
         registrar_auditoria(
@@ -2925,14 +3236,14 @@ def register_routes(app):
             accion="Descarga",
             detalles=f"Descargó el documento '{orig_filename}' (versión {version.version_numero}).",
             expediente_id=doc.expediente_id,
-            cliente_id=doc.expediente.cliente_id
+            cliente_id=doc.expediente.cliente_id,
         )
 
         return send_from_directory(
             current_app.config["UPLOAD_FOLDER"],
             version.ruta_almacenamiento,
             as_attachment=True,
-            download_name=orig_filename
+            download_name=orig_filename,
         )
 
     @app.route("/documentos/ver/<int:version_id>")
@@ -2941,7 +3252,10 @@ def register_routes(app):
         version = VersionDocumento.query.get_or_404(version_id)
         doc = version.documento_maestro
 
-        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and doc.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
 
@@ -2952,15 +3266,20 @@ def register_routes(app):
                 flash("No tiene permisos para ver este documento.", "danger")
                 return redirect(url_for("dashboard"))
 
-            tiene_acceso = (doc.expediente.cliente_id == cliente_db.id) or (doc.cliente_id == cliente_db.id)
+            tiene_acceso = (doc.expediente.cliente_id == cliente_db.id) or (
+                doc.cliente_id == cliente_db.id
+            )
             if not tiene_acceso:
                 flash("No tiene permisos para ver este documento.", "danger")
                 return redirect(url_for("dashboard"))
 
         # Verificar si el archivo existe físicamente (vista previa cargada en iframe)
-        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento)
+        filepath = os.path.join(
+            current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento
+        )
         if not os.path.exists(filepath):
-            return """
+            return (
+                """
             <!DOCTYPE html>
             <html lang="es">
             <head>
@@ -2985,10 +3304,16 @@ def register_routes(app):
                 </div>
             </body>
             </html>
-            """, 404
+            """,
+                404,
+            )
 
         # Reconstruir nombre de descarga original quitando el UUID prefijo
-        orig_filename = version.ruta_almacenamiento.split("_", 1)[-1] if "_" in version.ruta_almacenamiento else version.ruta_almacenamiento
+        orig_filename = (
+            version.ruta_almacenamiento.split("_", 1)[-1]
+            if "_" in version.ruta_almacenamiento
+            else version.ruta_almacenamiento
+        )
 
         # Auditoría
         registrar_auditoria(
@@ -2996,13 +3321,13 @@ def register_routes(app):
             accion="Visualización",
             detalles=f"Visualizó el documento '{orig_filename}' (versión {version.version_numero}).",
             expediente_id=doc.expediente_id,
-            cliente_id=doc.expediente.cliente_id
+            cliente_id=doc.expediente.cliente_id,
         )
 
         return send_from_directory(
             current_app.config["UPLOAD_FOLDER"],
             version.ruta_almacenamiento,
-            as_attachment=False
+            as_attachment=False,
         )
 
     @app.route("/documentos/<int:documento_id>/cambiar_visibilidad", methods=["POST"])
@@ -3010,7 +3335,10 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def cambiar_visibilidad_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
-        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and doc.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
         nueva_vis = request.form.get("visibilidad", "Interno")
@@ -3028,7 +3356,11 @@ def register_routes(app):
 
         vis_anterior = doc.visibilidad
         doc.visibilidad = nueva_vis
-        doc.cliente_id = compartir_cliente_id if (nueva_vis == "Compartido" and compartir_cliente_id) else None
+        doc.cliente_id = (
+            compartir_cliente_id
+            if (nueva_vis == "Compartido" and compartir_cliente_id)
+            else None
+        )
 
         # Notificar al cliente si se cambia a compartido
         if nueva_vis == "Compartido":
@@ -3037,10 +3369,18 @@ def register_routes(app):
                 target_cli = Cliente.query.get(compartir_cliente_id)
             elif doc.expediente:
                 target_cli = doc.expediente.cliente
-            
+
             # Obtener nombre original del archivo
-            ult_ver = VersionDocumento.query.filter_by(documento_id=doc.id).order_by(VersionDocumento.fecha_carga.desc()).first()
-            filename = ult_ver.ruta_almacenamiento.split('_', 1)[1] if (ult_ver and '_' in ult_ver.ruta_almacenamiento) else "documento"
+            ult_ver = (
+                VersionDocumento.query.filter_by(documento_id=doc.id)
+                .order_by(VersionDocumento.fecha_carga.desc())
+                .first()
+            )
+            filename = (
+                ult_ver.ruta_almacenamiento.split("_", 1)[1]
+                if (ult_ver and "_" in ult_ver.ruta_almacenamiento)
+                else "documento"
+            )
 
             if target_cli and target_cli.usuario_id:
                 notif = NotificacionInterna(
@@ -3048,7 +3388,7 @@ def register_routes(app):
                     mensaje=f"Se ha compartido el documento '{filename}' contigo en tu expediente '{doc.expediente.nombre_caso if doc.expediente else 'N/A'}'.",
                     leida=False,
                     expediente_id=doc.expediente_id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif)
 
@@ -3056,24 +3396,27 @@ def register_routes(app):
                 if target_cli.usuario:
                     try:
                         from app.utils import enviar_email_notificacion_cliente
+
                         enviar_email_notificacion_cliente(
                             usuario=target_cli.usuario,
-                            subject=f"Documento compartido - SIGEX",
-                            mensaje=f"Se ha compartido el documento '{filename}' contigo en tu expediente '{doc.expediente.nombre_caso if doc.expediente else 'N/A'}'."
+                            subject="Documento compartido - SIGEX",
+                            mensaje=f"Se ha compartido el documento '{filename}' contigo en tu expediente '{doc.expediente.nombre_caso if doc.expediente else 'N/A'}'.",
                         )
                     except Exception as e_mail:
-                        print(f"Error al enviar email por cambio de visibilidad a compartido: {e_mail}")
+                        print(
+                            f"Error al enviar email por cambio de visibilidad a compartido: {e_mail}"
+                        )
 
         try:
             db.session.commit()
-            
+
             # Auditoría
             registrar_auditoria(
                 usuario_id=current_user.id,
                 accion="Editar Visibilidad",
                 detalles=f"Cambió la visibilidad del documento ID {doc.id} de '{vis_anterior}' a '{nueva_vis}'.",
                 expediente_id=doc.expediente_id,
-                cliente_id=doc.expediente.cliente_id
+                cliente_id=doc.expediente.cliente_id,
             )
             flash(f"La visibilidad del documento se cambió a {nueva_vis}.", "success")
         except Exception as e:
@@ -3087,12 +3430,15 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def eliminar_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
-        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and doc.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
         exp_id = doc.expediente_id
         cli_id = doc.expediente.cliente_id
-        
+
         razon = request.form.get("razon_eliminacion", "").strip()
         if not razon:
             flash("Debe proporcionar una razón para eliminar el documento.", "danger")
@@ -3101,12 +3447,16 @@ def register_routes(app):
         # Eliminar archivos físicos asociados
         for version in doc.versiones:
             try:
-                filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento)
+                filepath = os.path.join(
+                    current_app.config["UPLOAD_FOLDER"], version.ruta_almacenamiento
+                )
                 if os.path.exists(filepath):
                     os.remove(filepath)
             except Exception as e:
                 # Loggear y continuar para evitar atascar la base de datos
-                print(f"Error al eliminar archivo físico {version.ruta_almacenamiento}: {str(e)}")
+                print(
+                    f"Error al eliminar archivo físico {version.ruta_almacenamiento}: {str(e)}"
+                )
 
         try:
             db.session.delete(doc)
@@ -3118,7 +3468,7 @@ def register_routes(app):
                 accion="Eliminar Documento",
                 detalles=f"Eliminó permanentemente el documento ID {documento_id}. Razón: {razon}",
                 expediente_id=exp_id,
-                cliente_id=cli_id
+                cliente_id=cli_id,
             )
             flash("Documento eliminado correctamente del sistema.", "success")
         except Exception as e:
@@ -3133,9 +3483,7 @@ def register_routes(app):
     def listar_tipologias():
         tipologias = TipoDocumento.query.order_by(TipoDocumento.nombre_tipo.asc()).all()
         return render_template(
-            "documentos/tipologias.html",
-            tipologias=tipologias,
-            usuario=current_user
+            "documentos/tipologias.html", tipologias=tipologias, usuario=current_user
         )
 
     @app.route("/documentos/tipologias/crear", methods=["POST"])
@@ -3148,7 +3496,9 @@ def register_routes(app):
             return redirect(url_for("listar_tipologias"))
 
         # Validar si ya existe
-        existente = TipoDocumento.query.filter(TipoDocumento.nombre_tipo.ilike(nombre_tipo)).first()
+        existente = TipoDocumento.query.filter(
+            TipoDocumento.nombre_tipo.ilike(nombre_tipo)
+        ).first()
         if existente:
             flash(f"La tipología '{nombre_tipo}' ya existe.", "danger")
             return redirect(url_for("listar_tipologias"))
@@ -3162,7 +3512,7 @@ def register_routes(app):
             registrar_auditoria(
                 usuario_id=current_user.id,
                 accion="Crear Tipología",
-                detalles=f"Creó la tipología de documento '{nombre_tipo}'."
+                detalles=f"Creó la tipología de documento '{nombre_tipo}'.",
             )
             flash(f"Tipología '{nombre_tipo}' creada con éxito.", "success")
         except Exception as e:
@@ -3183,8 +3533,7 @@ def register_routes(app):
 
         # Validar si ya existe otra con el mismo nombre
         existente = TipoDocumento.query.filter(
-            TipoDocumento.nombre_tipo.ilike(nombre_tipo), 
-            TipoDocumento.id != tipo_id
+            TipoDocumento.nombre_tipo.ilike(nombre_tipo), TipoDocumento.id != tipo_id
         ).first()
         if existente:
             flash(f"Ya existe otra tipología con el nombre '{nombre_tipo}'.", "danger")
@@ -3199,7 +3548,7 @@ def register_routes(app):
             registrar_auditoria(
                 usuario_id=current_user.id,
                 accion="Editar Tipología",
-                detalles=f"Modificó la tipología ID {tipo_id} de '{nombre_anterior}' a '{nombre_tipo}'."
+                detalles=f"Modificó la tipología ID {tipo_id} de '{nombre_anterior}' a '{nombre_tipo}'.",
             )
             flash(f"Tipología modificada a '{nombre_tipo}' con éxito.", "success")
         except Exception as e:
@@ -3213,11 +3562,16 @@ def register_routes(app):
     @roles_permitidos("Administrador")
     def eliminar_tipologia(tipo_id):
         tipologia = TipoDocumento.query.get_or_404(tipo_id)
-        
+
         # Validar si hay documentos asociados
-        documentos_asociados = Documento.query.filter_by(tipo_documento_id=tipo_id).count()
+        documentos_asociados = Documento.query.filter_by(
+            tipo_documento_id=tipo_id
+        ).count()
         if documentos_asociados > 0:
-            flash(f"No se puede eliminar la tipología '{tipologia.nombre_tipo}' porque tiene {documentos_asociados} documentos asociados.", "danger")
+            flash(
+                f"No se puede eliminar la tipología '{tipologia.nombre_tipo}' porque tiene {documentos_asociados} documentos asociados.",
+                "danger",
+            )
             return redirect(url_for("listar_tipologias"))
 
         nombre_tipo = tipologia.nombre_tipo
@@ -3229,7 +3583,7 @@ def register_routes(app):
             registrar_auditoria(
                 usuario_id=current_user.id,
                 accion="Eliminar Tipología",
-                detalles=f"Eliminó la tipología de documento '{nombre_tipo}' (ID {tipo_id})."
+                detalles=f"Eliminó la tipología de documento '{nombre_tipo}' (ID {tipo_id}).",
             )
             flash(f"Tipología '{nombre_tipo}' eliminada correctamente.", "success")
         except Exception as e:
@@ -3262,19 +3616,29 @@ def register_routes(app):
 
         # Estadísticas globales
         total_carpetas = Carpeta.query.count()
-        total_docs_en_carpetas = Documento.query.filter(Documento.carpeta_id != None).count()
-        total_docs_sin_carpeta = Documento.query.filter(Documento.carpeta_id == None).count()
-        expedientes_con_carpetas = db.session.query(db.func.count(db.distinct(Carpeta.expediente_id))).scalar()
+        total_docs_en_carpetas = Documento.query.filter(
+            Documento.carpeta_id != None
+        ).count()
+        total_docs_sin_carpeta = Documento.query.filter(
+            Documento.carpeta_id == None
+        ).count()
+        expedientes_con_carpetas = db.session.query(
+            db.func.count(db.distinct(Carpeta.expediente_id))
+        ).scalar()
 
         # Expedientes para el selector de filtro
-        expedientes_select = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
+        expedientes_select = (
+            Expediente.query.filter(Expediente.estado != "Archivado")
+            .order_by(Expediente.nombre_caso.asc())
+            .all()
+        )
 
         # Auditorías recientes relacionadas con carpetas
         auditorias_carpetas = (
             BitacoraAuditoria.query.filter(
                 db.or_(
                     BitacoraAuditoria.accion_realizada.ilike("%Carpeta%"),
-                    BitacoraAuditoria.detalles_tecnicos.ilike("%carpeta%")
+                    BitacoraAuditoria.detalles_tecnicos.ilike("%carpeta%"),
                 )
             )
             .order_by(BitacoraAuditoria.fecha_hora.desc())
@@ -3294,7 +3658,7 @@ def register_routes(app):
             expedientes_select=expedientes_select,
             auditorias_carpetas=auditorias_carpetas,
             usuario=current_user,
-            current_date=datetime.now()
+            current_date=datetime.now(),
         )
 
     @app.route("/documentos/carpetas/crear", methods=["POST"])
@@ -3309,18 +3673,23 @@ def register_routes(app):
             return redirect(url_for("documentos", expediente_id=expediente_id))
 
         exp = Expediente.query.get_or_404(expediente_id)
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and exp.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
 
         # Validar duplicados
         existente = Carpeta.query.filter(
-            Carpeta.expediente_id == expediente_id,
-            Carpeta.nombre.ilike(nombre)
+            Carpeta.expediente_id == expediente_id, Carpeta.nombre.ilike(nombre)
         ).first()
 
         if existente:
-            flash(f"Ya existe una carpeta con el nombre '{nombre}' en este expediente.", "danger")
+            flash(
+                f"Ya existe una carpeta con el nombre '{nombre}' en este expediente.",
+                "danger",
+            )
             return redirect(url_for("documentos", expediente_id=expediente_id))
 
         try:
@@ -3334,7 +3703,7 @@ def register_routes(app):
                 accion="Crear Carpeta",
                 detalles=f"Creó la carpeta '{nombre}' para el expediente '{exp.codigo_firma}'.",
                 expediente_id=expediente_id,
-                cliente_id=exp.cliente_id
+                cliente_id=exp.cliente_id,
             )
             flash(f"Carpeta '{nombre}' creada con éxito.", "success")
         except Exception as e:
@@ -3348,7 +3717,10 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def editar_carpeta(carpeta_id):
         carpeta = Carpeta.query.get_or_404(carpeta_id)
-        if current_user.rol == "Asociado" and carpeta.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and carpeta.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
         nombre = request.form.get("nombre", "").strip()
@@ -3361,11 +3733,14 @@ def register_routes(app):
         existente = Carpeta.query.filter(
             Carpeta.expediente_id == carpeta.expediente_id,
             Carpeta.nombre.ilike(nombre),
-            Carpeta.id != carpeta_id
+            Carpeta.id != carpeta_id,
         ).first()
 
         if existente:
-            flash(f"Ya existe otra carpeta con el nombre '{nombre}' en este expediente.", "danger")
+            flash(
+                f"Ya existe otra carpeta con el nombre '{nombre}' en este expediente.",
+                "danger",
+            )
             return redirect(url_for("documentos", expediente_id=carpeta.expediente_id))
 
         nombre_anterior = carpeta.nombre
@@ -3379,7 +3754,7 @@ def register_routes(app):
                 accion="Editar Carpeta",
                 detalles=f"Modificó el nombre de la carpeta de '{nombre_anterior}' a '{nombre}' (Carpeta ID {carpeta_id}).",
                 expediente_id=carpeta.expediente_id,
-                cliente_id=carpeta.expediente.cliente_id
+                cliente_id=carpeta.expediente.cliente_id,
             )
             flash(f"Carpeta renombrada a '{nombre}' con éxito.", "success")
         except Exception as e:
@@ -3406,9 +3781,12 @@ def register_routes(app):
                 accion="Eliminar Carpeta",
                 detalles=f"Eliminó la carpeta '{nombre}' (ID {carpeta_id}). Los documentos asociados fueron movidos a la raíz.",
                 expediente_id=expediente_id,
-                cliente_id=carpeta.expediente.cliente_id
+                cliente_id=carpeta.expediente.cliente_id,
             )
-            flash(f"Carpeta '{nombre}' eliminada con éxito. Los documentos contenidos fueron movidos a la raíz.", "success")
+            flash(
+                f"Carpeta '{nombre}' eliminada con éxito. Los documentos contenidos fueron movidos a la raíz.",
+                "success",
+            )
         except Exception as e:
             db.session.rollback()
             flash(f"Error al eliminar la carpeta: {str(e)}", "danger")
@@ -3420,7 +3798,10 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def mover_documento(documento_id):
         doc = Documento.query.get_or_404(documento_id)
-        if current_user.rol == "Asociado" and doc.expediente.abogado_responsable_id != current_user.id:
+        if (
+            current_user.rol == "Asociado"
+            and doc.expediente.abogado_responsable_id != current_user.id
+        ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
         carpeta_id = request.form.get("carpeta_id")
@@ -3433,8 +3814,13 @@ def register_routes(app):
                 c_id = int(carpeta_id)
                 carpeta = Carpeta.query.get_or_404(c_id)
                 if carpeta.expediente_id != doc.expediente_id:
-                    flash("La carpeta seleccionada no pertenece al expediente de este documento.", "danger")
-                    return redirect(url_for("documentos", expediente_id=doc.expediente_id))
+                    flash(
+                        "La carpeta seleccionada no pertenece al expediente de este documento.",
+                        "danger",
+                    )
+                    return redirect(
+                        url_for("documentos", expediente_id=doc.expediente_id)
+                    )
                 dest_nombre = carpeta.nombre
             except ValueError:
                 flash("Carpeta de destino no válida.", "danger")
@@ -3446,7 +3832,11 @@ def register_routes(app):
 
             # Obtener nombre original
             ult_version = doc.versiones[0] if doc.versiones else None
-            orig_filename = ult_version.ruta_almacenamiento.split("_", 1)[-1] if ult_version and "_" in ult_version.ruta_almacenamiento else (ult_version.ruta_almacenamiento if ult_version else "Documento")
+            orig_filename = (
+                ult_version.ruta_almacenamiento.split("_", 1)[-1]
+                if ult_version and "_" in ult_version.ruta_almacenamiento
+                else (ult_version.ruta_almacenamiento if ult_version else "Documento")
+            )
 
             # Auditoría
             registrar_auditoria(
@@ -3454,7 +3844,7 @@ def register_routes(app):
                 accion="Mover Documento",
                 detalles=f"Movió el documento '{orig_filename}' a la carpeta '{dest_nombre}'.",
                 expediente_id=doc.expediente_id,
-                cliente_id=doc.expediente.cliente_id
+                cliente_id=doc.expediente.cliente_id,
             )
             flash(f"Documento movido a '{dest_nombre}' con éxito.", "success")
         except Exception as e:
@@ -3480,10 +3870,11 @@ def register_routes(app):
 
         # Filtrar por rol (Asociado/Paralegal solo ven las asignadas a ellos o a todos)
         if current_user.rol in ["Asociado", "Paralegal"]:
-            query = query.filter(db.or_(
-                Tarea.asignado_a_id == current_user.id,
-                Tarea.asignado_a_id == None
-            ))
+            query = query.filter(
+                db.or_(
+                    Tarea.asignado_a_id == current_user.id, Tarea.asignado_a_id == None
+                )
+            )
         elif filtro_asignado != "Todos":
             if filtro_asignado == "General":
                 query = query.filter_by(asignado_a_id=None)
@@ -3500,10 +3891,10 @@ def register_routes(app):
             query = query.filter(Tarea.estado != "Completada", Tarea.fecha_limite < hoy)
         elif filtro_estado != "Todos":
             query = query.filter_by(estado=filtro_estado)
-        
+
         if filtro_prioridad != "Todas":
             query = query.filter_by(prioridad=filtro_prioridad)
-            
+
         if filtro_expediente != "Todos":
             try:
                 e_id = int(filtro_expediente)
@@ -3513,10 +3904,12 @@ def register_routes(app):
 
         # Filtrar por texto de búsqueda en título o descripción
         if filtro_q:
-            query = query.filter(db.or_(
-                Tarea.titulo.ilike(f"%{filtro_q}%"),
-                Tarea.descripcion.ilike(f"%{filtro_q}%")
-            ))
+            query = query.filter(
+                db.or_(
+                    Tarea.titulo.ilike(f"%{filtro_q}%"),
+                    Tarea.descripcion.ilike(f"%{filtro_q}%"),
+                )
+            )
 
         # Filtrar por fecha de creación (rango)
         if filtro_rango_fecha != "Todos":
@@ -3534,25 +3927,40 @@ def register_routes(app):
                 start_dt = now_dt - timedelta(days=365)
                 query = query.filter(Tarea.fecha_creacion >= start_dt)
 
-        tareas = query.order_by(Tarea.estado.desc(), Tarea.fecha_limite.asc(), Tarea.prioridad.asc()).all()
+        tareas = query.order_by(
+            Tarea.estado.desc(), Tarea.fecha_limite.asc(), Tarea.prioridad.asc()
+        ).all()
 
         # Datos para los selectores del formulario de creación/edición
-        expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").order_by(Expediente.nombre_caso.asc()).all()
-        usuarios_list = Usuario.query.filter(Usuario.activo == True).order_by(Usuario.nombre.asc()).all()
+        expedientes_list = (
+            Expediente.query.filter(Expediente.estado != "Archivado")
+            .order_by(Expediente.nombre_caso.asc())
+            .all()
+        )
+        usuarios_list = (
+            Usuario.query.filter(Usuario.activo == True)
+            .order_by(Usuario.nombre.asc())
+            .all()
+        )
 
         # Instanciar el formulario
         form = TareaForm()
         # Cargar opciones dinámicas (0 representa "Todo el equipo")
-        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [(e.id, f"{e.nombre_caso} ({e.codigo_firma})") for e in expedientes_list]
-        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [(u.id, u.nombre) for u in usuarios_list]
+        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
+            (e.id, f"{e.nombre_caso} ({e.codigo_firma})") for e in expedientes_list
+        ]
+        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [
+            (u.id, u.nombre) for u in usuarios_list
+        ]
 
         # Calcular estadísticas rápidas
         stat_query = Tarea.query
         if current_user.rol in ["Asociado", "Paralegal"]:
-            stat_query = stat_query.filter(db.or_(
-                Tarea.asignado_a_id == current_user.id,
-                Tarea.asignado_a_id == None
-            ))
+            stat_query = stat_query.filter(
+                db.or_(
+                    Tarea.asignado_a_id == current_user.id, Tarea.asignado_a_id == None
+                )
+            )
 
         if filtro_rango_fecha != "Todos":
             now_dt = rd_now()
@@ -3572,16 +3980,18 @@ def register_routes(app):
         stat_pendientes = stat_query.filter_by(estado="Pendiente").count()
         stat_progreso = stat_query.filter_by(estado="En Progreso").count()
         stat_completadas = stat_query.filter_by(estado="Completada").count()
-        
+
         # Calcular tareas vencidas (no completadas y con fecha_limite menor a hoy)
-        stat_vencidas = stat_query.filter(Tarea.estado != "Completada", Tarea.fecha_limite < hoy).count()
+        stat_vencidas = stat_query.filter(
+            Tarea.estado != "Completada", Tarea.fecha_limite < hoy
+        ).count()
 
         # Obtener auditorías relacionadas con movimientos en tareas
         auditorias_tareas = (
             BitacoraAuditoria.query.filter(
                 db.or_(
                     BitacoraAuditoria.accion_realizada.ilike("%tarea%"),
-                    BitacoraAuditoria.detalles_tecnicos.ilike("%tarea%")
+                    BitacoraAuditoria.detalles_tecnicos.ilike("%tarea%"),
                 )
             )
             .order_by(BitacoraAuditoria.fecha_hora.desc())
@@ -3607,7 +4017,7 @@ def register_routes(app):
             stat_completadas=stat_completadas,
             auditorias_tareas=auditorias_tareas,
             current_date=rd_now(),
-            usuario=current_user
+            usuario=current_user,
         )
 
     @app.route("/tareas/crear", methods=["POST"])
@@ -3616,39 +4026,51 @@ def register_routes(app):
     def crear_tarea():
         form = TareaForm()
         # Cargar opciones para pasar validaciones
-        expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").all()
+        expedientes_list = Expediente.query.filter(
+            Expediente.estado != "Archivado"
+        ).all()
         usuarios_list = Usuario.query.filter(Usuario.activo == True).all()
-        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [(e.id, e.nombre_caso) for e in expedientes_list]
-        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [(u.id, u.nombre) for u in usuarios_list]
+        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
+            (e.id, e.nombre_caso) for e in expedientes_list
+        ]
+        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [
+            (u.id, u.nombre) for u in usuarios_list
+        ]
 
         if form.validate_on_submit():
             exp_id = form.expediente_id.data
             asignado_id = form.asignado_a_id.data
             if asignado_id == 0:
                 asignado_id = None
-                
+
             nueva_tarea = Tarea(
                 titulo=form.titulo.data.strip(),
-                descripcion=form.descripcion.data.strip() if form.descripcion.data else None,
+                descripcion=form.descripcion.data.strip()
+                if form.descripcion.data
+                else None,
                 fecha_limite=form.fecha_limite.data,
                 prioridad=form.prioridad.data,
                 estado=form.estado.data,
                 expediente_id=exp_id,
                 asignado_a_id=asignado_id,
-                creado_por_id=current_user.id
+                creado_por_id=current_user.id,
             )
             try:
                 db.session.add(nueva_tarea)
                 db.session.commit()
 
                 # Auditoría
-                nombre_asignado = "Todo el equipo" if asignado_id is None else nueva_tarea.asignado_a.nombre
+                nombre_asignado = (
+                    "Todo el equipo"
+                    if asignado_id is None
+                    else nueva_tarea.asignado_a.nombre
+                )
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="Creación Tarea",
                     detalles=f"Creó la tarea '{form.titulo.data}' asignada a: {nombre_asignado}.",
                     expediente_id=exp_id,
-                    cliente_id=nueva_tarea.expediente.cliente_id
+                    cliente_id=nueva_tarea.expediente.cliente_id,
                 )
                 flash(f"Tarea '{form.titulo.data}' creada exitosamente.", "success")
             except Exception as e:
@@ -3657,7 +4079,9 @@ def register_routes(app):
         else:
             for field, errors in form.errors.items():
                 for error in errors:
-                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+                    flash(
+                        f"Error en {getattr(form, field).label.text}: {error}", "danger"
+                    )
 
         return redirect(url_for("listar_tareas"))
 
@@ -3666,22 +4090,32 @@ def register_routes(app):
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def editar_tarea(tarea_id):
         tarea = Tarea.query.get_or_404(tarea_id)
-        
+
         # Validar permisos
-        if current_user.rol in ["Asociado", "Paralegal"] and tarea.asignado_a_id is not None and tarea.asignado_a_id != current_user.id:
+        if (
+            current_user.rol in ["Asociado", "Paralegal"]
+            and tarea.asignado_a_id is not None
+            and tarea.asignado_a_id != current_user.id
+        ):
             flash("No tiene permisos para modificar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
 
         form = TareaForm()
         # Cargar opciones para pasar validaciones
-        expedientes_list = Expediente.query.filter(Expediente.estado != "Archivado").all()
+        expedientes_list = Expediente.query.filter(
+            Expediente.estado != "Archivado"
+        ).all()
         usuarios_list = Usuario.query.filter(Usuario.activo == True).all()
-        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [(e.id, e.nombre_caso) for e in expedientes_list]
-        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [(u.id, u.nombre) for u in usuarios_list]
+        form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
+            (e.id, e.nombre_caso) for e in expedientes_list
+        ]
+        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [
+            (u.id, u.nombre) for u in usuarios_list
+        ]
 
         if form.validate_on_submit():
             exp_id = form.expediente_id.data
-            
+
             if current_user.rol in ["Asociado", "Paralegal"]:
                 # Asociado/Paralegal no pueden reasignar
                 asignado_id = tarea.asignado_a_id
@@ -3691,10 +4125,12 @@ def register_routes(app):
                     asignado_id = None
 
             tarea.titulo = form.titulo.data.strip()
-            tarea.descripcion = form.descripcion.data.strip() if form.descripcion.data else None
+            tarea.descripcion = (
+                form.descripcion.data.strip() if form.descripcion.data else None
+            )
             tarea.fecha_limite = form.fecha_limite.data
             tarea.prioridad = form.prioridad.data
-            
+
             estado_anterior = tarea.estado
             tarea.estado = form.estado.data
             if tarea.estado == "Completada" and estado_anterior != "Completada":
@@ -3709,13 +4145,15 @@ def register_routes(app):
                 db.session.commit()
 
                 # Auditoría
-                nombre_asignado = "Todo el equipo" if asignado_id is None else tarea.asignado_a.nombre
+                nombre_asignado = (
+                    "Todo el equipo" if asignado_id is None else tarea.asignado_a.nombre
+                )
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="Editar Tarea",
                     detalles=f"Modificó la tarea ID {tarea_id} ('{tarea.titulo}'). Asignado: {nombre_asignado}.",
                     expediente_id=exp_id,
-                    cliente_id=tarea.expediente.cliente_id
+                    cliente_id=tarea.expediente.cliente_id,
                 )
                 flash(f"Tarea '{tarea.titulo}' modificada con éxito.", "success")
             except Exception as e:
@@ -3724,7 +4162,9 @@ def register_routes(app):
         else:
             for field, errors in form.errors.items():
                 for error in errors:
-                    flash(f"Error en {getattr(form, field).label.text}: {error}", "danger")
+                    flash(
+                        f"Error en {getattr(form, field).label.text}: {error}", "danger"
+                    )
 
         return redirect(url_for("listar_tareas"))
 
@@ -3735,7 +4175,10 @@ def register_routes(app):
         tarea = Tarea.query.get_or_404(tarea_id)
 
         # Validar permisos
-        if current_user.rol in ["Asociado", "Paralegal"] and tarea.asignado_a_id != current_user.id:
+        if (
+            current_user.rol in ["Asociado", "Paralegal"]
+            and tarea.asignado_a_id != current_user.id
+        ):
             flash("No tiene permisos para modificar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
 
@@ -3744,13 +4187,17 @@ def register_routes(app):
             tarea.estado = "Pendiente"
             tarea.fecha_completada = None
             accion_aud = "Reabrir Tarea"
-            detalles_aud = f"Marcó la tarea ID {tarea_id} ('{tarea.titulo}') como Pendiente."
+            detalles_aud = (
+                f"Marcó la tarea ID {tarea_id} ('{tarea.titulo}') como Pendiente."
+            )
             msg = f"Tarea '{tarea.titulo}' reabierta."
         else:
             tarea.estado = "Completada"
             tarea.fecha_completada = rd_now()
             accion_aud = "Completar Tarea"
-            detalles_aud = f"Marcó la tarea ID {tarea_id} ('{tarea.titulo}') como Completada."
+            detalles_aud = (
+                f"Marcó la tarea ID {tarea_id} ('{tarea.titulo}') como Completada."
+            )
             msg = f"Tarea '{tarea.titulo}' completada exitosamente."
 
         try:
@@ -3762,7 +4209,7 @@ def register_routes(app):
                 accion=accion_aud,
                 detalles=detalles_aud,
                 expediente_id=tarea.expediente_id,
-                cliente_id=tarea.expediente.cliente_id if tarea.expediente_id else None
+                cliente_id=tarea.expediente.cliente_id if tarea.expediente_id else None,
             )
             flash(msg, "success")
         except Exception as e:
@@ -3778,7 +4225,9 @@ def register_routes(app):
         tarea = Tarea.query.get_or_404(tarea_id)
 
         # Validar permisos
-        puede_eliminar = (current_user.rol in ["Socio", "Administrador"]) or (tarea.creado_por_id == current_user.id)
+        puede_eliminar = (current_user.rol in ["Socio", "Administrador"]) or (
+            tarea.creado_por_id == current_user.id
+        )
         if not puede_eliminar:
             flash("No tiene permisos para eliminar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
@@ -3797,7 +4246,7 @@ def register_routes(app):
                 accion="Eliminar Tarea",
                 detalles=f"Eliminó permanentemente la tarea ID {tarea_id} ('{titulo}').",
                 expediente_id=exp_id,
-                cliente_id=cli_id
+                cliente_id=cli_id,
             )
             flash(f"Tarea '{titulo}' eliminada del sistema.", "success")
         except Exception as e:
@@ -3813,7 +4262,10 @@ def register_routes(app):
         tarea = Tarea.query.get_or_404(tarea_id)
 
         # Validar permisos
-        if current_user.rol in ["Asociado", "Paralegal"] and tarea.asignado_a_id != current_user.id:
+        if (
+            current_user.rol in ["Asociado", "Paralegal"]
+            and tarea.asignado_a_id != current_user.id
+        ):
             flash("No tiene permisos para modificar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
 
@@ -3833,9 +4285,12 @@ def register_routes(app):
                 accion="Cambiar Estado Tarea",
                 detalles=f"Cambió el estado de la tarea ID {tarea_id} ('{tarea.titulo}') de '{estado_anterior}' a '{nuevo_estado}'.",
                 expediente_id=tarea.expediente_id,
-                cliente_id=tarea.expediente.cliente_id if tarea.expediente_id else None
+                cliente_id=tarea.expediente.cliente_id if tarea.expediente_id else None,
             )
-            flash(f"Estado de '{tarea.titulo}' cambiado a <strong>{nuevo_estado}</strong>.", "success")
+            flash(
+                f"Estado de '{tarea.titulo}' cambiado a <strong>{nuevo_estado}</strong>.",
+                "success",
+            )
         except Exception as e:
             db.session.rollback()
             flash(f"Error al cambiar el estado: {str(e)}", "danger")
@@ -3847,9 +4302,15 @@ def register_routes(app):
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def agenda():
-        expedientes_select = Expediente.query.filter(Expediente.estado == "Abierto").all()
+        expedientes_select = Expediente.query.filter(
+            Expediente.estado == "Abierto"
+        ).all()
         usuarios_select = Usuario.query.filter(Usuario.activo == True).all()
-        return render_template("agenda/index.html", expedientes_select=expedientes_select, usuarios_select=usuarios_select)
+        return render_template(
+            "agenda/index.html",
+            expedientes_select=expedientes_select,
+            usuarios_select=usuarios_select,
+        )
 
     @app.route("/agenda/eventos")
     @login_required
@@ -3858,9 +4319,9 @@ def register_routes(app):
         start_str = request.args.get("start")
         end_str = request.args.get("end")
         categories_str = request.args.get("categories", "")
-        
+
         categories = categories_str.split(",") if categories_str else []
-        
+
         start_date = None
         end_date = None
         if start_str:
@@ -3886,101 +4347,154 @@ def register_routes(app):
         if "tarea-pendiente" in categories or "tarea-completada" in categories:
             tareas_query = Tarea.query
             if start_date:
-                tareas_query = tareas_query.filter(Tarea.fecha_limite >= start_date.date())
+                tareas_query = tareas_query.filter(
+                    Tarea.fecha_limite >= start_date.date()
+                )
             if end_date:
-                tareas_query = tareas_query.filter(Tarea.fecha_limite <= end_date.date())
-            
+                tareas_query = tareas_query.filter(
+                    Tarea.fecha_limite <= end_date.date()
+                )
+
             for t in tareas_query.all():
                 is_completed = t.estado == "Completada"
                 cat = "tarea-completada" if is_completed else "tarea-pendiente"
                 if cat not in categories:
                     continue
-                
-                if current_user.rol == "Asociado" and t.expediente.abogado_responsable_id != current_user.id:
+
+                if (
+                    current_user.rol == "Asociado"
+                    and t.expediente.abogado_responsable_id != current_user.id
+                ):
                     continue
-                
-                events.append({
-                    "id": f"tarea_{t.id}",
-                    "title": f"[Tarea] {t.titulo}",
-                    "start": t.fecha_limite.isoformat() if t.fecha_limite else "",
-                    "backgroundColor": "#10b981" if is_completed else "#3b82f6",
-                    "borderColor": "#10b981" if is_completed else "#3b82f6",
-                    "textColor": "#ffffff",
-                    "extendedProps": {
-                        "id": t.id,
-                        "type": cat,
-                        "title": t.titulo,
-                        "expediente_id": t.expediente_id,
-                        "expediente_codigo": t.expediente.codigo_firma if t.expediente else "",
-                        "expediente_nombre": t.expediente.nombre_caso if t.expediente else "",
-                        "asignado_nombre": t.asignado_a.nombre if t.asignado_a else "Todo el equipo",
-                        "asignado_id": t.asignado_a_id or 0,
-                        "prioridad": t.prioridad,
-                        "descripcion": t.descripcion or "",
-                        "start": t.fecha_limite.isoformat() if t.fecha_limite else ""
+
+                events.append(
+                    {
+                        "id": f"tarea_{t.id}",
+                        "title": f"[Tarea] {t.titulo}",
+                        "start": t.fecha_limite.isoformat() if t.fecha_limite else "",
+                        "backgroundColor": "#10b981" if is_completed else "#3b82f6",
+                        "borderColor": "#10b981" if is_completed else "#3b82f6",
+                        "textColor": "#ffffff",
+                        "extendedProps": {
+                            "id": t.id,
+                            "type": cat,
+                            "title": t.titulo,
+                            "expediente_id": t.expediente_id,
+                            "expediente_codigo": t.expediente.codigo_firma
+                            if t.expediente
+                            else "",
+                            "expediente_nombre": t.expediente.nombre_caso
+                            if t.expediente
+                            else "",
+                            "asignado_nombre": t.asignado_a.nombre
+                            if t.asignado_a
+                            else "Todo el equipo",
+                            "asignado_id": t.asignado_a_id or 0,
+                            "prioridad": t.prioridad,
+                            "descripcion": t.descripcion or "",
+                            "start": t.fecha_limite.isoformat()
+                            if t.fecha_limite
+                            else "",
+                        },
                     }
-                })
+                )
 
         # Audiencias
         if "audiencia" in categories:
             aud_query = AlertaPlazoAudiencia.query.filter_by(es_audiencia=True)
             if start_date:
-                aud_query = aud_query.filter(AlertaPlazoAudiencia.fecha_vencimiento >= start_date)
+                aud_query = aud_query.filter(
+                    AlertaPlazoAudiencia.fecha_vencimiento >= start_date
+                )
             if end_date:
-                aud_query = aud_query.filter(AlertaPlazoAudiencia.fecha_vencimiento <= end_date)
-            
+                aud_query = aud_query.filter(
+                    AlertaPlazoAudiencia.fecha_vencimiento <= end_date
+                )
+
             for a in aud_query.all():
-                if current_user.rol == "Asociado" and a.expediente.abogado_responsable_id != current_user.id:
+                if (
+                    current_user.rol == "Asociado"
+                    and a.expediente.abogado_responsable_id != current_user.id
+                ):
                     continue
-                
-                events.append({
-                    "id": f"audiencia_{a.id}",
-                    "title": f"[Audiencia] {a.titulo_hito}",
-                    "start": a.fecha_vencimiento.isoformat() if a.fecha_vencimiento else "",
-                    "backgroundColor": "#8b5cf6",
-                    "borderColor": "#8b5cf6",
-                    "textColor": "#ffffff",
-                    "extendedProps": {
-                        "id": a.id,
-                        "type": "audiencia",
-                        "title": a.titulo_hito,
-                        "expediente_id": a.expediente_id,
-                        "expediente_codigo": a.expediente.codigo_firma if a.expediente else "",
-                        "expediente_nombre": a.expediente.nombre_caso if a.expediente else "",
-                        "hora": a.fecha_vencimiento.strftime("%H:%M") if a.fecha_vencimiento else "",
-                        "fecha_vencimiento": a.fecha_vencimiento.isoformat() if a.fecha_vencimiento else ""
+
+                events.append(
+                    {
+                        "id": f"audiencia_{a.id}",
+                        "title": f"[Audiencia] {a.titulo_hito}",
+                        "start": a.fecha_vencimiento.isoformat()
+                        if a.fecha_vencimiento
+                        else "",
+                        "backgroundColor": "#8b5cf6",
+                        "borderColor": "#8b5cf6",
+                        "textColor": "#ffffff",
+                        "extendedProps": {
+                            "id": a.id,
+                            "type": "audiencia",
+                            "title": a.titulo_hito,
+                            "expediente_id": a.expediente_id,
+                            "expediente_codigo": a.expediente.codigo_firma
+                            if a.expediente
+                            else "",
+                            "expediente_nombre": a.expediente.nombre_caso
+                            if a.expediente
+                            else "",
+                            "hora": a.fecha_vencimiento.strftime("%H:%M")
+                            if a.fecha_vencimiento
+                            else "",
+                            "fecha_vencimiento": a.fecha_vencimiento.isoformat()
+                            if a.fecha_vencimiento
+                            else "",
+                        },
                     }
-                })
+                )
 
         # Plazos
         if "plazo" in categories:
             plazo_query = AlertaPlazoAudiencia.query.filter_by(es_audiencia=False)
             if start_date:
-                plazo_query = plazo_query.filter(AlertaPlazoAudiencia.fecha_vencimiento >= start_date)
+                plazo_query = plazo_query.filter(
+                    AlertaPlazoAudiencia.fecha_vencimiento >= start_date
+                )
             if end_date:
-                plazo_query = plazo_query.filter(AlertaPlazoAudiencia.fecha_vencimiento <= end_date)
-            
+                plazo_query = plazo_query.filter(
+                    AlertaPlazoAudiencia.fecha_vencimiento <= end_date
+                )
+
             for p in plazo_query.all():
-                if current_user.rol == "Asociado" and p.expediente.abogado_responsable_id != current_user.id:
+                if (
+                    current_user.rol == "Asociado"
+                    and p.expediente.abogado_responsable_id != current_user.id
+                ):
                     continue
-                
-                events.append({
-                    "id": f"plazo_{p.id}",
-                    "title": f"[Plazo] {p.titulo_hito}",
-                    "start": p.fecha_vencimiento.date().isoformat() if p.fecha_vencimiento else "",
-                    "backgroundColor": "#f97316",
-                    "borderColor": "#f97316",
-                    "textColor": "#ffffff",
-                    "extendedProps": {
-                        "id": p.id,
-                        "type": "plazo",
-                        "title": p.titulo_hito,
-                        "expediente_id": p.expediente_id,
-                        "expediente_codigo": p.expediente.codigo_firma if p.expediente else "",
-                        "expediente_nombre": p.expediente.nombre_caso if p.expediente else "",
-                        "fecha_vencimiento": p.fecha_vencimiento.date().isoformat() if p.fecha_vencimiento else ""
+
+                events.append(
+                    {
+                        "id": f"plazo_{p.id}",
+                        "title": f"[Plazo] {p.titulo_hito}",
+                        "start": p.fecha_vencimiento.date().isoformat()
+                        if p.fecha_vencimiento
+                        else "",
+                        "backgroundColor": "#f97316",
+                        "borderColor": "#f97316",
+                        "textColor": "#ffffff",
+                        "extendedProps": {
+                            "id": p.id,
+                            "type": "plazo",
+                            "title": p.titulo_hito,
+                            "expediente_id": p.expediente_id,
+                            "expediente_codigo": p.expediente.codigo_firma
+                            if p.expediente
+                            else "",
+                            "expediente_nombre": p.expediente.nombre_caso
+                            if p.expediente
+                            else "",
+                            "fecha_vencimiento": p.fecha_vencimiento.date().isoformat()
+                            if p.fecha_vencimiento
+                            else "",
+                        },
                     }
-                })
+                )
 
         return jsonify(events)
 
@@ -4002,16 +4516,29 @@ def register_routes(app):
             return jsonify({"success": False, "error": "Faltan campos requeridos."})
 
         expediente = Expediente.query.get_or_404(expediente_id)
-        if current_user.rol == "Asociado" and expediente.abogado_responsable_id != current_user.id:
-            return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+        if (
+            current_user.rol == "Asociado"
+            and expediente.abogado_responsable_id != current_user.id
+        ):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Acceso denegado. No está asignado a este expediente.",
+                }
+            )
 
         try:
             if tipo == "tarea":
                 if not titulo:
-                    return jsonify({"success": False, "error": "El título de la tarea es obligatorio."})
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "El título de la tarea es obligatorio.",
+                        }
+                    )
                 fecha_limite = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 asignado_id = None if asignado_a_id == 0 else asignado_a_id
-                
+
                 tarea = Tarea(
                     expediente_id=expediente_id,
                     titulo=titulo,
@@ -4020,7 +4547,7 @@ def register_routes(app):
                     prioridad=prioridad,
                     estado="Pendiente",
                     asignado_a_id=asignado_id,
-                    creado_por_id=current_user.id
+                    creado_por_id=current_user.id,
                 )
                 db.session.add(tarea)
                 db.session.commit()
@@ -4030,14 +4557,21 @@ def register_routes(app):
                     accion="Crear Tarea desde Agenda",
                     detalles=f"Creó la tarea '{titulo}' (ID {tarea.id}) para el expediente '{expediente.nombre_caso}'.",
                     expediente_id=expediente_id,
-                    cliente_id=expediente.cliente_id
+                    cliente_id=expediente.cliente_id,
                 )
-                return jsonify({"success": True, "message": "Tarea creada con éxito en la agenda."})
+                return jsonify(
+                    {"success": True, "message": "Tarea creada con éxito en la agenda."}
+                )
 
             elif tipo == "audiencia":
                 if not hora_str:
-                    return jsonify({"success": False, "error": "La hora de la audiencia es obligatoria."})
-                
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "La hora de la audiencia es obligatoria.",
+                        }
+                    )
+
                 fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 hora = datetime.strptime(hora_str, "%H:%M").time()
                 fecha_vencimiento = datetime.combine(fecha, hora)
@@ -4048,7 +4582,7 @@ def register_routes(app):
                     fecha_vencimiento=fecha_vencimiento,
                     estado_alerta="Pending",
                     fuente_origen="Firma",
-                    es_audiencia=True
+                    es_audiencia=True,
                 )
                 db.session.add(alerta)
 
@@ -4059,7 +4593,7 @@ def register_routes(app):
                         mensaje=f"Se ha programado una nueva audiencia para tu caso '{expediente.nombre_caso}' el {fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p')}.",
                         leida=False,
                         expediente_id=expediente.id,
-                        fecha_creacion=rd_now()
+                        fecha_creacion=rd_now(),
                     )
                     db.session.add(notif)
 
@@ -4067,13 +4601,16 @@ def register_routes(app):
                     if expediente.cliente.usuario:
                         try:
                             from app.utils import enviar_email_notificacion_cliente
+
                             enviar_email_notificacion_cliente(
                                 usuario=expediente.cliente.usuario,
-                                subject=f"Nueva audiencia programada - SIGEX",
-                                mensaje=f"Se ha programado una nueva audiencia para tu caso '{expediente.nombre_caso}' el {fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p')}."
+                                subject="Nueva audiencia programada - SIGEX",
+                                mensaje=f"Se ha programado una nueva audiencia para tu caso '{expediente.nombre_caso}' el {fecha_vencimiento.strftime('%d/%m/%Y %I:%M %p')}.",
                             )
                         except Exception as e_mail:
-                            print(f"Error al enviar email por nueva audiencia: {e_mail}")
+                            print(
+                                f"Error al enviar email por nueva audiencia: {e_mail}"
+                            )
 
                 db.session.commit()
 
@@ -4082,14 +4619,24 @@ def register_routes(app):
                     accion="Crear Audiencia desde Agenda",
                     detalles=f"Creó la audiencia ID {alerta.id} para el expediente '{expediente.nombre_caso}' programada para el {fecha_vencimiento.strftime('%d/%m/%Y %H:%M')}.",
                     expediente_id=expediente_id,
-                    cliente_id=expediente.cliente_id
+                    cliente_id=expediente.cliente_id,
                 )
-                return jsonify({"success": True, "message": "Audiencia programada con éxito en la agenda."})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Audiencia programada con éxito en la agenda.",
+                    }
+                )
 
             elif tipo == "plazo":
                 if not titulo:
-                    return jsonify({"success": False, "error": "El título del plazo es obligatorio."})
-                
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "El título del plazo es obligatorio.",
+                        }
+                    )
+
                 fecha_venc = datetime.strptime(fecha_str, "%Y-%m-%d")
 
                 alerta = AlertaPlazoAudiencia(
@@ -4098,7 +4645,7 @@ def register_routes(app):
                     fecha_vencimiento=fecha_venc,
                     estado_alerta="Pending",
                     fuente_origen="Firma",
-                    es_audiencia=False
+                    es_audiencia=False,
                 )
                 db.session.add(alerta)
 
@@ -4109,7 +4656,7 @@ def register_routes(app):
                         mensaje=f"Se ha registrado una nueva actividad/plazo para tu caso '{expediente.nombre_caso}' con vencimiento el {fecha_venc.strftime('%d/%m/%Y')}.",
                         leida=False,
                         expediente_id=expediente.id,
-                        fecha_creacion=rd_now()
+                        fecha_creacion=rd_now(),
                     )
                     db.session.add(notif)
 
@@ -4117,10 +4664,11 @@ def register_routes(app):
                     if expediente.cliente.usuario:
                         try:
                             from app.utils import enviar_email_notificacion_cliente
+
                             enviar_email_notificacion_cliente(
                                 usuario=expediente.cliente.usuario,
-                                subject=f"Nueva actividad/plazo registrado - SIGEX",
-                                mensaje=f"Se ha registrado una nueva actividad/plazo para tu caso '{expediente.nombre_caso}' con vencimiento el {fecha_venc.strftime('%d/%m/%Y')}."
+                                subject="Nueva actividad/plazo registrado - SIGEX",
+                                mensaje=f"Se ha registrado una nueva actividad/plazo para tu caso '{expediente.nombre_caso}' con vencimiento el {fecha_venc.strftime('%d/%m/%Y')}.",
                             )
                         except Exception as e_mail:
                             print(f"Error al enviar email por nuevo plazo: {e_mail}")
@@ -4132,16 +4680,23 @@ def register_routes(app):
                     accion="Crear Plazo desde Agenda",
                     detalles=f"Creó el plazo '{titulo}' (ID {alerta.id}) para el expediente '{expediente.nombre_caso}' con vencimiento el {fecha_venc.strftime('%d/%m/%Y')}.",
                     expediente_id=expediente_id,
-                    cliente_id=expediente.cliente_id
+                    cliente_id=expediente.cliente_id,
                 )
-                return jsonify({"success": True, "message": "Plazo registrado con éxito en la agenda."})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Plazo registrado con éxito en la agenda.",
+                    }
+                )
 
             else:
                 return jsonify({"success": False, "error": "Tipo de evento inválido."})
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": f"Error de base de datos: {str(e)}"})
+            return jsonify(
+                {"success": False, "error": f"Error de base de datos: {str(e)}"}
+            )
 
     @app.route("/agenda/evento/<string:tipo>/<int:evento_id>/editar", methods=["POST"])
     @login_required
@@ -4161,11 +4716,24 @@ def register_routes(app):
         try:
             if tipo == "tarea-pendiente" or tipo == "tarea-completada":
                 tarea = Tarea.query.get_or_404(evento_id)
-                if current_user.rol == "Asociado" and tarea.expediente.abogado_responsable_id != current_user.id:
-                    return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+                if (
+                    current_user.rol == "Asociado"
+                    and tarea.expediente.abogado_responsable_id != current_user.id
+                ):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Acceso denegado. No está asignado a este expediente.",
+                        }
+                    )
 
                 if not titulo:
-                    return jsonify({"success": False, "error": "El título de la tarea es obligatorio."})
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "El título de la tarea es obligatorio.",
+                        }
+                    )
 
                 fecha_limite = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 asignado_id = None if asignado_a_id == 0 else asignado_a_id
@@ -4175,18 +4743,30 @@ def register_routes(app):
                     cambios.append(f"título: '{tarea.titulo}' -> '{titulo}'")
                     tarea.titulo = titulo
                 if (tarea.descripcion or "") != descripcion:
-                    cambios.append(f"descripción: '{tarea.descripcion}' -> '{descripcion}'")
+                    cambios.append(
+                        f"descripción: '{tarea.descripcion}' -> '{descripcion}'"
+                    )
                     tarea.descripcion = descripcion if descripcion else None
                 if tarea.fecha_limite != fecha_limite:
-                    cambios.append(f"fecha límite: '{tarea.fecha_limite}' -> '{fecha_limite}'")
+                    cambios.append(
+                        f"fecha límite: '{tarea.fecha_limite}' -> '{fecha_limite}'"
+                    )
                     tarea.fecha_limite = fecha_limite
                 if tarea.prioridad != prioridad:
                     cambios.append(f"prioridad: '{tarea.prioridad}' -> '{prioridad}'")
                     tarea.prioridad = prioridad
                 if tarea.asignado_a_id != asignado_id:
-                    anterior_nom = tarea.asignado_a.nombre if tarea.asignado_a else "Todo el equipo"
+                    anterior_nom = (
+                        tarea.asignado_a.nombre
+                        if tarea.asignado_a
+                        else "Todo el equipo"
+                    )
                     tarea.asignado_a_id = asignado_id
-                    nuevo_nom = tarea.asignado_a.nombre if tarea.asignado_a else "Todo el equipo"
+                    nuevo_nom = (
+                        tarea.asignado_a.nombre
+                        if tarea.asignado_a
+                        else "Todo el equipo"
+                    )
                     cambios.append(f"asignado a: '{anterior_nom}' -> '{nuevo_nom}'")
 
                 if cambios:
@@ -4196,17 +4776,32 @@ def register_routes(app):
                         accion="Editar Tarea desde Agenda",
                         detalles=f"Editó la tarea ID {evento_id} ('{tarea.titulo}'). Cambios: {', '.join(cambios)}.",
                         expediente_id=tarea.expediente_id,
-                        cliente_id=tarea.expediente.cliente_id
+                        cliente_id=tarea.expediente.cliente_id,
                     )
-                return jsonify({"success": True, "message": "Tarea modificada con éxito."})
+                return jsonify(
+                    {"success": True, "message": "Tarea modificada con éxito."}
+                )
 
             elif tipo == "audiencia":
                 audiencia = AlertaPlazoAudiencia.query.get_or_404(evento_id)
-                if current_user.rol == "Asociado" and audiencia.expediente.abogado_responsable_id != current_user.id:
-                    return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+                if (
+                    current_user.rol == "Asociado"
+                    and audiencia.expediente.abogado_responsable_id != current_user.id
+                ):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Acceso denegado. No está asignado a este expediente.",
+                        }
+                    )
 
                 if not hora_str:
-                    return jsonify({"success": False, "error": "La hora de la audiencia es obligatoria."})
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "La hora de la audiencia es obligatoria.",
+                        }
+                    )
 
                 fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 hora = datetime.strptime(hora_str, "%H:%M").time()
@@ -4214,7 +4809,9 @@ def register_routes(app):
 
                 cambios = []
                 if audiencia.fecha_vencimiento != fecha_vencimiento:
-                    cambios.append(f"fecha/hora: '{audiencia.fecha_vencimiento}' -> '{fecha_vencimiento}'")
+                    cambios.append(
+                        f"fecha/hora: '{audiencia.fecha_vencimiento}' -> '{fecha_vencimiento}'"
+                    )
                     audiencia.fecha_vencimiento = fecha_vencimiento
 
                 if cambios:
@@ -4224,17 +4821,35 @@ def register_routes(app):
                         accion="Editar Audiencia desde Agenda",
                         detalles=f"Modificó la fecha/hora de la audiencia ID {evento_id} para el caso '{audiencia.expediente.nombre_caso}'. Cambios: {', '.join(cambios)}.",
                         expediente_id=audiencia.expediente_id,
-                        cliente_id=audiencia.expediente.cliente_id
+                        cliente_id=audiencia.expediente.cliente_id,
                     )
-                return jsonify({"success": True, "message": "Audiencia judicial modificada con éxito."})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Audiencia judicial modificada con éxito.",
+                    }
+                )
 
             elif tipo == "plazo":
                 plazo = AlertaPlazoAudiencia.query.get_or_404(evento_id)
-                if current_user.rol == "Asociado" and plazo.expediente.abogado_responsable_id != current_user.id:
-                    return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+                if (
+                    current_user.rol == "Asociado"
+                    and plazo.expediente.abogado_responsable_id != current_user.id
+                ):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Acceso denegado. No está asignado a este expediente.",
+                        }
+                    )
 
                 if not titulo:
-                    return jsonify({"success": False, "error": "El título del plazo es obligatorio."})
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "El título del plazo es obligatorio.",
+                        }
+                    )
 
                 fecha_venc = datetime.strptime(fecha_str, "%Y-%m-%d")
 
@@ -4243,7 +4858,9 @@ def register_routes(app):
                     cambios.append(f"título: '{plazo.titulo_hito}' -> '{titulo}'")
                     plazo.titulo_hito = titulo
                 if plazo.fecha_vencimiento != fecha_venc:
-                    cambios.append(f"vencimiento: '{plazo.fecha_vencimiento}' -> '{fecha_venc}'")
+                    cambios.append(
+                        f"vencimiento: '{plazo.fecha_vencimiento}' -> '{fecha_venc}'"
+                    )
                     plazo.fecha_vencimiento = fecha_venc
 
                 if cambios:
@@ -4253,18 +4870,27 @@ def register_routes(app):
                         accion="Editar Plazo desde Agenda",
                         detalles=f"Modificó el plazo administrativo ID {evento_id} ('{plazo.titulo_hito}'). Cambios: {', '.join(cambios)}.",
                         expediente_id=plazo.expediente_id,
-                        cliente_id=plazo.expediente.cliente_id
+                        cliente_id=plazo.expediente.cliente_id,
                     )
-                return jsonify({"success": True, "message": "Plazo administrativo modificado con éxito."})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Plazo administrativo modificado con éxito.",
+                    }
+                )
 
             else:
                 return jsonify({"success": False, "error": "Tipo de evento inválido."})
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": f"Error al modificar el evento: {str(e)}"})
+            return jsonify(
+                {"success": False, "error": f"Error al modificar el evento: {str(e)}"}
+            )
 
-    @app.route("/agenda/evento/<string:tipo>/<int:evento_id>/eliminar", methods=["POST"])
+    @app.route(
+        "/agenda/evento/<string:tipo>/<int:evento_id>/eliminar", methods=["POST"]
+    )
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def agenda_eliminar_evento(tipo, evento_id):
@@ -4272,13 +4898,26 @@ def register_routes(app):
         justificacion = data.get("justificacion", "").strip()
 
         if not justificacion:
-            return jsonify({"success": False, "error": "La justificación de la eliminación es obligatoria."})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "La justificación de la eliminación es obligatoria.",
+                }
+            )
 
         try:
             if tipo == "tarea-pendiente" or tipo == "tarea-completada":
                 tarea = Tarea.query.get_or_404(evento_id)
-                if current_user.rol == "Asociado" and tarea.expediente.abogado_responsable_id != current_user.id:
-                    return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+                if (
+                    current_user.rol == "Asociado"
+                    and tarea.expediente.abogado_responsable_id != current_user.id
+                ):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Acceso denegado. No está asignado a este expediente.",
+                        }
+                    )
 
                 titulo = tarea.titulo
                 exp_id = tarea.expediente_id
@@ -4292,14 +4931,27 @@ def register_routes(app):
                     accion="Eliminar Tarea desde Agenda",
                     detalles=f"Eliminó la tarea ID {evento_id} ('{titulo}'). Justificación: {justificacion}",
                     expediente_id=exp_id,
-                    cliente_id=cliente_id
+                    cliente_id=cliente_id,
                 )
-                return jsonify({"success": True, "message": "Tarea eliminada con éxito de la agenda."})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Tarea eliminada con éxito de la agenda.",
+                    }
+                )
 
             elif tipo == "audiencia" or tipo == "plazo":
                 alerta = AlertaPlazoAudiencia.query.get_or_404(evento_id)
-                if current_user.rol == "Asociado" and alerta.expediente.abogado_responsable_id != current_user.id:
-                    return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+                if (
+                    current_user.rol == "Asociado"
+                    and alerta.expediente.abogado_responsable_id != current_user.id
+                ):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Acceso denegado. No está asignado a este expediente.",
+                        }
+                    )
 
                 titulo = alerta.titulo_hito
                 exp_id = alerta.expediente_id
@@ -4311,27 +4963,44 @@ def register_routes(app):
 
                 registrar_auditoria(
                     usuario_id=current_user.id,
-                    accion="Eliminar Audiencia desde Agenda" if es_aud else "Eliminar Plazo desde Agenda",
+                    accion="Eliminar Audiencia desde Agenda"
+                    if es_aud
+                    else "Eliminar Plazo desde Agenda",
                     detalles=f"Eliminó la {'audiencia' if es_aud else 'alerta de plazo'} ID {evento_id} ('{titulo}'). Justificación: {justificacion}",
                     expediente_id=exp_id,
-                    cliente_id=cliente_id
+                    cliente_id=cliente_id,
                 )
-                return jsonify({"success": True, "message": f"{'Audiencia' if es_aud else 'Plazo'} eliminado con éxito de la agenda."})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": f"{'Audiencia' if es_aud else 'Plazo'} eliminado con éxito de la agenda.",
+                    }
+                )
 
             else:
                 return jsonify({"success": False, "error": "Tipo de evento inválido."})
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": f"Error al eliminar el evento: {str(e)}"})
+            return jsonify(
+                {"success": False, "error": f"Error al eliminar el evento: {str(e)}"}
+            )
 
     @app.route("/agenda/evento/tarea/<int:tarea_id>/completar", methods=["POST"])
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def agenda_completar_tarea(tarea_id):
         tarea = Tarea.query.get_or_404(tarea_id)
-        if current_user.rol == "Asociado" and tarea.expediente.abogado_responsable_id != current_user.id:
-            return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."})
+        if (
+            current_user.rol == "Asociado"
+            and tarea.expediente.abogado_responsable_id != current_user.id
+        ):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Acceso denegado. No está asignado a este expediente.",
+                }
+            )
 
         tarea.estado = "Completada"
         tarea.fecha_completada = datetime.now()
@@ -4342,12 +5011,19 @@ def register_routes(app):
                 accion="Completar Tarea desde Agenda",
                 detalles=f"Marcó como completada la tarea '{tarea.titulo}' (ID {tarea_id}).",
                 expediente_id=tarea.expediente_id,
-                cliente_id=tarea.expediente.cliente_id if tarea.expediente else None
+                cliente_id=tarea.expediente.cliente_id if tarea.expediente else None,
             )
-            return jsonify({"success": True, "message": f"Tarea '{tarea.titulo}' marcada como completada."})
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Tarea '{tarea.titulo}' marcada como completada.",
+                }
+            )
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": f"Error al actualizar la tarea: {str(e)}"})
+            return jsonify(
+                {"success": False, "error": f"Error al actualizar la tarea: {str(e)}"}
+            )
 
     # === RUTAS DE NOTIFICACIONES ===
     @app.context_processor
@@ -4355,7 +5031,10 @@ def register_routes(app):
         if current_user.is_authenticated:
             try:
                 from app.models import NotificacionInterna
-                unreads_count = NotificacionInterna.query.filter_by(usuario_id=current_user.id, leida=False).count()
+
+                unreads_count = NotificacionInterna.query.filter_by(
+                    usuario_id=current_user.id, leida=False
+                ).count()
                 return dict(notificaciones_pendientes_count=unreads_count)
             except Exception:
                 pass
@@ -4367,43 +5046,76 @@ def register_routes(app):
     def trigger_procesar_alertas_cron():
         try:
             procesar_alertas_preventivas()
-            return jsonify({"success": True, "message": "Procesamiento de alertas ejecutado con éxito."})
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Procesamiento de alertas ejecutado con éxito.",
+                }
+            )
         except Exception as e:
-            return jsonify({"success": False, "error": f"Error al procesar alertas: {str(e)}"})
+            return jsonify(
+                {"success": False, "error": f"Error al procesar alertas: {str(e)}"}
+            )
 
     @app.route("/notificaciones")
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador", "Cliente")
     def ver_notificaciones():
-        notificaciones = NotificacionInterna.query.filter_by(usuario_id=current_user.id).order_by(NotificacionInterna.fecha_creacion.desc()).all()
-        return render_template("notificaciones/index.html", notificaciones=notificaciones, current_date=rd_now())
+        notificaciones = (
+            NotificacionInterna.query.filter_by(usuario_id=current_user.id)
+            .order_by(NotificacionInterna.fecha_creacion.desc())
+            .all()
+        )
+        return render_template(
+            "notificaciones/index.html",
+            notificaciones=notificaciones,
+            current_date=rd_now(),
+        )
 
     @app.route("/notificaciones/<int:notificacion_id>/leer", methods=["POST"])
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador", "Cliente")
     def marcar_notificacion_leida(notificacion_id):
-        notif = NotificacionInterna.query.filter_by(id=notificacion_id, usuario_id=current_user.id).first_or_404()
+        notif = NotificacionInterna.query.filter_by(
+            id=notificacion_id, usuario_id=current_user.id
+        ).first_or_404()
         notif.leida = True
         try:
             db.session.commit()
-            return jsonify({"success": True, "message": "Notificación marcada como leída."})
+            return jsonify(
+                {"success": True, "message": "Notificación marcada como leída."}
+            )
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": f"Error al marcar como leída: {str(e)}"})
+            return jsonify(
+                {"success": False, "error": f"Error al marcar como leída: {str(e)}"}
+            )
 
     @app.route("/notificaciones/leer_todas", methods=["POST"])
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador", "Cliente")
     def marcar_todas_notificaciones_leidas():
-        notifs = NotificacionInterna.query.filter_by(usuario_id=current_user.id, leida=False).all()
+        notifs = NotificacionInterna.query.filter_by(
+            usuario_id=current_user.id, leida=False
+        ).all()
         for notif in notifs:
             notif.leida = True
         try:
             db.session.commit()
-            return jsonify({"success": True, "message": "Todas las notificaciones marcadas como leídas."})
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Todas las notificaciones marcadas como leídas.",
+                }
+            )
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "error": f"Error al actualizar notificaciones: {str(e)}"})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Error al actualizar notificaciones: {str(e)}",
+                }
+            )
 
 
 def procesar_alertas_preventivas():
@@ -4411,29 +5123,30 @@ def procesar_alertas_preventivas():
     Calcula y despacha alertas internas y notificaciones por correo para
     plazos procesales, trámites administrativos, audiencias y tareas pendientes con 30, 15 y 3 días de anticipación.
     """
-    from datetime import datetime, date
+    from datetime import datetime
+
     import pytz
+
     from app import db
-    from app.models import AlertaPlazoAudiencia, Tarea, Usuario, NotificacionInterna, RegistroEnvioAlerta
-    from app.utils import enviar_email_alerta_preventiva
+    from app.models import AlertaPlazoAudiencia, NotificacionInterna, Tarea, Usuario
 
     print("[PLANIFICADOR] Iniciando procesamiento de alertas preventivas...")
-    tz_rd = pytz.timezone('America/Santo_Domingo')
+    tz_rd = pytz.timezone("America/Santo_Domingo")
     now_local = datetime.now(tz_rd).date()
-    
+
     # === 1. PROCESAR ALERTAS, PLAZOS Y AUDIENCIAS ===
-    plazos = AlertaPlazoAudiencia.query.filter_by(estado_alerta='Pending').all()
+    plazos = AlertaPlazoAudiencia.query.filter_by(estado_alerta="Pending").all()
     for plazo in plazos:
         if not plazo.fecha_vencimiento:
             continue
-            
+
         try:
             venc_local = plazo.fecha_vencimiento.astimezone(tz_rd).date()
         except Exception:
             venc_local = plazo.fecha_vencimiento.date()
-            
+
         dias_restantes = (venc_local - now_local).days
-        
+
         anticipacion = None
         if 15 < dias_restantes <= 30:
             anticipacion = 30
@@ -4441,46 +5154,49 @@ def procesar_alertas_preventivas():
             anticipacion = 15
         elif 0 <= dias_restantes <= 3:
             anticipacion = 3
-            
+
         if not anticipacion:
             continue
-            
+
         # Verificar envío previo
         envio_previo = RegistroEnvioAlerta.query.filter_by(
-            alerta_id=plazo.id,
-            dias_anticipacion=anticipacion
+            alerta_id=plazo.id, dias_anticipacion=anticipacion
         ).first()
-        
+
         if envio_previo:
             continue
-            
+
         # Determinar destinatarios
         exp = plazo.expediente
         abogados = []
         if exp and exp.abogado_responsable:
             abogados.append(exp.abogado_responsable)
         else:
-            abogados = Usuario.query.filter_by(rol='Socio', activo=True).all()
-            
+            abogados = Usuario.query.filter_by(rol="Socio", activo=True).all()
+
         if not abogados:
-            print(f"[PLANIFICADOR] Sin destinatarios válidos para el hito ID {plazo.id}")
+            print(
+                f"[PLANIFICADOR] Sin destinatarios válidos para el hito ID {plazo.id}"
+            )
             continue
-            
+
         tipo_nombre = "audiencia" if plazo.es_audiencia else "plazo procesal"
         for abogado in abogados:
             try:
                 enviar_email_alerta_preventiva(abogado, plazo, anticipacion)
-                
+
                 msj = f"[Alerta {anticipacion} días] La {tipo_nombre} '{plazo.titulo_hito}' del expediente '{exp.nombre_caso if exp else 'N/A'}' vence/ocurre el {venc_local.strftime('%d/%m/%Y')}."
                 notif = NotificacionInterna(
                     usuario_id=abogado.id,
                     mensaje=msj,
                     leida=False,
-                    expediente_id=exp.id if exp else None
+                    expediente_id=exp.id if exp else None,
                 )
                 db.session.add(notif)
             except Exception as e:
-                print(f"[PLANIFICADOR] Error al despachar alerta al usuario {abogado.id}: {e}")
+                print(
+                    f"[PLANIFICADOR] Error al despachar alerta al usuario {abogado.id}: {e}"
+                )
 
         # También notificar al cliente del expediente si tiene portal de acceso
         if exp and exp.cliente and exp.cliente.usuario_id:
@@ -4492,30 +5208,37 @@ def procesar_alertas_preventivas():
                     mensaje=msj_cliente,
                     leida=False,
                     expediente_id=exp.id,
-                    fecha_creacion=rd_now()
+                    fecha_creacion=rd_now(),
                 )
                 db.session.add(notif_cliente)
             except Exception as e:
-                print(f"[PLANIFICADOR] Error al despachar alerta al cliente {exp.cliente.id}: {e}")
-                
+                print(
+                    f"[PLANIFICADOR] Error al despachar alerta al cliente {exp.cliente.id}: {e}"
+                )
+
         try:
             registro = RegistroEnvioAlerta(
-                alerta_id=plazo.id,
-                dias_anticipacion=anticipacion
+                alerta_id=plazo.id, dias_anticipacion=anticipacion
             )
             db.session.add(registro)
             db.session.commit()
-            print(f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para hito ID {plazo.id} ({plazo.titulo_hito})")
+            print(
+                f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para hito ID {plazo.id} ({plazo.titulo_hito})"
+            )
         except Exception as e:
             db.session.rollback()
-            print(f"[PLANIFICADOR] Error al guardar registro de envío para hito ID {plazo.id}: {e}")
+            print(
+                f"[PLANIFICADOR] Error al guardar registro de envío para hito ID {plazo.id}: {e}"
+            )
 
     # === 2. PROCESAR TAREAS PENDIENTES ===
-    tareas = Tarea.query.filter(Tarea.estado != 'Completada', Tarea.fecha_limite != None).all()
+    tareas = Tarea.query.filter(
+        Tarea.estado != "Completada", Tarea.fecha_limite != None
+    ).all()
     for tarea in tareas:
         venc_local = tarea.fecha_limite
         dias_restantes = (venc_local - now_local).days
-        
+
         anticipacion = None
         if 15 < dias_restantes <= 30:
             anticipacion = 30
@@ -4523,19 +5246,18 @@ def procesar_alertas_preventivas():
             anticipacion = 15
         elif 0 <= dias_restantes <= 3:
             anticipacion = 3
-            
+
         if not anticipacion:
             continue
-            
+
         # Verificar envío previo
         envio_previo = RegistroEnvioAlerta.query.filter_by(
-            tarea_id=tarea.id,
-            dias_anticipacion=anticipacion
+            tarea_id=tarea.id, dias_anticipacion=anticipacion
         ).first()
-        
+
         if envio_previo:
             continue
-            
+
         # Determinar destinatario
         abogados = []
         if tarea.asignado_a:
@@ -4545,38 +5267,45 @@ def procesar_alertas_preventivas():
         elif tarea.expediente and tarea.expediente.abogado_responsable:
             abogados.append(tarea.expediente.abogado_responsable)
         else:
-            abogados = Usuario.query.filter_by(rol='Socio', activo=True).all()
-            
+            abogados = Usuario.query.filter_by(rol="Socio", activo=True).all()
+
         if not abogados:
-            print(f"[PLANIFICADOR] Sin destinatarios válidos para la tarea ID {tarea.id}")
+            print(
+                f"[PLANIFICADOR] Sin destinatarios válidos para la tarea ID {tarea.id}"
+            )
             continue
-            
+
         exp = tarea.expediente
         for abogado in abogados:
             try:
                 enviar_email_alerta_preventiva(abogado, tarea, anticipacion)
-                
+
                 msj = f"[Alerta {anticipacion} días] La tarea pendiente '{tarea.titulo}' del expediente '{exp.nombre_caso if exp else 'N/A'}' vence el {venc_local.strftime('%d/%m/%Y')}."
                 notif = NotificacionInterna(
                     usuario_id=abogado.id,
                     mensaje=msj,
                     leida=False,
-                    expediente_id=exp.id if exp else None
+                    expediente_id=exp.id if exp else None,
                 )
                 db.session.add(notif)
             except Exception as e:
-                print(f"[PLANIFICADOR] Error al despachar alerta de tarea al usuario {abogado.id}: {e}")
-                
+                print(
+                    f"[PLANIFICADOR] Error al despachar alerta de tarea al usuario {abogado.id}: {e}"
+                )
+
         try:
             registro = RegistroEnvioAlerta(
-                tarea_id=tarea.id,
-                dias_anticipacion=anticipacion
+                tarea_id=tarea.id, dias_anticipacion=anticipacion
             )
             db.session.add(registro)
             db.session.commit()
-            print(f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para tarea ID {tarea.id} ({tarea.titulo})")
+            print(
+                f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para tarea ID {tarea.id} ({tarea.titulo})"
+            )
         except Exception as e:
             db.session.rollback()
-            print(f"[PLANIFICADOR] Error al guardar registro de envío para tarea ID {tarea.id}: {e}")
-            
+            print(
+                f"[PLANIFICADOR] Error al guardar registro de envío para tarea ID {tarea.id}: {e}"
+            )
+
     print("[PLANIFICADOR] Fin del procesamiento de alertas preventivas.")
