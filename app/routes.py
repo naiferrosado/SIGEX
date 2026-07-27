@@ -563,7 +563,7 @@ def register_routes(app):
                     .filter(
                         db.or_(
                             Tarea.asignado_a_id == current_user.id,
-                            Tarea.asignado_a_id == None,
+                            Tarea.asignado_a_id.is_(None),
                         )
                     )
                     .count()
@@ -782,7 +782,7 @@ def register_routes(app):
                         and caso_activo_principal.tipo_tramite == "Judicial"
                     ):
                         query_audiencia = query_audiencia.filter(
-                            AlertaPlazoAudiencia.es_audiencia == True
+                            AlertaPlazoAudiencia.es_audiencia
                         )
 
                     audiencia_proxima = query_audiencia.order_by(
@@ -2635,7 +2635,7 @@ def register_routes(app):
             # Filtro por carpeta
             if carpeta_filtro != "" and carpeta_filtro is not None:
                 if carpeta_filtro == "0":
-                    query = query.filter(Documento.carpeta_id == None)
+                    query = query.filter(Documento.carpeta_id.is_(None))
                 else:
                     try:
                         c_id = int(carpeta_filtro)
@@ -2648,7 +2648,7 @@ def register_routes(app):
                 if cliente_db:
                     query = query.filter(Documento.visibilidad == "Compartido").filter(
                         db.or_(
-                            Documento.cliente_id == None,
+                            Documento.cliente_id.is_(None),
                             Documento.cliente_id == cliente_db.id,
                         )
                     )
@@ -2764,7 +2764,7 @@ def register_routes(app):
             if rol == "Cliente":
                 base_q = base_q.filter_by(visibilidad="Compartido")
             unfiltered_total_docs = base_q.count()
-            unfiltered_raiz_docs = base_q.filter(Documento.carpeta_id == None).count()
+            unfiltered_raiz_docs = base_q.filter(Documento.carpeta_id.is_(None)).count()
 
         return render_template(
             "documentos/index.html",
@@ -3617,10 +3617,10 @@ def register_routes(app):
         # Estadísticas globales
         total_carpetas = Carpeta.query.count()
         total_docs_en_carpetas = Documento.query.filter(
-            Documento.carpeta_id != None
+            Documento.carpeta_id.is_not(None)
         ).count()
         total_docs_sin_carpeta = Documento.query.filter(
-            Documento.carpeta_id == None
+            Documento.carpeta_id.is_(None)
         ).count()
         expedientes_con_carpetas = db.session.query(
             db.func.count(db.distinct(Carpeta.expediente_id))
@@ -3872,7 +3872,8 @@ def register_routes(app):
         if current_user.rol in ["Asociado", "Paralegal"]:
             query = query.filter(
                 db.or_(
-                    Tarea.asignado_a_id == current_user.id, Tarea.asignado_a_id == None
+                    Tarea.asignado_a_id == current_user.id,
+                    Tarea.asignado_a_id.is_(None),
                 )
             )
         elif filtro_asignado != "Todos":
@@ -3938,9 +3939,7 @@ def register_routes(app):
             .all()
         )
         usuarios_list = (
-            Usuario.query.filter(Usuario.activo == True)
-            .order_by(Usuario.nombre.asc())
-            .all()
+            Usuario.query.filter(Usuario.activo).order_by(Usuario.nombre.asc()).all()
         )
 
         # Instanciar el formulario
@@ -3958,7 +3957,8 @@ def register_routes(app):
         if current_user.rol in ["Asociado", "Paralegal"]:
             stat_query = stat_query.filter(
                 db.or_(
-                    Tarea.asignado_a_id == current_user.id, Tarea.asignado_a_id == None
+                    Tarea.asignado_a_id == current_user.id,
+                    Tarea.asignado_a_id.is_(None),
                 )
             )
 
@@ -4029,7 +4029,7 @@ def register_routes(app):
         expedientes_list = Expediente.query.filter(
             Expediente.estado != "Archivado"
         ).all()
-        usuarios_list = Usuario.query.filter(Usuario.activo == True).all()
+        usuarios_list = Usuario.query.filter(Usuario.activo).all()
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, e.nombre_caso) for e in expedientes_list
         ]
@@ -4105,7 +4105,7 @@ def register_routes(app):
         expedientes_list = Expediente.query.filter(
             Expediente.estado != "Archivado"
         ).all()
-        usuarios_list = Usuario.query.filter(Usuario.activo == True).all()
+        usuarios_list = Usuario.query.filter(Usuario.activo).all()
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, e.nombre_caso) for e in expedientes_list
         ]
@@ -4305,7 +4305,7 @@ def register_routes(app):
         expedientes_select = Expediente.query.filter(
             Expediente.estado == "Abierto"
         ).all()
-        usuarios_select = Usuario.query.filter(Usuario.activo == True).all()
+        usuarios_select = Usuario.query.filter(Usuario.activo).all()
         return render_template(
             "agenda/index.html",
             expedientes_select=expedientes_select,
@@ -5233,7 +5233,7 @@ def procesar_alertas_preventivas():
 
     # === 2. PROCESAR TAREAS PENDIENTES ===
     tareas = Tarea.query.filter(
-        Tarea.estado != "Completada", Tarea.fecha_limite != None
+        Tarea.estado != "Completada", Tarea.fecha_limite.is_not(None)
     ).all()
     for tarea in tareas:
         venc_local = tarea.fecha_limite
