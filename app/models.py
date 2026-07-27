@@ -289,6 +289,7 @@ class FacturaHonorario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # ON DELETE RESTRICT
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False)
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='SET NULL'), nullable=True)
     ncf = db.Column(db.String(13), unique=True, nullable=True)
     tipo_comprobante = db.Column(db.String(2), nullable=False) # Ej: '31', '32'
     monto_subtotal = db.Column(db.Numeric(18, 2), nullable=False)
@@ -296,6 +297,63 @@ class FacturaHonorario(db.Model):
     monto_total = db.Column(db.Numeric(18, 2), nullable=False)
     fecha_emision = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
     estado_pago = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'Cobrado', 'Anulado'
+    plazo_pago_dias = db.Column(db.Integer, nullable=True, default=30)
+    tasa_mora_mensual = db.Column(db.Numeric(5, 2), nullable=True, default=0.00)
+
+    # Relaciones
+    expediente = db.relationship('Expediente', backref=db.backref('facturas_list', lazy=True))
+
+    @property
+    def total_pagado(self):
+        return sum(p.monto for p in self.partidas if p.estado_pago == 'Pagado')
+
+    @property
+    def total_pendiente(self):
+        return sum(p.monto for p in self.partidas if p.estado_pago == 'Pendiente')
+
+    @property
+    def porcentaje_pagado(self):
+        if self.monto_total <= 0:
+            return 0
+        return float((self.total_pagado / self.monto_total) * 100)
+
+    @property
+    def ncf_valido_hasta(self):
+        """
+        El NCF es válido hasta el 31 de diciembre del año siguiente
+        al de la fecha de emisión de la factura.
+        """
+        if not self.fecha_emision:
+            return None
+        anio_siguiente = self.fecha_emision.year + 1
+        from datetime import date
+        return date(anio_siguiente, 12, 31)
+
+
+class DetalleFactura(db.Model):
+    __tablename__ = 'detalles_facturas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    factura_id = db.Column(db.Integer, db.ForeignKey('facturas_honorarios.id', ondelete='CASCADE'), nullable=False)
+    descripcion = db.Column(db.String(255), nullable=False)
+    cantidad = db.Column(db.Integer, nullable=False, default=1)
+    precio_unitario = db.Column(db.Numeric(18, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(18, 2), nullable=False)
+
+    factura = db.relationship('FacturaHonorario', backref=db.backref('detalles', lazy=True, cascade="all, delete-orphan"))
+
+
+class PartidaPagoFactura(db.Model):
+    __tablename__ = 'partidas_pagos_facturas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    factura_id = db.Column(db.Integer, db.ForeignKey('facturas_honorarios.id', ondelete='CASCADE'), nullable=False)
+    descripcion_partida = db.Column(db.String(255), nullable=False)
+    monto = db.Column(db.Numeric(18, 2), nullable=False)
+    fecha_vencimiento = db.Column(db.Date, nullable=False)
+    estado_pago = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'Pagado'
+
+    factura = db.relationship('FacturaHonorario', backref=db.backref('partidas', lazy=True, cascade="all, delete-orphan"))
 
 # 5. AUDITORÍA FORENSE
 
@@ -363,5 +421,8 @@ class RegistroEnvioAlerta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     alerta_id = db.Column(db.Integer, db.ForeignKey('alertas_plazos_audiencias.id', ondelete='CASCADE'), nullable=True)
     tarea_id = db.Column(db.Integer, db.ForeignKey('tareas.id', ondelete='CASCADE'), nullable=True)
+    partida_factura_id = db.Column(db.Integer, db.ForeignKey('partidas_pagos_facturas.id', ondelete='CASCADE'), nullable=True)
     dias_anticipacion = db.Column(db.Integer, nullable=False) # 30, 15, o 3
-    fecha_envio = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    fecha_envio = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+
+    partida_factura = db.relationship('PartidaPagoFactura', backref=db.backref('alertas_envios', lazy=True, cascade="all, delete-orphan"))

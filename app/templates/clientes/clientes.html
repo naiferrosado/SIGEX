@@ -99,6 +99,9 @@
                         <li class="nav-item">
                             <a class="nav-link active py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-general" id="tabGeneralLink">General</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-2 fw-medium" data-bs-toggle="tab" href="#tab-pagos" id="tabPagosLink">Pagos</a>
+                        </li>
                         {% if current_user.rol == 'Administrador' %}
                         <li class="nav-item">
                             <a class="nav-link py-1 px-2" data-bs-toggle="tab" href="#tab-auditoria" id="tabAuditoriaLink">Auditoría</a>
@@ -158,6 +161,61 @@
                                 <div id="portalAccessActions" class="w-100 mt-1">
                                     <!-- Botones inyectados vía JS -->
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña Pagos -->
+                        <div class="tab-pane fade" id="tab-pagos">
+                            <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Estado de Pagos y Facturación</div>
+                            
+                            <!-- KPI resumidos -->
+                            <div class="row g-2 mb-3 text-center">
+                                <div class="col-4">
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="text-muted d-block" style="font-size: 0.7rem;">Facturado</small>
+                                        <span class="fw-bold text-dark text-nowrap" id="payFacturado" style="font-size: 0.8rem;">RD$ 0.00</span>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="text-muted d-block" style="font-size: 0.7rem;">Cobrado</small>
+                                        <span class="fw-bold text-success text-nowrap" id="payCobrado" style="font-size: 0.8rem;">RD$ 0.00</span>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="text-muted d-block" style="font-size: 0.7rem;">Pendiente</small>
+                                        <span class="fw-bold text-danger text-nowrap" id="payPendiente" style="font-size: 0.8rem;">RD$ 0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Barra de Progreso del Cobro -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted fw-semibold">Progreso de Recaudo:</small>
+                                    <small class="fw-bold text-primary" id="payProgressPct">0%</small>
+                                </div>
+                                <div class="progress" style="height: 8px; border-radius: 4px;">
+                                    <div id="payProgressBar" class="progress-bar bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+
+                            <!-- Tabla de facturas del cliente -->
+                            <div style="max-height: 200px; overflow-y: auto; scrollbar-width: thin;">
+                                <table class="table table-sm align-middle mb-0" style="font-size: 0.75rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>NCF / Factura</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-center">Estado</th>
+                                            <th class="text-center">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="payInvoicesList">
+                                        <tr><td colspan="4" class="text-muted text-center py-3">No hay facturas registradas.</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
@@ -423,12 +481,6 @@
         const statusFilter = document.getElementById('statusFilter').value;
         const typeFilter = document.getElementById('typeFilter').value;
 
-        if (!q) {
-            clientes = [];
-            renderTable();
-            return;
-        }
-
         fetch(`/clientes/buscar?q=${encodeURIComponent(q)}&status=${encodeURIComponent(statusFilter)}&tipo=${encodeURIComponent(typeFilter)}`)
             .then(res => res.json())
             .then(data => {
@@ -546,7 +598,61 @@
                     }
                 }
 
+                // Reset active tab to General when loading a new client
+                document.getElementById('tabGeneralLink').click();
 
+                // Renderizar Pagos y Facturas
+                const formatearMonedaJS = (v) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(v);
+                document.getElementById('payFacturado').innerText = formatearMonedaJS(c.total_facturado);
+                document.getElementById('payCobrado').innerText = formatearMonedaJS(c.total_pagado);
+                document.getElementById('payPendiente').innerText = formatearMonedaJS(c.total_pendiente);
+                
+                const pct = c.total_facturado > 0 ? Math.round((c.total_pagado / c.total_facturado) * 100) : 0;
+                document.getElementById('payProgressPct').innerText = `${pct}%`;
+                const $progressBar = document.getElementById('payProgressBar');
+                $progressBar.style.width = `${pct}%`;
+                $progressBar.setAttribute('aria-valuenow', pct);
+                if (pct >= 100) {
+                    $progressBar.className = "progress-bar bg-success";
+                } else if (pct >= 50) {
+                    $progressBar.className = "progress-bar bg-primary";
+                } else {
+                    $progressBar.className = "progress-bar bg-warning";
+                }
+
+                const invoicesList = document.getElementById('payInvoicesList');
+                invoicesList.innerHTML = '';
+                if (c.facturas && c.facturas.length > 0) {
+                    c.facturas.forEach(f => {
+                        let badgeClass = 'bg-secondary';
+                        if (f.estado_pago === 'Pagada' || f.estado_pago === 'Cobrado') badgeClass = 'bg-success';
+                        else if (f.estado_pago === 'Pendiente') badgeClass = 'bg-warning text-dark';
+                        else if (f.estado_pago === 'Pagada Parcial' || f.estado_pago === 'Cobrado Parcial') badgeClass = 'bg-info text-dark';
+                        else if (f.estado_pago === 'Mora') badgeClass = 'bg-danger';
+
+                        const row = `
+                            <tr>
+                                <td class="fw-semibold">
+                                    <span class="text-dark">${f.ncf}</span>
+                                    <small class="text-muted d-block" style="font-size: 0.65rem;">Emisión: ${f.fecha_emision}</small>
+                                </td>
+                                <td class="text-end fw-semibold">${formatearMonedaJS(f.monto_total)}</td>
+                                <td class="text-center">
+                                    <span class="badge ${badgeClass} py-1" style="font-size: 0.7rem;">${f.estado_pago}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <a href="/facturas/${f.id}/detalle" class="btn btn-white btn-sm p-1 border" title="Ver Detalle"><i class="bi bi-eye"></i></a>
+                                        <a href="/facturas/${f.id}/pdf" target="_blank" class="btn btn-white btn-sm p-1 border text-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        invoicesList.innerHTML += row;
+                    });
+                } else {
+                    invoicesList.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">No hay facturas registradas.</td></tr>';
+                }
 
                 const btnEdit = document.getElementById('btnEditarPanel');
                 btnEdit.classList.remove('disabled');
@@ -634,6 +740,17 @@
         // Reset portal
         document.getElementById('detPortalStatus').innerText = "—";
         document.getElementById('portalAccessActions').innerHTML = '';
+        
+        // Reset pagos
+        document.getElementById('payFacturado').innerText = "RD$ 0.00";
+        document.getElementById('payCobrado').innerText = "RD$ 0.00";
+        document.getElementById('payPendiente').innerText = "RD$ 0.00";
+        document.getElementById('payProgressPct').innerText = "0%";
+        const $progressBarReset = document.getElementById('payProgressBar');
+        $progressBarReset.style.width = "0%";
+        $progressBarReset.setAttribute('aria-valuenow', 0);
+        $progressBarReset.className = "progress-bar bg-primary";
+        document.getElementById('payInvoicesList').innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">No hay facturas registradas.</td></tr>';
         
         // Reset auditoría si existe
         const auditContainer = document.getElementById('auditLogList');
@@ -762,7 +879,7 @@
                     renderTable();
                 });
         } else {
-            renderTable();
+            buscarClientes();
         }
     };
 </script>

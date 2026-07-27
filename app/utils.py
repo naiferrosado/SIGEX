@@ -110,8 +110,17 @@ def enviar_email_alerta_preventiva(usuario, plazo, dias_anticipacion):
     inminente de un plazo legal, trámite administrativo, audiencia o tarea.
     Si no hay credenciales SMTP en .env, simula el envío por consola.
     """
-    # Detectar el tipo de plazo (AlertaPlazoAudiencia vs Tarea)
-    if hasattr(plazo, 'titulo_hito'):
+    # Detectar el tipo de plazo (AlertaPlazoAudiencia vs Tarea vs PartidaPagoFactura)
+    if hasattr(plazo, 'descripcion_partida'):
+        # Es PartidaPagoFactura (cuota de factura)
+        titulo_plazo = plazo.descripcion_partida
+        monto_formateado = f"RD$ {plazo.monto:,.2f}"
+        tipo_alerta = f"Cuota de Factura (Monto: {monto_formateado})"
+        fecha_venc = plazo.fecha_vencimiento
+        fact = plazo.factura
+        exp_codigo = fact.expediente.codigo_firma if (fact and fact.expediente) else "N/A"
+        exp_nombre = fact.expediente.nombre_caso if (fact and fact.expediente) else "N/A"
+    elif hasattr(plazo, 'titulo_hito'):
         # Es AlertaPlazoAudiencia (plazo, trámite o audiencia)
         titulo_plazo = plazo.titulo_hito
         tipo_alerta = "Audiencia Judicial" if plazo.es_audiencia else "Plazo Procesal / Alerta Administrativa"
@@ -126,25 +135,50 @@ def enviar_email_alerta_preventiva(usuario, plazo, dias_anticipacion):
         exp_codigo = plazo.expediente.codigo_firma if plazo.expediente else "N/A"
         exp_nombre = plazo.expediente.nombre_caso if plazo.expediente else "N/A"
 
-    subject = f"[ALERTA {dias_anticipacion} DÍAS] Vencimiento de {tipo_alerta} - SIGEX"
-    
     fecha_formateada = fecha_venc.strftime('%d/%m/%Y') if fecha_venc else "Sin Fecha"
     info_venc = f"el {fecha_formateada}"
     
+    es_cliente = (usuario.rol == 'Cliente')
+
+    if es_cliente:
+        subject = f"[RECORDATORIO DE PAGO] Vencimiento de cuota pendiente - SIGEX"
+        badge_html = f"""
+        <span style="background-color: #fff5f5; border: 1px solid #fed7d7; color: #e53e3e; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+            📅 Recordatorio de Pago - {dias_anticipacion} Días
+        </span>
+        """
+        titulo_seccion = "Aviso de Vencimiento de Pago"
+        saludo = f"Estimado(a) cliente <strong>{usuario.nombre}</strong>,"
+        mensaje_intro = f"Le informamos que tiene una cuota/partida de pago pendiente en su plan de honorarios que vencerá en <strong>{dias_anticipacion} días</strong>:"
+        cierre = "Le solicitamos realizar el pago correspondiente antes de la fecha límite para evitar recargos o mora."
+        boton_texto = "Ver Estado de Pagos en el Portal"
+        boton_url = "http://localhost:5000/dashboard"
+    else:
+        subject = f"[ALERTA {dias_anticipacion} DÍAS] Vencimiento de {tipo_alerta} - SIGEX"
+        badge_html = f"""
+        <span style="background-color: #fffaf0; border: 1px solid #feebc8; color: #dd6b20; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+            ⚠️ Alerta Preventiva - {dias_anticipacion} Días
+        </span>
+        """
+        titulo_seccion = "Vencimiento Próximo"
+        saludo = f"Estimado(a) abogado(a) <strong>{usuario.nombre}</strong>,"
+        mensaje_intro = f"Le notificamos que el siguiente vencimiento bajo su responsabilidad vencerá en <strong>{dias_anticipacion} días</strong>:"
+        cierre = "Por favor, tome las medidas correspondientes para dar cumplimiento a esta gestión dentro del plazo establecido."
+        boton_texto = "Ir a la Agenda en SIGEX"
+        boton_url = "http://localhost:5000/agenda"
+
     body_html = f"""
     <html>
         <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #2d3748; background-color: #f7fafc; padding: 30px;">
             <div style="max-width: 600px; margin: 0 auto; padding: 30px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
                 <div style="text-align: center; margin-bottom: 25px;">
-                    <span style="background-color: #fffaf0; border: 1px solid #feebc8; color: #dd6b20; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
-                        ⚠️ Alerta Preventiva - {dias_anticipacion} Días
-                    </span>
+                    {badge_html}
                 </div>
                 <h2 style="color: #c53030; font-weight: bold; margin-top: 10px; margin-bottom: 20px; font-size: 1.4rem; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;">
-                    Vencimiento Próximo
+                    {titulo_seccion}
                 </h2>
-                <p>Estimado(a) abogado(a) <strong>{usuario.nombre}</strong>,</p>
-                <p>Le notificamos que el siguiente vencimiento bajo su responsabilidad vencerá en <strong>{dias_anticipacion} días</strong>:</p>
+                <p>{saludo}</p>
+                <p>{mensaje_intro}</p>
                 
                 <div style="background-color: #f7fafc; border-left: 4px solid #c53030; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
@@ -167,11 +201,11 @@ def enviar_email_alerta_preventiva(usuario, plazo, dias_anticipacion):
                     </table>
                 </div>
                 
-                <p>Por favor, tome las medidas correspondientes para dar cumplimiento a esta gestión dentro del plazo establecido.</p>
+                <p>{cierre}</p>
                 
                 <div style="margin: 30px 0; text-align: center;">
-                    <a href="http://localhost:5000/agenda" style="background-color: #00409A; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(0,64,154,0.25);">
-                        Ir a la Agenda en SIGEX
+                    <a href="{boton_url}" style="background-color: #00409A; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(0,64,154,0.25);">
+                        {boton_texto}
                     </a>
                 </div>
                 

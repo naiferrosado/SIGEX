@@ -1,0 +1,361 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<style>
+    .billing-card-kpi {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease;
+        background: #ffffff;
+    }
+    .billing-card-kpi:hover {
+        transform: translateY(-2px);
+    }
+    .text-sigex-blue {
+        color: #00409A;
+    }
+    .bg-sigex-blue {
+        background-color: #00409A;
+    }
+    .badge-status {
+        font-weight: 600;
+        font-size: 0.75rem;
+        padding: 0.35em 0.6em;
+        border-radius: 6px;
+        text-transform: uppercase;
+    }
+    .badge-pendiente {
+        background-color: #feebc8;
+        color: #c05621;
+    }
+    .badge-parcial {
+        background-color: #e2e8f0;
+        color: #4a5568;
+    }
+    .badge-cobrado {
+        background-color: #c6f6d5;
+        color: #22543d;
+    }
+    .badge-mora {
+        background-color: #fed7d7;
+        color: #9b2c2c;
+    }
+    .badge-anulado {
+        background-color: #edf2f7;
+        color: #718096;
+    }
+    
+    .table th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+    .btn-action {
+        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.85rem;
+    }
+</style>
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1" style="color: #071c4d;">Consola de Facturación</h1>
+            <p class="text-muted small mb-0">Control administrativo de cobros, igualadas de honorarios y plazos vencidos.</p>
+        </div>
+        {% if current_user.rol in ['Socio', 'Asociado', 'Administrador'] %}
+        <div>
+            <a href="{{ url_for('crear_factura') }}" class="btn btn-primary d-flex align-items-center gap-2 fw-semibold px-3 py-2 shadow-sm" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;">
+                <i class="bi bi-plus-lg"></i> Registrar Factura
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+                    {{ message|safe }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- KPIs Financieros -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card billing-card-kpi p-3 border-start border-4 border-primary">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold d-block mb-1">Total Facturado</span>
+                        <h4 class="fw-bold text-dark mb-0">RD$ {{ "{:,.2f}".format(total_facturado) }}</h4>
+                    </div>
+                    <div class="p-2 bg-primary bg-opacity-10 text-primary rounded-circle">
+                        <i class="bi bi-wallet2 fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card billing-card-kpi p-3 border-start border-4 border-success">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold d-block mb-1">Total Cobrado</span>
+                        <h4 class="fw-bold text-success mb-0">RD$ {{ "{:,.2f}".format(total_cobrado) }}</h4>
+                    </div>
+                    <div class="p-2 bg-success bg-opacity-10 text-success rounded-circle">
+                        <i class="bi bi-cash-stack fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card billing-card-kpi p-3 border-start border-4 border-warning">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold d-block mb-1">Balance Pendiente</span>
+                        <h4 class="fw-bold text-warning mb-0">RD$ {{ "{:,.2f}".format(total_pendiente) }}</h4>
+                    </div>
+                    <div class="p-2 bg-warning bg-opacity-10 text-warning rounded-circle">
+                        <i class="bi bi-clock fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card billing-card-kpi p-3 border-start border-4 border-danger">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold d-block mb-1">Balance en Mora</span>
+                        <h4 class="fw-bold text-danger mb-0">RD$ {{ "{:,.2f}".format(total_mora) }}</h4>
+                    </div>
+                    <div class="p-2 bg-danger bg-opacity-10 text-danger rounded-circle">
+                        <i class="bi bi-exclamation-triangle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de Búsqueda -->
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+        <div class="card-body py-3">
+            <form method="GET" action="{{ url_for('listar_facturas') }}" class="row g-2 align-items-center">
+                {% if status_filter %}
+                    <input type="hidden" name="status" value="{{ status_filter }}">
+                {% endif %}
+                
+                {% if current_user.rol != 'Cliente' %}
+                <div class="col-md-4">
+                    <div class="position-relative">
+                        <input type="text" id="cliente_search" name="cliente_search" class="form-control form-control-sm" placeholder="Buscar Cliente por Nombre o Cédula" value="{{ cliente_search or '' }}" style="border-radius: 8px;" autocomplete="off">
+                        <div id="cliente_suggestions" class="dropdown-menu w-100 shadow-sm" style="display: none; max-height: 250px; overflow-y: auto; z-index: 1050; position: absolute; top: 100%; left: 0;"></div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-{% if current_user.rol != 'Cliente' %}4{% else %}8{% endif %}">
+                    <input type="text" name="ncf" class="form-control form-control-sm" placeholder="Buscar por NCF o Código" value="{{ ncf_filter or '' }}" style="border-radius: 8px;">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary btn-sm w-100 fw-semibold" style="border-radius: 8px;"><i class="bi bi-funnel"></i> Filtrar</button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{{ url_for('listar_facturas', status=status_filter) }}" class="btn btn-outline-secondary btn-sm w-100" style="border-radius: 8px;">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pestañas de Estados y Listado -->
+    <div class="card border-0 shadow-sm" style="border-radius: 16px;">
+        <div class="card-header bg-white border-0 pt-3 px-4">
+            <ul class="nav nav-tabs card-header-tabs" id="statusTabs">
+                <li class="nav-item">
+                    <a class="nav-link {% if not status_filter %}active{% endif %}" href="{{ url_for('listar_facturas', cliente_search=cliente_search, ncf=ncf_filter) }}">Todas</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'Pendiente' %}active{% endif %}" href="{{ url_for('listar_facturas', status='Pendiente', cliente_search=cliente_search, ncf=ncf_filter) }}">Pendientes</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'Pagada Parcial' %}active{% endif %}" href="{{ url_for('listar_facturas', status='Pagada Parcial', cliente_search=cliente_search, ncf=ncf_filter) }}">Pagadas Parcial</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'Pagada' or status_filter == 'Cobrado' %}active{% endif %}" href="{{ url_for('listar_facturas', status='Pagada', cliente_search=cliente_search, ncf=ncf_filter) }}">Completadas</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'Mora' %}active{% endif %}" href="{{ url_for('listar_facturas', status='Mora', cliente_search=cliente_search, ncf=ncf_filter) }}">En Mora</a>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="px-4" style="width: 10%;">ID / NCF</th>
+                            <th style="width: 25%;">Cliente</th>
+                            <th style="width: 15%;">Fecha Emisión</th>
+                            <th style="width: 15%; text-align: right;">Total General</th>
+                            <th style="width: 15%; text-align: right;">Total Cobrado</th>
+                            <th style="width: 10%; text-align: center;">Estado</th>
+                            <th class="text-center" style="width: 10%;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f, est in facturas_con_estado %}
+                        <tr>
+                            <td class="px-4">
+                                <span class="fw-bold text-dark">{{ f.id }}</span>
+                                {% if f.ncf %}
+                                    <div class="text-muted small fw-semibold" style="font-size: 0.75rem;">{{ f.ncf }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ f.cliente.nombre_completo }}</div>
+                                {% if f.expediente %}
+                                    <div class="text-muted small" style="font-size: 0.75rem;"><i class="bi bi-briefcase me-1"></i>{{ f.expediente.nombre_caso }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ f.fecha_emision.strftime('%d/%m/%Y') }}</td>
+                            <td class="text-right fw-bold text-dark">RD$ {{ "{:,.2f}".format(f.monto_total) }}</td>
+                            <td class="text-right text-success fw-bold">RD$ {{ "{:,.2f}".format(f.total_pagado) }}</td>
+                            <td class="text-center">
+                                {% if est == 'Pagada' or est == 'Cobrado' %}
+                                    <span class="badge-status badge-cobrado">Completada</span>
+                                {% elif est == 'Pagada Parcial' or est == 'Cobrado Parcial' %}
+                                    <span class="badge-status badge-parcial">Parcial</span>
+                                {% elif est == 'Anulado' %}
+                                    <span class="badge-status badge-anulado">Anulada</span>
+                                {% else %}
+                                    <span class="badge-status badge-pendiente">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center px-4">
+                                 <div class="d-flex justify-content-center gap-2">
+                                     <a href="{{ url_for('ver_detalle_factura', factura_id=f.id) }}" class="btn btn-white btn-action border shadow-sm text-sigex-blue" title="Ver detalle de cuotas y cobros">
+                                         <i class="bi bi-eye-fill"></i>
+                                     </a>
+                                     {% if current_user.rol in ['Socio', 'Administrador'] %}
+                                     <a href="{{ url_for('editar_factura', factura_id=f.id) }}" class="btn btn-white btn-action border shadow-sm text-warning" title="Editar Factura">
+                                         <i class="bi bi-pencil-fill"></i>
+                                     </a>
+                                     {% endif %}
+                                     <a href="{{ url_for('descargar_factura_pdf', factura_id=f.id) }}" target="_blank" class="btn btn-white btn-action border shadow-sm text-danger" title="Descargar PDF">
+                                         <i class="bi bi-file-earmark-pdf-fill"></i>
+                                     </a>
+                                 </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-receipt-cutoff fs-2 mb-2 d-block"></i>
+                                No se encontraron facturas o comprobantes registrados bajo los filtros seleccionados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        const $clienteSearch = $('#cliente_search');
+        const $suggestions = $('#cliente_suggestions');
+
+        if ($clienteSearch.length) {
+            function debounce(func, wait) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            }
+
+            const buscarClientesSugeridos = debounce(function() {
+                const query = $clienteSearch.val().trim();
+                
+                if (query.length < 2) {
+                    $suggestions.empty().hide();
+                    return;
+                }
+
+                $.ajax({
+                    url: `/clientes/buscar?q=${encodeURIComponent(query)}`,
+                    method: 'GET',
+                    success: function(data) {
+                        $suggestions.empty();
+                        
+                        if (data && data.length > 0) {
+                            data.forEach(function(c) {
+                                const optionText = c.rnc_cedula ? `${c.nombre} (${c.rnc_cedula})` : c.nombre;
+                                const item = $('<a class="dropdown-item" href="#"></a>')
+                                    .text(optionText)
+                                    .attr('data-nombre', c.nombre);
+                                
+                                $suggestions.append(item);
+                            });
+                            $suggestions.show();
+                        } else {
+                            $suggestions.append('<span class="dropdown-item text-muted">No se encontraron resultados</span>').show();
+                        }
+                    },
+                    error: function(err) {
+                        console.error("Error al buscar sugerencias de clientes:", err);
+                    }
+                });
+            }, 300);
+
+            $clienteSearch.on('input', buscarClientesSugeridos);
+
+            // Click en una sugerencia
+            $(document).on('click', '#cliente_suggestions .dropdown-item', function(e) {
+                e.preventDefault();
+                const nombre = $(this).attr('data-nombre');
+                if (!nombre) return;
+
+                $clienteSearch.val(nombre);
+                $suggestions.empty().hide();
+                
+                // Enviar el formulario automáticamente al seleccionar
+                $clienteSearch.closest('form').submit();
+            });
+
+            // Ocultar sugerencias al hacer clic fuera
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#cliente_search, #cliente_suggestions').length) {
+                    $suggestions.hide();
+                }
+            });
+
+            // Mostrar de nuevo si tiene sugerencias al hacer focus
+            $clienteSearch.on('focus', function() {
+                if ($suggestions.children().length > 0) {
+                    $suggestions.show();
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

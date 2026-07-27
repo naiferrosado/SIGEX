@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Factura - {{ factura.ncf or factura.id }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 18mm 15mm 18mm 15mm;
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 10mm;
+                left: 15mm;
+                width: 180mm;
+                height: 10mm;
+            }
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            font-size: 10pt;
+            line-height: 1.5;
+        }
+        
+        /* Branding & Header */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .header-logo {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #00409A;
+            line-height: 1;
+        }
+        .header-subtitle {
+            font-size: 9pt;
+            color: #718096;
+            margin-top: 5px;
+        }
+        .invoice-title-box {
+            text-align: right;
+        }
+        .invoice-title {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #00409A;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .invoice-meta-table {
+            float: right;
+            border-collapse: collapse;
+            margin-top: 5px;
+            font-size: 9pt;
+        }
+        .invoice-meta-table td {
+            padding: 2px 0 2px 10px;
+        }
+        .invoice-meta-label {
+            font-weight: bold;
+            color: #718096;
+            text-align: right;
+        }
+        .invoice-meta-value {
+            color: #2d3748;
+            text-align: left;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        /* Divider */
+        .divider {
+            border-top: 2px solid #00409A;
+            margin: 15px 0;
+        }
+
+        /* Client & Case Details Box */
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .details-card {
+            background-color: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            vertical-align: top;
+            width: 48%;
+        }
+        .details-title {
+            font-size: 9pt;
+            font-weight: bold;
+            color: #00409A;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 4px;
+        }
+        .details-row {
+            margin-bottom: 4px;
+            font-size: 9.5pt;
+        }
+        .details-label {
+            color: #718096;
+            font-weight: bold;
+            display: inline-block;
+            width: 80px;
+        }
+
+        /* Services & Pricing Table */
+        .content-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .content-table th {
+            background-color: #00409A;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 8.5pt;
+            padding: 8px 10px;
+            text-align: left;
+            border: 1px solid #00409A;
+        }
+        .content-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 9.5pt;
+        }
+        .text-right {
+            text-align: right !important;
+        }
+        .text-center {
+            text-align: center !important;
+        }
+
+        /* Summary Calculations */
+        .summary-wrapper {
+            width: 100%;
+            margin-top: 15px;
+            margin-bottom: 30px;
+        }
+        .summary-table {
+            width: 250px;
+            float: right;
+            border-collapse: collapse;
+        }
+        .summary-table td {
+            padding: 6px 10px;
+            font-size: 9.5pt;
+        }
+        .summary-label {
+            color: #718096;
+            font-weight: bold;
+            text-align: right;
+        }
+        .summary-value {
+            text-align: right;
+            font-weight: bold;
+        }
+        .total-row {
+            background-color: #edf2f7;
+            border-top: 1px solid #cbd5e0;
+            border-bottom: 1px solid #cbd5e0;
+        }
+        .total-label {
+            color: #00409A;
+            font-size: 11pt;
+        }
+        .total-value {
+            color: #00409A;
+            font-size: 12pt;
+        }
+
+        /* Payment Installments / Cuotas section */
+        .installments-section {
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            page-break-inside: avoid;
+        }
+        .installments-title {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #00409A;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            border-bottom: 1.5px solid #edf2f7;
+            padding-bottom: 4px;
+        }
+        .installments-desc {
+            font-size: 8.5pt;
+            color: #718096;
+            margin-bottom: 12px;
+        }
+        .installments-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .installments-table th {
+            background-color: #f7fafc;
+            color: #4a5568;
+            font-weight: bold;
+            font-size: 8pt;
+            padding: 6px 10px;
+            text-align: left;
+            border-bottom: 1px solid #cbd5e0;
+        }
+        .installments-table td {
+            padding: 8px 10px;
+            border-bottom: 1px dotted #e2e8f0;
+            font-size: 9pt;
+        }
+        .status-badge {
+            font-size: 7.5pt;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .status-pending {
+            background-color: #feebc8;
+            color: #c05621;
+        }
+        .status-paid {
+            background-color: #c6f6d5;
+            color: #22543d;
+        }
+
+        /* Footer policy notes */
+        .footer-note {
+            margin-top: 40px;
+            font-size: 8pt;
+            color: #a0aec0;
+            text-align: center;
+            border-top: 1px solid #edf2f7;
+            padding-top: 15px;
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Table -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 55%; vertical-align: top;">
+                <div class="header-logo">ROSADO MÉNDEZ</div>
+                <div class="header-subtitle">
+                    Firma de Abogados & Consultoría Jurídica<br>
+                    RNC: 1-32-45678-9 | Tel: (809) 555-0199<br>
+                    Av. Winston Churchill, Torre Blue Mall, Piso 12, Santo Domingo, R.D.
+                </div>
+            </td>
+            <td style="width: 45%; vertical-align: top;" class="invoice-title-box">
+                <div class="invoice-title">Factura de Honorarios</div>
+                <table class="invoice-meta-table">
+                    <tr>
+                        <td class="invoice-meta-label">Factura N°:</td>
+                        <td class="invoice-meta-value" style="font-weight: bold;">{{ factura.id | string | replace("None", "") }}</td>
+                    </tr>
+                    {% if factura.ncf %}
+                    <tr>
+                        <td class="invoice-meta-label">NCF:</td>
+                        <td class="invoice-meta-value" style="font-weight: bold; color: #00409A;">{{ factura.ncf }}</td>
+                    </tr>
+                    {% if factura.ncf_valido_hasta %}
+                    <tr>
+                        <td class="invoice-meta-label">Vence NCF:</td>
+                        <td class="invoice-meta-value">{{ factura.ncf_valido_hasta.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endif %}
+                    <tr>
+                        <td class="invoice-meta-label">Tipo Comprobante:</td>
+                        <td class="invoice-meta-value">
+                            {% if factura.tipo_comprobante == '01' %}Crédito Fiscal (01)
+                            {% elif factura.tipo_comprobante == '02' %}Consumo (02)
+                            {% elif factura.tipo_comprobante == '14' %}Gubernamental (14)
+                            {% elif factura.tipo_comprobante == '15' %}Regímenes Especiales (15)
+                            {% else %}{{ factura.tipo_comprobante }}{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="invoice-meta-label">Fecha Emisión:</td>
+                        <td class="invoice-meta-value">{{ factura.fecha_emision.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <div class="clear"></div>
+    <div class="divider"></div>
+
+    <!-- Details Box (Client & Case) -->
+    <table class="details-table">
+        <tr>
+            <td class="details-card" style="margin-right: 4%;">
+                <div class="details-title">Datos del Cliente</div>
+                <div class="details-row">
+                    <span class="details-label">Cliente:</span>
+                    <strong>{{ factura.cliente.nombre_completo }}</strong>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">RNC / Céd.:</span>
+                    {{ factura.cliente.rnc_cedula }}
+                </div>
+                {% if factura.cliente.email_contacto %}
+                <div class="details-row">
+                    <span class="details-label">Email:</span>
+                    {{ factura.cliente.email_contacto }}
+                </div>
+                {% endif %}
+                {% if factura.cliente.direccion %}
+                <div class="details-row">
+                    <span class="details-label">Dirección:</span>
+                    {{ factura.cliente.direccion }}
+                </div>
+                {% endif %}
+            </td>
+            <td class="details-card">
+                <div class="details-title">Referencia del Caso</div>
+                {% if factura.expediente %}
+                <div class="details-row">
+                    <span class="details-label">Caso/Exp:</span>
+                    <strong>{{ factura.expediente.nombre_caso }}</strong>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Código:</span>
+                    {{ factura.expediente.codigo_firma }}
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Trámite:</span>
+                    {{ factura.expediente.tipo_tramite }}
+                </div>
+                {% else %}
+                <div class="details-row" style="color: #718096; font-style: italic; margin-top: 10px;">
+                    Factura de honorarios generales independiente (no vinculada a expedientes específicos).
+                </div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <!-- Services / Items Table -->
+    <table class="content-table">
+        <thead>
+            <tr>
+                <th style="width: 55%;">Descripción del Servicio / Honorario</th>
+                <th style="width: 10%; text-align: center;">Cant.</th>
+                <th style="width: 15%; text-align: right;">P. Unitario</th>
+                <th style="width: 20%; text-align: right;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in factura.detalles %}
+            <tr>
+                <td>{{ detalle.descripcion }}</td>
+                <td class="text-center">{{ detalle.cantidad }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(detalle.precio_unitario) }}</td>
+                <td class="text-right" style="font-weight: bold;">RD$ {{ "{:,.2f}".format(detalle.subtotal) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center" style="color: #718096; font-style: italic;">No se cargaron detalles de servicios.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Summary / Totals -->
+    <div class="summary-wrapper">
+        <table class="summary-table">
+            <tr>
+                <td class="summary-label">Subtotal:</td>
+                <td class="summary-value">RD$ {{ "{:,.2f}".format(factura.monto_subtotal) }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">ITBIS (18%):</td>
+                <td class="summary-value">RD$ {{ "{:,.2f}".format(factura.monto_itbis) }}</td>
+            </tr>
+            <tr class="total-row">
+                <td class="summary-label total-label">Total General:</td>
+                <td class="summary-value total-value">RD$ {{ "{:,.2f}".format(factura.monto_total) }}</td>
+            </tr>
+        </table>
+        <div class="clear"></div>
+    </div>
+
+    <!-- Payment Installments / Cuotas (Partidas de Pago) -->
+    <div class="installments-section">
+        <div class="installments-title">Estructura y Plan de Pagos Acordado</div>
+        <div class="installments-desc">
+            Esta factura/igualada ha sido estructurada en pagos fraccionados o cuotas por plazos. 
+            <strong>Condición General:</strong> Pago a {{ factura.plazo_pago_dias or 30 }} días.
+            {% if factura.tasa_mora_mensual and factura.tasa_mora_mensual > 0 %}
+            Se aplicará un cargo mensual por concepto de mora del <strong>{{ "{:,.2f}".format(factura.tasa_mora_mensual) }}%</strong> sobre el saldo vencido de cualquier cuota impagada posterior a su fecha límite indicada.
+            {% else %}
+            Sin recargo de mora mensual configurado por defecto.
+            {% endif %}
+        </div>
+
+        <table class="installments-table">
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Hito / Concepto de Partida</th>
+                    <th style="width: 25%; text-align: right;">Monto Cuota</th>
+                    <th style="width: 20%; text-align: center;">Vencimiento</th>
+                    <th style="width: 10%; text-align: center;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for partida in factura.partidas %}
+                <tr>
+                    <td>{{ partida.descripcion_partida }}</td>
+                    <td class="text-right" style="font-weight: bold;">RD$ {{ "{:,.2f}".format(partida.monto) }}</td>
+                    <td class="text-center">{{ partida.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-center">
+                        {% if partida.estado_pago == 'Pagado' %}
+                        <span class="status-badge status-paid">Pagado</span>
+                        {% else %}
+                        <span class="status-badge status-pending">Pendiente</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center" style="color: #718096; font-style: italic;">No se definieron cuotas o partidas de pago específicas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer Note -->
+    <div class="footer-note">
+        ¡Gracias por depositar su confianza en Rosado Méndez!<br>
+        Si tiene alguna duda con respecto a esta factura de honorarios o su plan de pagos, por favor contáctenos a la brevedad.<br>
+        <em>Este documento impreso es un comprobante de cobro emitido de conformidad con la Ley General de Facturación.</em>
+    </div>
+
+    <!-- Footer Content for Page Numbering -->
+    <div id="footerContent" style="text-align: right; font-size: 8pt; color: #718096; font-family: Arial, sans-serif;">
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+
+</body>
+</html>
