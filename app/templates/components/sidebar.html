@@ -186,6 +186,15 @@
                 </li>
                 {% endif %}
                 
+                {% if current_user.rol in ['Socio', 'Asociado', 'Administrador'] %}
+                <li class="nav-item">
+                    <a href="{{ url_for('listar_facturas') }}" class="nav-link {% if request.endpoint in ['listar_facturas', 'crear_factura', 'ver_detalle_factura'] %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                        <i class="bi bi-receipt me-3"></i> 
+                        <span class="menu-text">Facturación</span>
+                    </a>
+                </li>
+                {% endif %}
+                
                 {% if current_user.rol == 'Administrador' %}
                 <hr class="text-white-50 my-2">
                 <li class="nav-item">

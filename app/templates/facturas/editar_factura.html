@@ -1,0 +1,953 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<!-- Estilos y Dependencias de Select2 y Estilos Personalizados Modernos -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Estilos del Creador de Facturas en Pasos (Wizard) */
+    .wizard-steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        position: relative;
+        padding: 0 10px;
+    }
+    .wizard-steps::before {
+        content: "";
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background-color: #e2e8f0;
+        z-index: 1;
+    }
+    .wizard-step {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        width: 30%;
+    }
+    .wizard-step-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background-color: #e2e8f0;
+        color: #718096;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 8px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        border: 4px solid #ffffff;
+        transition: all 0.3s ease;
+    }
+    .wizard-step.active .wizard-step-circle {
+        background-color: #00409A;
+        color: white;
+        box-shadow: 0 0 0 4px rgba(0, 64, 154, 0.2);
+    }
+    .wizard-step.completed .wizard-step-circle {
+        background-color: #198754;
+        color: white;
+    }
+    .wizard-step-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #718096;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .wizard-step.active .wizard-step-label {
+        color: #00409A;
+    }
+    .wizard-step.completed .wizard-step-label {
+        color: #198754;
+    }
+
+    .billing-card {
+        border: none;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+    .billing-card-header {
+        background-color: #f8fafc;
+        border-bottom: 1px solid #f1f5f9;
+        border-top-left-radius: 16px !important;
+        border-top-right-radius: 16px !important;
+        padding: 1.5rem;
+    }
+    .text-sigex-blue {
+        color: #00409A;
+    }
+    
+    .select2-container--default .select2-selection--single {
+        height: 38px !important;
+        border: 1px solid #dee2e6 !important;
+        border-radius: 8px !important;
+        padding-top: 4px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px !important;
+    }
+    .select2-dropdown {
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .remove-row-btn {
+        color: #e53e3e;
+        cursor: pointer;
+        font-size: 1.2rem;
+        transition: color 0.15s ease;
+    }
+    .remove-row-btn:hover {
+        color: #9b2c2c;
+    }
+    .progress-custom {
+        height: 10px;
+        border-radius: 5px;
+        background-color: #edf2f7;
+        overflow: hidden;
+    }
+    .floating-summary {
+        background-color: #f8fafc;
+        border-radius: 12px;
+        padding: 1.25rem;
+        border: 1px dashed #cbd5e0;
+    }
+    .info-box {
+        background-color: #ebf8ff;
+        border-left: 4px solid #3182ce;
+        color: #2b6cb0;
+        padding: 1rem;
+        border-radius: 0 8px 8px 0;
+        font-size: 0.85rem;
+    }
+</style>
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1" style="color: #071c4d;">Editar Factura #{{ factura.id }}</h1>
+            <p class="text-muted small mb-0">Modifique los servicios, condiciones y el plan de pagos de la factura con justificación obligatoria.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('ver_detalle_factura', factura_id=factura.id) }}" class="btn btn-outline-secondary btn-sm px-3 py-2" style="border-radius: 8px;">
+                <i class="bi bi-arrow-left"></i> Cancelar y Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+                    {{ message|safe }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Indicador de Pasos del Wizard -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-md-9">
+            <div class="wizard-steps">
+                <div class="wizard-step active" id="step-indicator-1">
+                    <div class="wizard-step-circle">1</div>
+                    <div class="wizard-step-label">Datos Generales</div>
+                </div>
+                <div class="wizard-step" id="step-indicator-2">
+                    <div class="wizard-step-circle">2</div>
+                    <div class="wizard-step-label">Honorarios</div>
+                </div>
+                <div class="wizard-step" id="step-indicator-3">
+                    <div class="wizard-step-circle">3</div>
+                    <div class="wizard-step-label">Plan de Pagos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario Único con divisiones por secciones para el Wizard -->
+    <div class="row justify-content-center">
+        <div class="col-md-9">
+            <form id="facturaForm" method="POST" action="{{ url_for('editar_factura', factura_id=factura.id) }}" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <!-- SECCIÓN 1: DATOS GENERALES -->
+                <div class="card billing-card shadow-sm wizard-section" id="section-1">
+                    <div class="billing-card-header">
+                        <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-person-fill me-2"></i>Paso 1: Datos del Cliente y Plazos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="cliente_search" class="form-label small fw-bold text-muted">Cliente <span class="text-danger">*</span></label>
+                                <div class="position-relative">
+                                    <input type="text" id="cliente_search" class="form-control form-control-sm" placeholder="Escriba nombre o cédula del cliente..." required autocomplete="off" style="border-radius: 8px;" value="{{ factura.cliente.nombre_completo }}">
+                                    <input type="hidden" id="cliente_id" name="cliente_id" required value="{{ factura.cliente_id }}">
+                                    <div id="cliente_suggestions" class="dropdown-menu w-100 shadow-sm" style="display: none; max-height: 250px; overflow-y: auto; z-index: 1050; position: absolute; top: 100%; left: 0;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="expediente_id" class="form-label small fw-bold text-muted">Expediente Asociado <span class="text-danger">*</span></label>
+                                <select id="expediente_id" name="expediente_id" class="form-select form-select-sm" required style="border-radius: 8px;">
+                                    {% for exp in expedientes %}
+                                        <option value="{{ exp.id }}" {% if exp.id == factura.expediente_id %}selected{% endif %}>{{ exp.nombre_caso }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div id="no-expedientes-warning" class="alert alert-danger py-2 px-3 small d-none align-items-center gap-2 mt-3 mb-0" style="border-radius: 8px;">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>Este cliente no tiene expedientes registrados. No se le puede emitir una factura.</span>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="ncf" class="form-label small fw-bold text-muted">NCF (Comprobante Fiscal)</label>
+                                <input type="text" id="ncf" name="ncf" class="form-control form-control-sm text-uppercase fw-semibold" value="{{ factura.ncf or 'GENERADO AUTOMÁTICAMENTE' }}" disabled style="border-radius: 8px; background-color: #e9ecef; color: #495057;">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="tipo_comprobante" class="form-label small fw-bold text-muted">Tipo de Comprobante <span class="text-danger">*</span></label>
+                                <select id="tipo_comprobante" name="tipo_comprobante" class="form-select form-select-sm" required style="border-radius: 8px;">
+                                    <option value="01" {% if factura.tipo_comprobante == '01' %}selected{% endif %}>Crédito Fiscal (01)</option>
+                                    <option value="02" {% if factura.tipo_comprobante == '02' %}selected{% endif %}>Consumo (02)</option>
+                                    <option value="14" {% if factura.tipo_comprobante == '14' %}selected{% endif %}>Gubernamental (14)</option>
+                                    <option value="15" {% if factura.tipo_comprobante == '15' %}selected{% endif %}>Regímenes Especiales (15)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="fecha_emision" class="form-label small fw-bold text-muted">Fecha Emisión <span class="text-danger">*</span></label>
+                                <input type="date" id="fecha_emision" name="fecha_emision" class="form-control form-control-sm" value="{{ factura.fecha_emision.strftime('%Y-%m-%d') }}" required style="border-radius: 8px;">
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="plazo_pago_dias" class="form-label small fw-bold text-muted">Plazo de Vencimiento General</label>
+                                <select id="plazo_pago_dias" name="plazo_pago_dias" class="form-select form-select-sm" style="border-radius: 8px;">
+                                    <option value="0" {% if factura.plazo_pago_dias == 0 %}selected{% endif %}>Contado (Inmediato)</option>
+                                    <option value="15" {% if factura.plazo_pago_dias == 15 %}selected{% endif %}>15 Días (Net 15)</option>
+                                    <option value="30" {% if factura.plazo_pago_dias == 30 %}selected{% endif %}>30 Días (Net 30)</option>
+                                    <option value="45" {% if factura.plazo_pago_dias == 45 %}selected{% endif %}>45 Días (Net 45)</option>
+                                    <option value="60" {% if factura.plazo_pago_dias == 60 %}selected{% endif %}>60 Días (Net 60)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="tasa_mora_mensual" class="form-label small fw-bold text-muted">Tasa de Mora Mensual (%)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" id="tasa_mora_mensual" name="tasa_mora_mensual" class="form-control" min="0" max="100" step="0.01" value="{{ factura.tasa_mora_mensual }}" style="border-radius: 8px 0 0 8px;">
+                                    <span class="input-group-text" style="border-radius: 0 8px 8px 0;">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-box d-flex gap-2">
+                            <i class="bi bi-info-circle-fill fs-5"></i>
+                            <div>
+                                <strong>Condiciones Comerciales:</strong> La tasa de mora del <span id="lbl-mora-info">{{ factura.tasa_mora_mensual }}%</span> se aplicará mensualmente a cada cuota configurada que exceda su fecha límite de pago de forma independiente.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex justify-content-end p-3">
+                        <button type="button" class="btn btn-primary px-4 btn-next" data-next="2">Siguiente <i class="bi bi-arrow-right-short"></i></button>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: SERVICIOS Y HONORARIOS -->
+                <div class="card billing-card shadow-sm wizard-section d-none" id="section-2">
+                    <div class="billing-card-header d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-briefcase-fill me-2"></i>Paso 2: Detalle de Honorarios y Servicios</h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btn-add-servicio">
+                            <i class="bi bi-plus-lg"></i> Agregar Línea
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table mb-0" id="servicios-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 55%;" class="ps-4">Descripción del Servicio</th>
+                                        <th style="width: 15%; text-align: center;">Cantidad</th>
+                                        <th style="width: 20%; text-align: right;">Precio Unitario</th>
+                                        <th style="width: 10%; text-align: center;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="servicios-tbody">
+                                    {% for d in factura.detalles %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <input type="text" name="servicio_descripcion[]" class="form-control form-control-sm" value="{{ d.descripcion }}" placeholder="Honorarios por representación judicial..." required style="border-radius: 8px;">
+                                        </td>
+                                        <td>
+                                            <input type="number" name="servicio_cantidad[]" class="form-control form-control-sm input-cantidad text-end" min="1" value="{{ d.cantidad }}" required style="border-radius: 8px;">
+                                        </td>
+                                        <td>
+                                            <input type="number" name="servicio_precio[]" class="form-control form-control-sm input-precio text-end" min="0" step="0.01" value="{{ d.precio_unitario }}" placeholder="0.00" required style="border-radius: 8px;">
+                                        </td>
+                                        <td class="text-center">
+                                            <i class="bi bi-trash3-fill remove-row-btn btn-remove-servicio"></i>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Resumen Financiero -->
+                        <div class="p-4 bg-light border-top rounded-bottom-16">
+                            <div class="row justify-content-end">
+                                <div class="col-md-5">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted fw-semibold small">Subtotal:</span>
+                                        <span class="fw-bold" id="lbl-subtotal">RD$ 0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted fw-semibold small">ITBIS (18%):</span>
+                                        <span class="fw-bold" id="lbl-itbis">RD$ 0.00</span>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-dark fw-bold">Total Factura:</span>
+                                        <span class="fs-5 fw-bold text-sigex-blue" id="lbl-total">RD$ 0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex justify-content-between p-3">
+                        <button type="button" class="btn btn-outline-secondary px-4 btn-prev" data-prev="1"><i class="bi bi-arrow-left-short"></i> Atrás</button>
+                        <button type="button" class="btn btn-primary px-4 btn-next" data-next="3">Siguiente <i class="bi bi-arrow-right-short"></i></button>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 3: PLAN DE PAGOS POR PARTIDAS -->
+                <div class="card billing-card shadow-sm wizard-section d-none" id="section-3">
+                    <div class="billing-card-header d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-calendar-check-fill me-2"></i>Paso 3: Plan de Cuotas e Hitos de Pago</h5>
+                        <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btn-add-partida">
+                            <i class="bi bi-plus-lg"></i> Agregar Hito
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Asistente de cuotas en cabecera -->
+                        <div class="mb-4 p-3 rounded bg-light border">
+                            <label for="asistente_cuotas" class="form-label small fw-bold text-sigex-blue d-flex align-items-center gap-1 mb-2">
+                                <i class="bi bi-magic"></i> ¿Cómo deseas estructurar este plan de cobros?
+                            </label>
+                            <select id="asistente_cuotas" class="form-select form-select-sm" style="border-radius: 8px;">
+                                <option value="1">Pago Único (100% al vencimiento del plazo)</option>
+                                <option value="2">2 Cuotas Quincenales (50% / 50%)</option>
+                                <option value="3">3 Cuotas Mensuales (33.3% / 33.3% / 33.4%)</option>
+                                <option value="4">4 Cuotas Trimestrales (25% cada una)</option>
+                                <option value="custom" selected>Personalizado (Crear hitos manualmente)</option>
+                            </select>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                El asistente dividirá el monto de forma exacta, cuadrando los centavos decimales en la última cuota para evitar descuadres fiscales.
+                            </small>
+                        </div>
+
+                        <!-- Tabla de Partidas -->
+                        <div class="table-responsive mb-4">
+                            <table class="table table-sm align-middle" id="partidas-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 45%;">Hito / Concepto de Cuota</th>
+                                        <th style="width: 25%; text-align: right;">Monto (RD$)</th>
+                                        <th style="width: 25%; text-align: center;">Fecha Vencimiento</th>
+                                        <th style="width: 5%; text-align: center;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="partidas-tbody">
+                                    {% for p in factura.partidas %}
+                                    <tr>
+                                        <td>
+                                            <input type="text" name="partida_descripcion[]" class="form-control form-control-sm" value="{{ p.descripcion_partida }}" placeholder="Ej: Pago Inicial" required style="border-radius: 6px;">
+                                        </td>
+                                        <td>
+                                            <input type="number" name="partida_monto[]" class="form-control form-control-sm input-partida-monto text-end" min="0.01" step="0.01" value="{{ p.monto }}" placeholder="0.00" required style="border-radius: 6px;">
+                                        </td>
+                                        <td>
+                                            <input type="date" name="partida_fecha[]" class="form-control form-control-sm" value="{{ p.fecha_vencimiento.strftime('%Y-%m-%d') }}" required style="border-radius: 6px;">
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            <i class="bi bi-trash3 remove-row-btn btn-remove-partida" style="font-size: 1rem;"></i>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Campo de Justificación de Edición -->
+                        <div class="mb-4 p-3 border rounded bg-light" style="border-radius: 12px;">
+                            <label for="justificacion_edicion" class="form-label small fw-bold text-danger d-flex align-items-center gap-1 mb-2">
+                                <i class="bi bi-chat-left-text-fill"></i> Justificación de la Edición <span class="text-danger">*</span>
+                            </label>
+                            <textarea id="justificacion_edicion" name="justificacion_edicion" class="form-control form-control-sm" rows="3" required placeholder="Indique de forma detallada la justificación por la cual edita la factura... (Requerido para la bitácora)"></textarea>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                Este cambio quedará registrado permanentemente en el registro de auditoría del sistema para control fiscal interno.
+                            </small>
+                        </div>
+
+                        <!-- Validación de Sumatoria -->
+                        <div class="floating-summary mb-3">
+                            <h6 class="fw-bold mb-3 small text-muted text-uppercase">Estado del Cuadre de Pagos</h6>
+                            
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <span class="text-muted small d-block">Total de la Factura:</span>
+                                    <span class="fw-bold text-dark" id="lbl-total-validar">RD$ 0.00</span>
+                                </div>
+                                <div class="col-6 mb-2 text-end">
+                                    <span class="text-muted small d-block">Total Distribuido:</span>
+                                    <span class="fw-bold text-dark" id="lbl-distribuido">RD$ 0.00</span>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-muted small" id="lbl-diferencia-desc">Diferencia:</span>
+                                        <span class="fw-bold text-danger small" id="lbl-diferencia">RD$ 0.00</span>
+                                    </div>
+                                    <div class="progress progress-custom">
+                                        <div id="progress-val" class="progress-bar bg-danger" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="validation-alert" class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-0" role="alert" style="border-radius: 8px;">
+                                <i class="bi bi-exclamation-circle-fill"></i>
+                                <span id="validation-alert-text">Debe definir los servicios primero en el Paso 2.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex justify-content-between p-3">
+                        <button type="button" class="btn btn-outline-secondary px-4 btn-prev" data-prev="2"><i class="bi bi-arrow-left-short"></i> Atrás</button>
+                        <button type="submit" id="btn-save-factura" class="btn btn-success px-4" disabled><i class="bi bi-check-circle me-1"></i> Guardar Cambios</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        let totalFactura = 0;
+        let controlManualPartidas = true; // Activo por defecto en edición para conservar las cargadas
+
+        // Autocomplete de clientes en tiempo real
+        const $clienteSearch = $('#cliente_search');
+        const $clienteId = $('#cliente_id');
+        const $suggestions = $('#cliente_suggestions');
+
+        // Función debounce para no saturar el servidor al escribir
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        const buscarClientesSugeridos = debounce(function() {
+            const query = $clienteSearch.val().trim();
+            
+            if (query.length < 2) {
+                $suggestions.empty().hide();
+                return;
+            }
+
+            $.ajax({
+                url: `/clientes/buscar?q=${encodeURIComponent(query)}`,
+                method: 'GET',
+                success: function(data) {
+                    $suggestions.empty();
+                    
+                    if (data && data.length > 0) {
+                        data.forEach(function(c) {
+                            const optionText = c.rnc_cedula ? `${c.nombre} (${c.rnc_cedula})` : c.nombre;
+                            const item = $('<a class="dropdown-item" href="#"></a>')
+                                .text(optionText)
+                                .attr('data-id', c.id)
+                                .attr('data-nombre', c.nombre)
+                                .attr('data-cedula', c.rnc_cedula || '');
+                            
+                            $suggestions.append(item);
+                        });
+                        $suggestions.show();
+                    } else {
+                        $suggestions.append('<span class="dropdown-item text-muted">No se encontraron resultados</span>').show();
+                    }
+                },
+                error: function(err) {
+                    console.error("Error al buscar sugerencias de clientes:", err);
+                }
+            });
+        }, 300);
+
+        $clienteSearch.on('input', buscarClientesSugeridos);
+
+        // Click en una sugerencia
+        $(document).on('click', '#cliente_suggestions .dropdown-item', function(e) {
+            e.preventDefault();
+            const id = $(this).attr('data-id');
+            const nombre = $(this).attr('data-nombre');
+            const cedula = $(this).attr('data-cedula');
+            
+            if (!id) return;
+
+            const displayName = cedula ? `${nombre} (${cedula})` : nombre;
+            $clienteSearch.val(displayName);
+            $clienteId.val(id).trigger('change');
+            $suggestions.empty().hide();
+        });
+
+        // Ocultar sugerencias al hacer clic fuera
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#cliente_search, #cliente_suggestions').length) {
+                $suggestions.hide();
+            }
+        });
+
+        // Mostrar de nuevo si tiene sugerencias al hacer focus
+        $clienteSearch.on('focus', function() {
+            if ($suggestions.children().length > 0) {
+                $suggestions.show();
+            }
+        });
+
+        // 1. Cargar expedientes por AJAX
+        $('#cliente_id').on('change', function() {
+            const clienteId = $(this).val();
+            const $expedienteSelect = $('#expediente_id');
+            
+            if (!clienteId) {
+                $expedienteSelect.html('<option value="">Seleccione un cliente primero...</option>');
+                $expedienteSelect.prop('disabled', true);
+                return;
+            }
+
+            $expedienteSelect.html('<option value="">Cargando expedientes...</option>');
+            $expedienteSelect.prop('disabled', true);
+
+            $.ajax({
+                url: `/api/clientes/${clienteId}/expedientes`,
+                method: 'GET',
+                success: function(data) {
+                    const $warning = $('#no-expedientes-warning');
+                    if (data && data.length > 0) {
+                        $warning.addClass('d-none').removeClass('d-flex');
+                        let options = '<option value="">Seleccione un expediente...</option>';
+                        data.forEach(function(exp) {
+                            options += `<option value="${exp.id}">${exp.nombre_caso}</option>`;
+                        });
+                        $expedienteSelect.html(options);
+                        $expedienteSelect.prop('disabled', false);
+                    } else {
+                        $warning.removeClass('d-none').addClass('d-flex');
+                        $expedienteSelect.html('<option value="">El cliente no tiene expedientes</option>');
+                        $expedienteSelect.prop('disabled', true);
+                    }
+                },
+                error: function(err) {
+                    console.error("Error al cargar expedientes:", err);
+                    $expedienteSelect.html('<option value="">Error al cargar expedientes</option>');
+                }
+            });
+        });
+
+        // 2. Control de navegación del Wizard
+        $('.btn-next').click(function() {
+            const nextStep = $(this).data('next');
+            const currentStep = nextStep - 1;
+
+            // Validar paso actual
+            if (currentStep === 1) {
+                const clienteId = $('#cliente_id').val();
+                const fechaEmision = $('#fecha_emision').val();
+                const expedienteId = $('#expediente_id').val();
+                
+                if (!clienteId || !fechaEmision) {
+                    alert("Por favor complete los campos obligatorios del Paso 1 (Cliente y Fecha de Emisión).");
+                    return;
+                }
+                
+                if (!$('#no-expedientes-warning').hasClass('d-none')) {
+                    alert("No se puede facturar a un cliente que no tiene expedientes registrados.");
+                    return;
+                }
+                
+                if (!expedienteId) {
+                    alert("Debe seleccionar un expediente asociado para emitir la factura.");
+                    return;
+                }
+            } else if (currentStep === 2) {
+                if (totalFactura <= 0) {
+                    alert("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
+                    return;
+                }
+            }
+
+            // Cambiar vista de secciones
+            $(`.wizard-section`).addClass('d-none');
+            $(`#section-${nextStep}`).removeClass('d-none');
+
+            // Cambiar estado de indicadores
+            $(`#step-indicator-${currentStep}`).removeClass('active').addClass('completed');
+            $(`#step-indicator-${nextStep}`).addClass('active');
+        });
+
+        $('.btn-prev').click(function() {
+            const prevStep = $(this).data('prev');
+            const currentStep = prevStep + 1;
+
+            $(`.wizard-section`).addClass('d-none');
+            $(`#section-${prevStep}`).removeClass('d-none');
+
+            $(`#step-indicator-${currentStep}`).removeClass('active');
+            $(`#step-indicator-${prevStep}`).removeClass('completed').addClass('active');
+        });
+
+        // 3. Agregar / Eliminar Servicios
+        $('#btn-add-servicio').click(function() {
+            const newRow = `
+                <tr>
+                    <td class="ps-4">
+                        <input type="text" name="servicio_descripcion[]" class="form-control form-control-sm" placeholder="Honorarios por representación..." required style="border-radius: 8px;">
+                    </td>
+                    <td>
+                        <input type="number" name="servicio_cantidad[]" class="form-control form-control-sm input-cantidad text-end" min="1" value="1" required style="border-radius: 8px;">
+                    </td>
+                    <td>
+                        <input type="number" name="servicio_precio[]" class="form-control form-control-sm input-precio text-end" min="0" step="0.01" placeholder="0.00" required style="border-radius: 8px;">
+                    </td>
+                    <td class="text-center">
+                        <i class="bi bi-trash3-fill remove-row-btn btn-remove-servicio"></i>
+                    </td>
+                </tr>
+            `;
+            $('#servicios-tbody').append(newRow);
+            calcularTotalesFactura();
+        });
+
+        $(document).on('click', '.btn-remove-servicio', function() {
+            if ($('#servicios-tbody tr').length > 1) {
+                $(this).closest('tr').remove();
+                calcularTotalesFactura();
+            } else {
+                alert("Debe mantener al menos una línea de servicio.");
+            }
+        });
+
+        // 4. Agregar / Eliminar Partidas
+        $('#btn-add-partida').click(function() {
+            controlManualPartidas = true;
+            $('#asistente_cuotas').val('custom');
+            agregarFilaPartida('', 0, '');
+            calcularDistribucionPartidas();
+        });
+
+        $(document).on('click', '.btn-remove-partida', function() {
+            if ($('#partidas-tbody tr').length > 1) {
+                controlManualPartidas = true;
+                $('#asistente_cuotas').val('custom');
+                $(this).closest('tr').remove();
+                calcularDistribucionPartidas();
+            } else {
+                alert("Debe definir al menos una cuota o hito de pago.");
+            }
+        });
+
+        function agregarFilaPartida(desc, monto, fecha) {
+            const today = new Date().toISOString().split('T')[0];
+            const valMonto = monto > 0 ? monto.toFixed(2) : '';
+            const valFecha = fecha ? fecha : today;
+            
+            const newRow = `
+                <tr>
+                    <td>
+                        <input type="text" name="partida_descripcion[]" class="form-control form-control-sm" value="${desc}" placeholder="Ej: Pago Inicial" required style="border-radius: 6px;">
+                    </td>
+                    <td>
+                        <input type="number" name="partida_monto[]" class="form-control form-control-sm input-partida-monto text-end" min="0.01" step="0.01" value="${valMonto}" placeholder="0.00" required style="border-radius: 6px;">
+                    </td>
+                    <td>
+                        <input type="date" name="partida_fecha[]" class="form-control form-control-sm" value="${valFecha}" required style="border-radius: 6px;">
+                    </td>
+                    <td class="text-center align-middle">
+                        <i class="bi bi-trash3 remove-row-btn btn-remove-partida" style="font-size: 1rem;"></i>
+                    </td>
+                </tr>
+            `;
+            $('#partidas-tbody').append(newRow);
+        }
+
+        // 5. Asistente de cuotas
+        $('#asistente_cuotas, #plazo_pago_dias, #fecha_emision').on('change', function() {
+            if ($(this).attr('id') === 'asistente_cuotas' && $(this).val() === 'custom') {
+                controlManualPartidas = true;
+                return;
+            }
+            if ($('#asistente_cuotas').val() !== 'custom') {
+                controlManualPartidas = false;
+                generarCuotasDesdeAsistente();
+            }
+        });
+
+        // Actualizar etiqueta informativa de mora
+        $('#tasa_mora_mensual').on('input', function() {
+            let val = parseFloat($(this).val()) || 0;
+            $('#lbl-mora-info').text(val.toFixed(2) + '%');
+        });
+
+        function generarCuotasDesdeAsistente() {
+            if (controlManualPartidas || totalFactura <= 0) return;
+
+            const asistente = $('#asistente_cuotas').val();
+            const fechaEmisionVal = $('#fecha_emision').val();
+            const plazoGeneral = parseInt($('#plazo_pago_dias').val()) || 0;
+            
+            if (!fechaEmisionVal) return;
+
+            $('#partidas-tbody').empty();
+
+            let numCuotas = 1;
+            let diasIntervalo = plazoGeneral;
+
+            if (asistente === '1') {
+                numCuotas = 1;
+                diasIntervalo = plazoGeneral;
+            } else if (asistente === '2') {
+                numCuotas = 2;
+                diasIntervalo = 15;
+            } else if (asistente === '3') {
+                numCuotas = 3;
+                diasIntervalo = 30;
+            } else if (asistente === '4') {
+                numCuotas = 4;
+                diasIntervalo = 90;
+            }
+
+            const montoBase = Math.floor((totalFactura / numCuotas) * 100) / 100;
+            const diferenciaDecimal = totalFactura - (montoBase * numCuotas);
+
+            const parts = fechaEmisionVal.split('-');
+            let fechaBase = new Date(parts[0], parts[1] - 1, parts[2]);
+
+            for (let i = 0; i < numCuotas; i++) {
+                let montoCuota = montoBase;
+                if (i === numCuotas - 1) {
+                    montoCuota += diferenciaDecimal;
+                }
+
+                let fechaVenc = new Date(fechaBase.getTime());
+                fechaVenc.setDate(fechaBase.getDate() + (diasIntervalo * (i + 1)));
+                
+                const year = fechaVenc.getFullYear();
+                const month = String(fechaVenc.getMonth() + 1).padStart(2, '0');
+                const day = String(fechaVenc.getDate()).padStart(2, '0');
+                const fechaStr = `${year}-${month}-${day}`;
+                const concepto = numCuotas === 1 ? 'Pago Único' : `Cuota ${i + 1} de ${numCuotas}`;
+
+                agregarFilaPartida(concepto, montoCuota, fechaStr);
+            }
+
+            calcularDistribucionPartidas();
+        }
+
+        // 6. Cálculos
+        $(document).on('input', '.input-cantidad, .input-precio', function() {
+            calcularTotalesFactura();
+        });
+
+        $(document).on('input', '.input-partida-monto', function() {
+            calcularDistribucionPartidas();
+        });
+
+        function calcularTotalesFactura() {
+            let subtotal = 0;
+            
+            $('#servicios-tbody tr').each(function() {
+                const cant = parseInt($(this).find('.input-cantidad').val()) || 0;
+                const precio = parseFloat($(this).find('.input-precio').val()) || 0;
+                subtotal += (cant * precio);
+            });
+
+            const itbis = subtotal * 0.18;
+            totalFactura = subtotal + itbis;
+
+            $('#lbl-subtotal').text(formatearMoneda(subtotal));
+            $('#lbl-itbis').text(formatearMoneda(itbis));
+            $('#lbl-total').text(formatearMoneda(totalFactura));
+            $('#lbl-total-validar').text(formatearMoneda(totalFactura));
+
+            if (!controlManualPartidas) {
+                generarCuotasDesdeAsistente();
+            } else {
+                calcularDistribucionPartidas();
+            }
+        }
+
+        function calcularDistribucionPartidas() {
+            let totalDistribuido = 0;
+
+            $('#partidas-tbody tr').each(function() {
+                const monto = parseFloat($(this).find('.input-partida-monto').val()) || 0;
+                totalDistribuido += monto;
+            });
+
+            const diferencia = totalFactura - totalDistribuido;
+            $('#lbl-distribuido').text(formatearMoneda(totalDistribuido));
+            
+            const absDiferencia = Math.abs(diferencia);
+            if (absDiferencia <= 0.05) {
+                $('#lbl-diferencia').text("RD$ 0.00").removeClass('text-danger').addClass('text-success');
+                $('#lbl-diferencia-desc').text("Diferencia:");
+            } else {
+                $('#lbl-diferencia').text(formatearMoneda(absDiferencia)).removeClass('text-success').addClass('text-danger');
+                $('#lbl-diferencia-desc').text(diferencia > 0 ? "Faltan:" : "Sobran:");
+            }
+
+            const percent = totalFactura > 0 ? Math.min(100, (totalDistribuido / totalFactura) * 100) : 0;
+            const $progressBar = $('#progress-val');
+            $progressBar.css('width', `${percent}%`).attr('aria-valuenow', percent);
+
+            const $alert = $('#validation-alert');
+            const $alertText = $('#validation-alert-text');
+            const $saveButton = $('#btn-save-factura');
+
+            if (totalFactura <= 0) {
+                $progressBar.removeClass('bg-success bg-warning').addClass('bg-danger');
+                $alert.removeClass('alert-success alert-warning').addClass('alert-danger');
+                $alertText.html('Debe definir los servicios primero en el Paso 2.');
+                $saveButton.prop('disabled', true);
+            } else if (absDiferencia <= 0.05) {
+                $progressBar.removeClass('bg-danger bg-warning').addClass('bg-success');
+                $alert.removeClass('alert-danger alert-warning').addClass('alert-success');
+                $alertText.html('<i class="bi bi-check-circle-fill me-1"></i>¡Plan de pagos cuadrado perfectamente!');
+                $saveButton.prop('disabled', false);
+            } else {
+                $progressBar.removeClass('bg-success bg-danger').addClass('bg-warning');
+                $alert.removeClass('alert-success alert-warning').addClass('alert-danger');
+                $alertText.html(`<i class="bi bi-exclamation-circle-fill me-1"></i>La suma de las partidas no coincide con el total de la factura.`);
+                $saveButton.prop('disabled', true);
+            }
+        }
+
+        function formatearMoneda(valor) {
+            return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(valor);
+        }
+
+        // Validación personalizada al enviar el formulario (evita bloqueos silenciosos de HTML5 en campos ocultos)
+        $('#facturaForm').on('submit', function(e) {
+            let isValid = true;
+            
+            // 1. Validar Paso 1: Cliente y Expediente
+            const clienteId = $('#cliente_id').val();
+            const fechaEmision = $('#fecha_emision').val();
+            const expedienteId = $('#expediente_id').val();
+            
+            if (!clienteId || !fechaEmision || !expedienteId) {
+                alert("Por favor complete los datos obligatorios del Paso 1 (Cliente, Expediente y Fecha de Emisión).");
+                isValid = false;
+                // Ir al paso 1 visualmente
+                $(`.wizard-section`).addClass('d-none');
+                $(`#section-1`).removeClass('d-none');
+                $(`.wizard-step`).removeClass('active completed');
+                $(`#step-indicator-1`).addClass('active');
+                return false;
+            }
+            
+            // 2. Validar Paso 2: Servicios
+            if (totalFactura <= 0) {
+                alert("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
+                isValid = false;
+                $(`.wizard-section`).addClass('d-none');
+                $(`#section-2`).removeClass('d-none');
+                $(`.wizard-step`).removeClass('active completed');
+                $(`#step-indicator-1`).addClass('completed');
+                $(`#step-indicator-2`).addClass('active');
+                return false;
+            }
+            
+            let serviciosValidos = true;
+            $('#servicios-tbody tr').each(function() {
+                const desc = $(this).find('input[name="servicio_descripcion[]"]').val().trim();
+                const cant = parseInt($(this).find('.input-cantidad').val()) || 0;
+                const precio = parseFloat($(this).find('.input-precio').val()) || 0;
+                if (!desc || cant <= 0 || precio < 0) {
+                    serviciosValidos = false;
+                    return false; // romper bucle
+                }
+            });
+            
+            if (!serviciosValidos) {
+                alert("Por favor complete todos los campos de descripción, cantidad y precio de los servicios en el Paso 2.");
+                isValid = false;
+                $(`.wizard-section`).addClass('d-none');
+                $(`#section-2`).removeClass('d-none');
+                $(`.wizard-step`).removeClass('active completed');
+                $(`#step-indicator-1`).addClass('completed');
+                $(`#step-indicator-2`).addClass('active');
+                return false;
+            }
+            
+            // 3. Validar Paso 3: Hitos de pago, cuadre y justificación
+            let partidasValidas = true;
+            let totalDistribuido = 0;
+            $('#partidas-tbody tr').each(function() {
+                const desc = $(this).find('input[name="partida_descripcion[]"]').val().trim();
+                const monto = parseFloat($(this).find('.input-partida-monto').val()) || 0;
+                const fecha = $(this).find('input[name="partida_fecha[]"]').val();
+                if (!desc || monto <= 0 || !fecha) {
+                    partidasValidas = false;
+                    return false;
+                }
+                totalDistribuido += monto;
+            });
+            
+            if (!partidasValidas) {
+                alert("Por favor complete los datos de descripción, monto y fecha de todas las cuotas en el Paso 3.");
+                isValid = false;
+                return false;
+            }
+            
+            const absDiferencia = Math.abs(totalFactura - totalDistribuido);
+            if (absDiferencia > 0.05) {
+                alert(`La suma de las partidas (RD$ ${totalDistribuido.toFixed(2)}) no coincide con el total de la factura (RD$ ${totalFactura.toFixed(2)}).`);
+                isValid = false;
+                return false;
+            }
+
+            const justificacion = $('#justificacion_edicion').val().trim();
+            if (!justificacion) {
+                alert("Debe proporcionar una justificación válida para la edición de esta factura.");
+                isValid = false;
+                $('#justificacion_edicion').focus();
+                return false;
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
+
+        // Ejecutar cálculo inicial
+        calcularTotalesFactura();
+    });
+</script>
+{% endblock %}

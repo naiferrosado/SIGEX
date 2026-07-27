@@ -40,12 +40,14 @@ from app.models import (
     BitacoraTiempoTarea,
     Carpeta,
     Cliente,
+    DetalleFactura,
     Documento,
     Expediente,
     ExpedienteAdministrativo,
     ExpedienteJudicial,
     FacturaHonorario,
     NotificacionInterna,
+    PartidaPagoFactura,
     RegistroEnvioAlerta,
     Tarea,
     TipoDocumento,
@@ -828,6 +830,17 @@ def register_routes(app):
                         .all()
                     )
 
+                # Obtener facturas y cuotas (partidas) de pago del cliente
+                facturas_cli = FacturaHonorario.query.filter_by(cliente_id=cliente_db.id).all()
+                cuotas_pendientes = []
+                for f in facturas_cli:
+                    for p in f.partidas:
+                        if p.estado_pago in ["Pendiente", "Mora"]:
+                            cuotas_pendientes.append(p)
+                
+                cuotas_pendientes.sort(key=lambda x: x.fecha_vencimiento)
+                total_pendiente_cliente = sum(float(f.total_pendiente) for f in facturas_cli if f.estado_pago != 'Anulado')
+
                 estadisticas = {
                     "expedientes_activos_count": expedientes_activos_count,
                     "audiencia_proxima": audiencia_proxima,
@@ -837,6 +850,8 @@ def register_routes(app):
                     "caso_activo_principal": caso_activo_principal,
                     "progreso_fase": progreso_fase,
                     "hitostotal": hitostotal,
+                    "cuotas_pendientes": cuotas_pendientes,
+                    "total_pendiente_cliente": total_pendiente_cliente,
                 }
                 return render_template(
                     "dashboard/dashboard_cliente.html",
@@ -874,19 +889,19 @@ def register_routes(app):
         status = request.args.get("status", "Todos").strip()
         tipo = request.args.get("tipo", "Todos").strip()
 
-        # Si no hay término de búsqueda, no se muestra nada (según requerimiento)
-        if not q:
-            return jsonify([])
+        query = Cliente.query
 
-        search_pattern = f"%{q}%"
-        query = Cliente.query.filter(
-            db.or_(
-                Cliente.nombres.ilike(search_pattern),
-                Cliente.apellidos.ilike(search_pattern),
-                Cliente.rnc_cedula.ilike(search_pattern),
-                Cliente.email_contacto.ilike(search_pattern),
+        if q:
+            search_pattern = f"%{q}%"
+            query = query.filter(
+                db.or_(
+                    db.func.unaccent(Cliente.nombres).ilike(db.func.unaccent(search_pattern)),
+                    db.func.unaccent(Cliente.apellidos).ilike(db.func.unaccent(search_pattern)),
+                    db.func.unaccent(db.func.concat(Cliente.nombres, ' ', Cliente.apellidos)).ilike(db.func.unaccent(search_pattern)),
+                    Cliente.rnc_cedula.ilike(search_pattern),
+                    Cliente.email_contacto.ilike(search_pattern),
+                )
             )
-        )
 
         if status == "Activo":
             query = query.filter_by(consentimiento_datos=True)
@@ -902,6 +917,7 @@ def register_routes(app):
             {
                 "id": c.id,
                 "nombre": f"{c.nombres} {c.apellidos}",
+                "rnc_cedula": c.rnc_cedula,
                 "consentimiento_datos": bool(c.consentimiento_datos),
             }
             for c in clientes_db
@@ -955,7 +971,25 @@ def register_routes(app):
                     "activo": user.activo,
                 }
 
-        # 4. Retornar detalles con auditorías
+        # 4. Obtener información financiera (facturas)
+        facturas = FacturaHonorario.query.filter_by(cliente_id=cliente.id).all()
+        total_facturado = sum(float(f.monto_total) for f in facturas)
+        total_pagado = sum(float(f.total_pagado) for f in facturas)
+        total_pendiente = sum(float(f.total_pendiente) for f in facturas)
+        
+        facturas_list = []
+        for f in facturas:
+            facturas_list.append({
+                "id": f.id,
+                "ncf": f.ncf or "N/A",
+                "monto_total": float(f.monto_total),
+                "total_pagado": float(f.total_pagado),
+                "total_pendiente": float(f.total_pendiente),
+                "estado_pago": f.estado_pago,
+                "fecha_emision": f.fecha_emision.strftime("%d/%m/%Y") if f.fecha_emision else "N/A",
+            })
+
+        # 5. Retornar detalles con auditorías y datos financieros
         return jsonify(
             {
                 "id": cliente.id,
@@ -974,6 +1008,10 @@ def register_routes(app):
                 "razon_desactivacion": cliente.razon_desactivacion or "",
                 "auditorias": auditorias_data,
                 "usuario_info": usuario_info,
+                "facturas": facturas_list,
+                "total_facturado": total_facturado,
+                "total_pagado": total_pagado,
+                "total_pendiente": total_pendiente,
             }
         )
 
@@ -5117,6 +5155,547 @@ def register_routes(app):
                 }
             )
 
+    @app.route("/facturas/nueva", methods=["GET", "POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado")
+    def crear_factura():
+        if request.method == "POST":
+            cliente_id = request.form.get("cliente_id")
+            expediente_id = request.form.get("expediente_id") or None
+            ncf = request.form.get("ncf") or None
+            tipo_comprobante = request.form.get("tipo_comprobante")
+            fecha_emision_str = request.form.get("fecha_emision")
+            plazo_pago_dias_str = request.form.get("plazo_pago_dias")
+            tasa_mora_mensual_str = request.form.get("tasa_mora_mensual")
+
+            servicios_desc = request.form.getlist("servicio_descripcion[]")
+            servicios_cant = request.form.getlist("servicio_cantidad[]")
+            servicios_precio = request.form.getlist("servicio_precio[]")
+
+            partidas_desc = request.form.getlist("partida_descripcion[]")
+            partidas_monto = request.form.getlist("partida_monto[]")
+            partidas_fecha = request.form.getlist("partida_fecha[]")
+
+            if not cliente_id or not tipo_comprobante or not fecha_emision_str:
+                flash("Por favor complete los campos obligatorios.", "danger")
+                return redirect(url_for("crear_factura"))
+
+            # Validar que el cliente tenga expedientes y que el expediente seleccionado sea válido y le pertenezca
+            expedientes_count = Expediente.query.filter_by(cliente_id=int(cliente_id)).count()
+            if expedientes_count == 0:
+                flash("No se puede emitir una factura para un cliente que no tiene expedientes asociados.", "danger")
+                return redirect(url_for("crear_factura"))
+
+            if not expediente_id:
+                flash("Debe seleccionar un expediente asociado para emitir la factura.", "danger")
+                return redirect(url_for("crear_factura"))
+
+            expediente_valido = Expediente.query.filter_by(id=int(expediente_id), cliente_id=int(cliente_id)).first()
+            if not expediente_valido:
+                flash("El expediente seleccionado no es válido o no pertenece al cliente.", "danger")
+                return redirect(url_for("crear_factura"))
+
+            try:
+                fecha_emision = datetime.strptime(fecha_emision_str, "%Y-%m-%d")
+            except ValueError:
+                fecha_emision = rd_now()
+
+            if not ncf or not ncf.strip():
+                # Auto-generar NCF según tipo_comprobante
+                last_invoice = FacturaHonorario.query.filter(
+                    FacturaHonorario.tipo_comprobante == tipo_comprobante,
+                    FacturaHonorario.ncf.like(f"B{tipo_comprobante}%")
+                ).order_by(FacturaHonorario.id.desc()).first()
+                
+                if last_invoice and last_invoice.ncf and len(last_invoice.ncf) > 3:
+                    try:
+                        suffix = last_invoice.ncf[3:]
+                        next_num = int(suffix) + 1
+                        pad_len = len(suffix)
+                        ncf = f"B{tipo_comprobante}{next_num:0{pad_len}d}"
+                    except ValueError:
+                        ncf = f"B{tipo_comprobante}00000001"
+                else:
+                    ncf = f"B{tipo_comprobante}00000001"
+            else:
+                ncf = ncf.strip().upper()
+                existing_invoice = FacturaHonorario.query.filter_by(ncf=ncf).first()
+                if existing_invoice:
+                    flash(f"El NCF '{ncf}' ya está registrado en la factura #{existing_invoice.id}. Por favor, verifique o ingrese uno nuevo.", "danger")
+                    return redirect(url_for("crear_factura"))
+
+            try:
+                plazo_pago_dias = int(plazo_pago_dias_str)
+            except (ValueError, TypeError):
+                plazo_pago_dias = 30
+
+            try:
+                tasa_mora_mensual = float(tasa_mora_mensual_str)
+            except (ValueError, TypeError):
+                tasa_mora_mensual = 0.00
+
+            subtotal_calculado = 0
+            detalles_to_save = []
+
+            for i in range(len(servicios_desc)):
+                desc = servicios_desc[i].strip()
+                if not desc:
+                    continue
+                try:
+                    cant = int(servicios_cant[i])
+                    precio = float(servicios_precio[i])
+                except (ValueError, TypeError):
+                    continue
+                sub_item = cant * precio
+                subtotal_calculado += sub_item
+                detalles_to_save.append({
+                    "descripcion": desc,
+                    "cantidad": cant,
+                    "precio_unitario": precio,
+                    "subtotal": sub_item
+                })
+
+            itbis_calculado = subtotal_calculado * 0.18
+            total_calculado = subtotal_calculado + itbis_calculado
+
+            partidas_to_save = []
+            suma_partidas = 0
+            for i in range(len(partidas_desc)):
+                p_desc = partidas_desc[i].strip()
+                if not p_desc:
+                    continue
+                try:
+                    p_monto = float(partidas_monto[i])
+                    p_fecha = datetime.strptime(partidas_fecha[i], "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    continue
+
+                suma_partidas += p_monto
+                partidas_to_save.append({
+                    "descripcion_partida": p_desc,
+                    "monto": p_monto,
+                    "fecha_vencimiento": p_fecha
+                })
+
+            if abs(suma_partidas - total_calculado) > 0.05:
+                flash(f"La suma de las partidas (RD$ {suma_partidas:,.2f}) debe ser exactamente igual al total de la factura (RD$ {total_calculado:,.2f}).", "danger")
+                return redirect(url_for("crear_factura"))
+
+            try:
+                factura = FacturaHonorario(
+                    cliente_id=int(cliente_id),
+                    expediente_id=int(expediente_id) if expediente_id else None,
+                    ncf=ncf,
+                    tipo_comprobante=tipo_comprobante,
+                    monto_subtotal=subtotal_calculado,
+                    monto_itbis=itbis_calculado,
+                    monto_total=total_calculado,
+                    fecha_emision=fecha_emision,
+                    estado_pago="Pendiente",
+                    plazo_pago_dias=plazo_pago_dias,
+                    tasa_mora_mensual=tasa_mora_mensual
+                )
+                db.session.add(factura)
+                db.session.flush()
+
+                for d in detalles_to_save:
+                    detalle = DetalleFactura(
+                        factura_id=factura.id,
+                        descripcion=d["descripcion"],
+                        cantidad=d["cantidad"],
+                        precio_unitario=d["precio_unitario"],
+                        subtotal=d["subtotal"]
+                    )
+                    db.session.add(detalle)
+
+                for p in partidas_to_save:
+                    partida = PartidaPagoFactura(
+                        factura_id=factura.id,
+                        descripcion_partida=p["descripcion_partida"],
+                        monto=p["monto"],
+                        fecha_vencimiento=p["fecha_vencimiento"],
+                        estado_pago="Pendiente"
+                    )
+                    db.session.add(partida)
+
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="CREACION_FACTURA",
+                    detalles=f"Se creó la factura NCF {ncf or 'N/A'} por un total de RD$ {total_calculado:,.2f} con {len(partidas_to_save)} cuotas.",
+                    cliente_id=int(cliente_id),
+                    expediente_id=int(expediente_id) if expediente_id else None
+                )
+
+                db.session.commit()
+                
+                from markupsafe import Markup
+                pdf_url = url_for("descargar_factura_pdf", factura_id=factura.id)
+                flash(Markup(f"Factura e Hitos de Pago guardados correctamente. <a href='{pdf_url}' target='_blank' class='alert-link fw-bold'><i class='bi bi-file-pdf'></i> Descargar PDF Factura</a>"), "success")
+                return redirect(url_for("listar_facturas"))
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al guardar la factura: {str(e)}", "danger")
+                return redirect(url_for("crear_factura"))
+
+        clientes = Cliente.query.all()
+        return render_template("facturas/crear_factura.html", clientes=clientes, current_date=rd_now().strftime("%Y-%m-%d"))
+
+    @app.route("/facturas/<int:factura_id>/editar", methods=["GET", "POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def editar_factura(factura_id):
+        factura = FacturaHonorario.query.get_or_404(factura_id)
+        if request.method == "POST":
+            cliente_id = request.form.get("cliente_id")
+            expediente_id = request.form.get("expediente_id") or None
+            tipo_comprobante = request.form.get("tipo_comprobante")
+            fecha_emision_str = request.form.get("fecha_emision")
+            plazo_pago_dias_str = request.form.get("plazo_pago_dias")
+            tasa_mora_mensual_str = request.form.get("tasa_mora_mensual")
+            justificacion = request.form.get("justificacion_edicion")
+
+            servicios_desc = request.form.getlist("servicio_descripcion[]")
+            servicios_cant = request.form.getlist("servicio_cantidad[]")
+            servicios_precio = request.form.getlist("servicio_precio[]")
+
+            partidas_desc = request.form.getlist("partida_descripcion[]")
+            partidas_monto = request.form.getlist("partida_monto[]")
+            partidas_fecha = request.form.getlist("partida_fecha[]")
+
+            if not justificacion or not justificacion.strip():
+                flash("Debe proporcionar una justificación válida para la edición.", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
+            if not cliente_id or not tipo_comprobante or not fecha_emision_str:
+                flash("Por favor complete los campos obligatorios.", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
+            # Validar que el cliente tenga expedientes y que el expediente seleccionado sea válido
+            expediente_valido = Expediente.query.filter_by(id=int(expediente_id), cliente_id=int(cliente_id)).first()
+            if not expediente_valido:
+                flash("El expediente seleccionado no es válido o no pertenece al cliente.", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
+            try:
+                fecha_emision = datetime.strptime(fecha_emision_str, "%Y-%m-%d")
+            except ValueError:
+                fecha_emision = rd_now()
+
+            try:
+                plazo_pago_dias = int(plazo_pago_dias_str)
+            except (ValueError, TypeError):
+                plazo_pago_dias = 30
+
+            try:
+                tasa_mora_mensual = float(tasa_mora_mensual_str)
+            except (ValueError, TypeError):
+                tasa_mora_mensual = 0.00
+
+            subtotal_calculado = 0
+            detalles_to_save = []
+
+            for i in range(len(servicios_desc)):
+                desc = servicios_desc[i].strip()
+                if not desc:
+                    continue
+                try:
+                    cant = int(servicios_cant[i])
+                    precio = float(servicios_precio[i])
+                except (ValueError, TypeError):
+                    continue
+                sub_item = cant * precio
+                subtotal_calculado += sub_item
+                detalles_to_save.append({
+                    "descripcion": desc,
+                    "cantidad": cant,
+                    "precio_unitario": precio,
+                    "subtotal": sub_item
+                })
+
+            itbis_calculado = subtotal_calculado * 0.18
+            total_calculado = subtotal_calculado + itbis_calculado
+
+            partidas_to_save = []
+            suma_partidas = 0
+            for i in range(len(partidas_desc)):
+                p_desc = partidas_desc[i].strip()
+                if not p_desc:
+                    continue
+                try:
+                    p_monto = float(partidas_monto[i])
+                    p_fecha = datetime.strptime(partidas_fecha[i], "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    continue
+
+                suma_partidas += p_monto
+                partidas_to_save.append({
+                    "descripcion_partida": p_desc,
+                    "monto": p_monto,
+                    "fecha_vencimiento": p_fecha
+                })
+
+            if abs(suma_partidas - total_calculado) > 0.05:
+                flash(f"La suma de las partidas (RD$ {suma_partidas:,.2f}) debe ser exactamente igual al total de la factura (RD$ {total_calculado:,.2f}).", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
+            try:
+                factura.cliente_id = int(cliente_id)
+                factura.expediente_id = int(expediente_id) if expediente_id else None
+                factura.tipo_comprobante = tipo_comprobante
+                factura.monto_subtotal = subtotal_calculado
+                factura.monto_itbis = itbis_calculado
+                factura.monto_total = total_calculado
+                factura.fecha_emision = fecha_emision
+                factura.plazo_pago_dias = plazo_pago_dias
+                factura.tasa_mora_mensual = tasa_mora_mensual
+
+                for d in factura.detalles:
+                    db.session.delete(d)
+                
+                for p in factura.partidas:
+                    db.session.delete(p)
+
+                db.session.flush()
+
+                for d in detalles_to_save:
+                    detalle = DetalleFactura(
+                        factura_id=factura.id,
+                        descripcion=d["descripcion"],
+                        cantidad=d["cantidad"],
+                        precio_unitario=d["precio_unitario"],
+                        subtotal=d["subtotal"]
+                    )
+                    db.session.add(detalle)
+
+                for p in partidas_to_save:
+                    partida = PartidaPagoFactura(
+                        factura_id=factura.id,
+                        descripcion_partida=p["descripcion_partida"],
+                        monto=p["monto"],
+                        fecha_vencimiento=p["fecha_vencimiento"],
+                        estado_pago="Pendiente"
+                    )
+                    db.session.add(partida)
+
+                registrar_auditoria(
+                    usuario_id=current_user.id,
+                    accion="EDICION_FACTURA",
+                    detalles=f"Se editó la factura ID {factura.id} (NCF: {factura.ncf or 'N/A'}) por un total de RD$ {total_calculado:,.2f}. Justificación: {justificacion}",
+                    cliente_id=int(cliente_id),
+                    expediente_id=int(expediente_id) if expediente_id else None
+                )
+
+                db.session.commit()
+                flash("Factura editada correctamente.", "success")
+                return redirect(url_for("ver_detalle_factura", factura_id=factura.id))
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error al guardar la factura editada: {str(e)}", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
+        clientes = Cliente.query.all()
+        expedientes = Expediente.query.filter_by(cliente_id=factura.cliente_id).all()
+        return render_template("facturas/editar_factura.html", factura=factura, clientes=clientes, expedientes=expedientes)
+
+    @app.route("/facturas", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado")
+    def listar_facturas():
+        status_filter = request.args.get("status")
+        cliente_search = request.args.get("cliente_search", "").strip()
+        ncf_filter = request.args.get("ncf")
+
+        query = FacturaHonorario.query
+
+        if current_user.rol == "Cliente":
+            if not current_user.cliente_profile:
+                flash("Perfil de cliente no encontrado.", "danger")
+                return redirect(url_for("dashboard"))
+            query = query.filter_by(cliente_id=current_user.cliente_profile.id)
+        else:
+            if cliente_search:
+                search_pattern = f"%{cliente_search}%"
+                query = query.join(Cliente).filter(
+                    db.or_(
+                        db.func.unaccent(Cliente.nombres).ilike(db.func.unaccent(search_pattern)),
+                        db.func.unaccent(Cliente.apellidos).ilike(db.func.unaccent(search_pattern)),
+                        db.func.unaccent(db.func.concat(Cliente.nombres, ' ', Cliente.apellidos)).ilike(db.func.unaccent(search_pattern)),
+                        Cliente.rnc_cedula.ilike(search_pattern)
+                    )
+                )
+
+        if ncf_filter:
+            query = query.filter(FacturaHonorario.ncf.ilike(f"%{ncf_filter.strip()}%"))
+
+        all_invoices = query.order_by(FacturaHonorario.fecha_emision.desc()).all()
+
+        total_facturado = sum(f.monto_total for f in all_invoices if f.estado_pago != 'Anulado')
+        total_cobrado = sum(f.total_pagado for f in all_invoices if f.estado_pago != 'Anulado')
+        total_pendiente = sum(f.total_pendiente for f in all_invoices if f.estado_pago != 'Anulado')
+        
+        total_mora = 0
+        now_date = rd_now().date()
+        for f in all_invoices:
+            if f.estado_pago != 'Anulado':
+                for p in f.partidas:
+                    if p.estado_pago == 'Pendiente' and p.fecha_vencimiento < now_date:
+                        total_mora += p.monto
+
+        filtered_invoices = []
+        for f in all_invoices:
+            dynamic_state = f.estado_pago
+            if f.estado_pago != 'Anulado':
+                pagadas = sum(1 for p in f.partidas if p.estado_pago == 'Pagado')
+                if pagadas == len(f.partidas) and len(f.partidas) > 0:
+                    dynamic_state = 'Pagada'
+                elif pagadas > 0:
+                    dynamic_state = 'Pagada Parcial'
+                else:
+                    dynamic_state = 'Pendiente'
+
+            if status_filter:
+                if status_filter == 'Mora':
+                    has_mora = any(p.estado_pago == 'Pendiente' and p.fecha_vencimiento < now_date for p in f.partidas)
+                    if not has_mora:
+                        continue
+                elif status_filter != dynamic_state:
+                    continue
+
+            filtered_invoices.append((f, dynamic_state))
+
+        return render_template(
+            "facturas/index.html",
+            facturas_con_estado=filtered_invoices,
+            total_facturado=total_facturado,
+            total_cobrado=total_cobrado,
+            total_pendiente=total_pendiente,
+            total_mora=total_mora,
+            status_filter=status_filter,
+            cliente_search=cliente_search,
+            ncf_filter=ncf_filter
+        )
+
+    @app.route("/facturas/<int:factura_id>", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado", "Cliente")
+    def ver_detalle_factura(factura_id):
+        factura = FacturaHonorario.query.get_or_404(factura_id)
+
+        if current_user.rol == "Cliente":
+            if not current_user.cliente_profile or factura.cliente_id != current_user.cliente_profile.id:
+                flash("No tiene permisos para ver esta factura.", "danger")
+                return redirect(url_for("dashboard"))
+
+        now_date = rd_now().date()
+        cuotas_con_mora = []
+        for p in factura.partidas:
+            mora_calculada = 0
+            dias_retraso = 0
+            if p.estado_pago == 'Pendiente' and p.fecha_vencimiento < now_date:
+                dias_retraso = (now_date - p.fecha_vencimiento).days
+                tasa_mensual = float(factura.tasa_mora_mensual or 0)
+                mora_calculada = float(p.monto) * (tasa_mensual / 100) * (dias_retraso / 30)
+
+            cuotas_con_mora.append({
+                "partida": p,
+                "dias_retraso": dias_retraso,
+                "mora": mora_calculada
+            })
+
+        dynamic_state = factura.estado_pago
+        if factura.estado_pago != 'Anulado':
+            pagadas = sum(1 for p in factura.partidas if p.estado_pago == 'Pagado')
+            if pagadas == len(factura.partidas) and len(factura.partidas) > 0:
+                dynamic_state = 'Pagada'
+            elif pagadas > 0:
+                dynamic_state = 'Pagada Parcial'
+            else:
+                dynamic_state = 'Pendiente'
+
+        return render_template(
+            "facturas/detalle_factura.html",
+            factura=factura,
+            cuotas=cuotas_con_mora,
+            dynamic_state=dynamic_state,
+            current_date=now_date
+        )
+
+    @app.route("/facturas/<int:factura_id>/pagar-cuota/<int:cuota_id>", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado")
+    def pagar_cuota_factura(factura_id, cuota_id):
+        factura = FacturaHonorario.query.get_or_404(factura_id)
+        cuota = PartidaPagoFactura.query.filter_by(id=cuota_id, factura_id=factura_id).first_or_404()
+
+        if cuota.estado_pago == 'Pagado':
+            flash("Esta cuota ya ha sido cobrada anteriormente.", "warning")
+            return redirect(url_for("ver_detalle_factura", factura_id=factura.id))
+
+        try:
+            cuota.estado_pago = 'Pagado'
+            
+            pagadas = sum(1 for p in factura.partidas if p.estado_pago == 'Pagado')
+            if pagadas == len(factura.partidas):
+                factura.estado_pago = 'Cobrado'
+            else:
+                factura.estado_pago = 'Cobrado Parcial'
+
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="COBRO_CUOTA_FACTURA",
+                detalles=f"Se registró el cobro de la cuota '{cuota.descripcion_partida}' por un monto de RD$ {cuota.monto:,.2f} de la factura ID {factura.id} (NCF: {factura.ncf or 'N/A'}).",
+                cliente_id=factura.cliente_id,
+                expediente_id=factura.expediente_id
+            )
+
+            db.session.commit()
+            flash(f"Cobro de cuota '{cuota.descripcion_partida}' registrado exitosamente.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al registrar el cobro: {str(e)}", "danger")
+
+        return redirect(url_for("ver_detalle_factura", factura_id=factura.id))
+
+    @app.route("/facturas/<int:factura_id>/pdf", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado", "Cliente")
+    def descargar_factura_pdf(factura_id):
+        factura = FacturaHonorario.query.get_or_404(factura_id)
+        
+        if current_user.rol == "Cliente":
+            if not current_user.cliente_profile or factura.cliente_id != current_user.cliente_profile.id:
+                flash("No tiene permisos para ver esta factura.", "danger")
+                return redirect(url_for("dashboard"))
+                
+        from xhtml2pdf import pisa
+        from io import BytesIO
+        from flask import make_response
+        
+        html_content = render_template("facturas/factura_pdf.html", factura=factura, current_date=rd_now())
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(html_content, dest=pdf_buffer)
+        
+        if pisa_status.err:
+            flash("Error al generar el PDF de la factura.", "danger")
+            return redirect(url_for("ver_detalle_factura", factura_id=factura.id))
+            
+        pdf_data = pdf_buffer.getvalue()
+        
+        response = make_response(pdf_data)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=factura_{factura.ncf or factura.id}.pdf"
+        return response
+
+    @app.route("/api/clientes/<int:cliente_id>/expedientes", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def api_cliente_expedientes(cliente_id):
+        expedientes = Expediente.query.filter_by(cliente_id=cliente_id).all()
+        return jsonify([{
+            "id": e.id,
+            "nombre_caso": f"{e.codigo_firma} - {e.nombre_caso} ({e.tipo_tramite})"
+        } for e in expedientes])
+
 
 def procesar_alertas_preventivas():
     """
@@ -5128,7 +5707,7 @@ def procesar_alertas_preventivas():
     import pytz
 
     from app import db
-    from app.models import AlertaPlazoAudiencia, NotificacionInterna, Tarea, Usuario
+    from app.models import AlertaPlazoAudiencia, NotificacionInterna, Tarea, Usuario, PartidaPagoFactura
 
     print("[PLANIFICADOR] Iniciando procesamiento de alertas preventivas...")
     tz_rd = pytz.timezone("America/Santo_Domingo")
@@ -5307,5 +5886,84 @@ def procesar_alertas_preventivas():
             print(
                 f"[PLANIFICADOR] Error al guardar registro de envío para tarea ID {tarea.id}: {e}"
             )
+
+    # === 3. PROCESAR CUOTAS/PARTIDAS DE PAGO PENDIENTES ===
+    partidas = PartidaPagoFactura.query.filter_by(estado_pago='Pendiente').all()
+    for partida in partidas:
+        if not partida.fecha_vencimiento:
+            continue
+        venc_local = partida.fecha_vencimiento
+        dias_restantes = (venc_local - now_local).days
+
+        anticipacion = None
+        if 15 < dias_restantes <= 30:
+            anticipacion = 30
+        elif 3 < dias_restantes <= 15:
+            anticipacion = 15
+        elif 0 <= dias_restantes <= 3:
+            anticipacion = 3
+
+        if not anticipacion:
+            continue
+
+        envio_previo = RegistroEnvioAlerta.query.filter_by(
+            partida_factura_id=partida.id, dias_anticipacion=anticipacion
+        ).first()
+
+        if envio_previo:
+            continue
+
+        abogados = []
+        fact = partida.factura
+        exp = fact.expediente if fact else None
+        if exp and exp.abogado_responsable:
+            abogados.append(exp.abogado_responsable)
+        else:
+            abogados = Usuario.query.filter_by(rol='Socio', activo=True).all()
+
+        if not abogados:
+            print(f"[PLANIFICADOR] Sin destinatarios válidos para la partida de pago ID {partida.id}")
+            continue
+
+        for abogado in abogados:
+            try:
+                enviar_email_alerta_preventiva(abogado, partida, anticipacion)
+
+                msj = f"[Alerta Pago {anticipacion} días] La cuota '{partida.descripcion_partida}' de la factura NCF {fact.ncf or 'N/A'} (monto RD$ {partida.monto:,.2f}) vence el {venc_local.strftime('%d/%m/%Y')}."
+                notif = NotificacionInterna(
+                    usuario_id=abogado.id,
+                    mensaje=msj,
+                    leida=False,
+                    expediente_id=exp.id if exp else None,
+                )
+                db.session.add(notif)
+            except Exception as e:
+                print(f"[PLANIFICADOR] Error al despachar alerta de cuota al abogado {abogado.id}: {e}")
+
+        if fact and fact.cliente and fact.cliente.usuario_id:
+            try:
+                enviar_email_alerta_preventiva(fact.cliente.usuario, partida, anticipacion)
+                msj_cliente = f"[Recordatorio Pago {anticipacion} días] Su cuota '{partida.descripcion_partida}' por RD$ {partida.monto:,.2f} vence el {venc_local.strftime('%d/%m/%Y')}."
+                notif_cliente = NotificacionInterna(
+                    usuario_id=fact.cliente.usuario_id,
+                    mensaje=msj_cliente,
+                    leida=False,
+                    expediente_id=exp.id if exp else None,
+                    fecha_creacion=rd_now(),
+                )
+                db.session.add(notif_cliente)
+            except Exception as e:
+                print(f"[PLANIFICADOR] Error al despachar alerta de cuota al cliente {fact.cliente.id}: {e}")
+
+        try:
+            registro = RegistroEnvioAlerta(
+                partida_factura_id=partida.id, dias_anticipacion=anticipacion
+            )
+            db.session.add(registro)
+            db.session.commit()
+            print(f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para cuota ID {partida.id} ({partida.descripcion_partida})")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[PLANIFICADOR] Error al guardar registro de envío para cuota ID {partida.id}: {e}")
 
     print("[PLANIFICADOR] Fin del procesamiento de alertas preventivas.")

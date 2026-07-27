@@ -176,6 +176,67 @@
             </div>
 
 
+            <!-- Cuentas y Pagos Pendientes -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                        <h6 class="fw-bold mb-0" style="color: #071c4d;">
+                            <i class="bi bi-credit-card text-danger me-2"></i>Mis Pagos Pendientes
+                        </h6>
+                        <div class="bg-danger bg-opacity-10 text-danger px-3 py-1 rounded-pill fw-bold small">
+                            Total Pendiente: RD$ {{ "{:,.2f}".format(estadisticas.total_pendiente_cliente) }}
+                        </div>
+                    </div>
+
+                    {% if estadisticas.cuotas_pendientes %}
+                    <div class="table-responsive">
+                        <table class="table align-middle table-hover mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Concepto de Pago</th>
+                                    <th class="text-end">Monto a Pagar</th>
+                                    <th class="text-center">Vencimiento</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-center">Factura</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cuota in estadisticas.cuotas_pendientes %}
+                                <tr>
+                                    <td class="fw-semibold text-dark">{{ cuota.descripcion_partida }}</td>
+                                    <td class="text-end fw-bold text-dark">RD$ {{ "{:,.2f}".format(cuota.monto) }}</td>
+                                    <td class="text-center text-muted">
+                                        <i class="bi bi-calendar-event me-1"></i>{{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if cuota.estado_pago == 'Mora' %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 py-1 px-2">En Mora</span>
+                                        {% else %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25 py-1 px-2">Pendiente</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-flex gap-1 justify-content-center">
+                                            <a href="{{ url_for('descargar_factura_pdf', factura_id=cuota.factura_id) }}" target="_blank" class="btn btn-white btn-sm p-1 border text-danger" title="Descargar PDF Factura" style="font-size: 0.75rem;">
+                                                <i class="bi bi-file-pdf"></i> PDF
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 bg-light rounded-3">
+                        <i class="bi bi-shield-check text-success fs-1"></i>
+                        <p class="text-success fw-semibold mt-2 mb-0">¡Felicidades! No tienes pagos pendientes en este momento.</p>
+                        <p class="text-muted small mb-0">Estás al día con todos tus compromisos de honorarios.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
 
         <!-- Detalles del Expediente y Descarga de Documentos -->
