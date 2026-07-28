@@ -12,12 +12,12 @@
 
         <ul class="nav nav-tabs border-0 mb-4" id="expTabs" role="tablist">
             <li class="nav-item">
-                <button class="nav-link active fw-bold px-4 rounded-top" data-bs-toggle="tab" data-bs-target="#judicial" type="button">
+                <button class="nav-link active fw-bold px-4 rounded-top" data-bs-toggle="tab" data-bs-target="#judicial" type="button" id="tabJudicialBtn">
                     <i class="bi bi-balance-scale me-2"></i>Vía Jurisdiccional
                 </button>
             </li>
             <li class="nav-item">
-                <button class="nav-link fw-bold px-4 rounded-top" data-bs-toggle="tab" data-bs-target="#admin" type="button">
+                <button class="nav-link fw-bold px-4 rounded-top" data-bs-toggle="tab" data-bs-target="#admin" type="button" id="tabAdminBtn">
                     <i class="bi bi-folder-check me-2"></i>Vía Administrativa
                 </button>
             </li>
@@ -27,39 +27,242 @@
             <div class="card-body p-4">
                 <div class="tab-content">
                     
+                    <!-- VÍA JURISDICCIONAL / LITIGIO -->
                     <div class="tab-pane fade show active" id="judicial">
-                        <form method="POST">
+                        <form method="POST" id="form-judicial-id">
                             {{ form_judicial.hidden_tag() }}
+                            
                             <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>Información General</h6>
                             <div class="row g-3 mb-4">
-                                {% for field in form_judicial if field.name in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id'] %}
-                                <div class="col-md-3">{{ field.label(class="form-label small fw-bold") }} {{ field(class="form-control") }}</div>
-                                {% endfor %}
+                                <div class="col-md-3">
+                                    {{ form_judicial.cliente_id.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.cliente_id(class="form-select") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form_judicial.nombre_caso.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.nombre_caso(class="form-control") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form_judicial.rol_firma.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.rol_firma(class="form-select") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form_judicial.abogado_responsable_id.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.abogado_responsable_id(class="form-select") }}
+                                </div>
                             </div>
+                            
+                            <hr>
+                            <h6 class="text-primary mb-3"><i class="bi bi-tags me-2"></i>Clasificación Jurídica</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    {{ form_judicial.materia_id.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.materia_id(class="form-select", id="materia_id_jud") }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form_judicial.procedimiento_id.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.procedimiento_id(class="form-select", id="procedimiento_id_jud") }}
+                                </div>
+                            </div>
+
+                            <!-- CONTENEDOR PARA FORMULARIO DINÁMICO -->
+                            <div id="dynamic-fields-jud-container" class="mb-4" style="display: none;"></div>
+                            
                             <hr>
                             <h6 class="text-primary mb-3"><i class="bi bi-bank me-2"></i>Datos Procesales</h6>
-                            <div class="row g-3">
-                                {% for field in form_judicial if field.name not in ['cliente_id', 'nombre_caso', 'rol_firma', 'abogado_responsable_id', 'csrf_token', 'submit_judicial'] %}
-                                <div class="col-md-4">{{ field.label(class="form-label small fw-bold") }} {{ field(class="form-control") }}</div>
-                                {% endfor %}
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    {{ form_judicial.jurisdiccion_actual.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.jurisdiccion_actual(class="form-select") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.tribunal_asignado.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.tribunal_asignado(class="form-control") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.numero_expediente_tribunal.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.numero_expediente_tribunal(class="form-control") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.juez_asignado.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.juez_asignado(class="form-control") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.monto_demanda.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.monto_demanda(class="form-control") }}
+                                </div>
                             </div>
+
+                            <hr>
+                            <h6 class="text-primary mb-3"><i class="bi bi-shield-check me-2"></i>Detalles de Gestión del Caso</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    {{ form_judicial.prioridad.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.prioridad(class="form-select", id="prioridad_jud") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.nivel_riesgo.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.nivel_riesgo(class="form-select", id="nivel_riesgo_jud") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.probabilidad_exito.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.probabilidad_exito(class="form-select", id="probabilidad_exito_jud") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.origen_cliente.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.origen_cliente(class="form-select", id="origen_cliente_jud") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.fecha_contratacion.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.fecha_contratacion(class="form-control", type="date", id="fecha_contratacion_jud") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_judicial.valor_estimado_caso.label(class="form-label small fw-bold") }}
+                                    {{ form_judicial.valor_estimado_caso(class="form-control", id="valor_estimado_jud") }}
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-primary mb-0"><i class="bi bi-wallet2 me-2"></i>Esquema de Facturación y Cobro</h6>
+                                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalGuiaTarifas">
+                                    <i class="bi bi-info-circle me-1"></i>Ver Guía de Tarifas RD
+                                </button>
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">Esquema de Cobro</label>
+                                    {{ form_judicial.esquema_cobro(class="form-select", id="esquema_cobro_jud", onchange="toggleCobroCampos('jud')") }}
+                                </div>
+                                <div class="col-md-4" id="tarifa_monto_container_jud">
+                                    <label class="form-label small fw-bold" id="tarifa_monto_label_jud">Tarifa / Monto Base (RD$)</label>
+                                    {{ form_judicial.tarifa_monto(class="form-control") }}
+                                </div>
+                                <div class="col-md-4" id="porcentaje_exito_container_jud" style="display: none;">
+                                    <label class="form-label small fw-bold">Porcentaje de Éxito / Litis (%)</label>
+                                    {{ form_judicial.porcentaje_exito(class="form-control") }}
+                                </div>
+                            </div>
+
                             <div class="mt-4 text-end">
                                 {{ form_judicial.submit_judicial(class="btn btn-primary px-5 py-2 shadow-sm") }}
                             </div>
                         </form>
                     </div>
 
+                    <!-- VÍA ADMINISTRATIVA -->
                     <div class="tab-pane fade" id="admin">
-                        <form method="POST">
+                        <form method="POST" id="form-admin-id">
                             {{ form_admin.hidden_tag() }}
-                            <div class="row g-3">
-                                {% for field in form_admin if field.type != 'CSRFTokenField' and field.type != 'SubmitField' %}
-                                <div class="col-md-4">
-                                    {{ field.label(class="form-label small fw-bold") }}
-                                    {{ field(class="form-control") }}
+                            
+                            <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>Información General</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3">
+                                    {{ form_admin.cliente_id.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.cliente_id(class="form-select") }}
                                 </div>
-                                {% endfor %}
+                                <div class="col-md-3">
+                                    {{ form_admin.nombre_caso.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.nombre_caso(class="form-control") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form_admin.rol_firma.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.rol_firma(class="form-select") }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form_admin.abogado_responsable_id.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.abogado_responsable_id(class="form-select") }}
+                                </div>
                             </div>
+                            
+                            <hr>
+                            <h6 class="text-primary mb-3"><i class="bi bi-tags me-2"></i>Clasificación Administrativa</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    {{ form_admin.materia_id.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.materia_id(class="form-select", id="materia_id_adm") }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form_admin.procedimiento_id.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.procedimiento_id(class="form-select", id="procedimiento_id_adm") }}
+                                </div>
+                            </div>
+
+                            <!-- CONTENEDOR PARA FORMULARIO DINÁMICO -->
+                            <div id="dynamic-fields-adm-container" class="mb-4" style="display: none;"></div>
+
+                            <hr>
+                            <h6 class="text-primary mb-3"><i class="bi bi-folder-check me-2"></i>Datos Administrativos</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    {{ form_admin.institucion_encargada.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.institucion_encargada(class="form-control") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.numero_solicitud_oficial.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.numero_solicitud_oficial(class="form-control") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.monto_tasas_impuestos.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.monto_tasas_impuestos(class="form-control") }}
+                                </div>
+                                <div class="col-12">
+                                    {{ form_admin.descripcion_tramite.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.descripcion_tramite(class="form-control", rows="3") }}
+                                </div>
+                            </div>
+
+                            <hr>
+                            <h6 class="text-primary mb-3"><i class="bi bi-shield-check me-2"></i>Detalles de Gestión del Trámite</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    {{ form_admin.prioridad.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.prioridad(class="form-select", id="prioridad_adm") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.nivel_riesgo.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.nivel_riesgo(class="form-select", id="nivel_riesgo_adm") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.probabilidad_exito.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.probabilidad_exito(class="form-select", id="probabilidad_exito_adm") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.origen_cliente.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.origen_cliente(class="form-select", id="origen_cliente_adm") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.fecha_contratacion.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.fecha_contratacion(class="form-control", type="date", id="fecha_contratacion_adm") }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_admin.valor_estimado_caso.label(class="form-label small fw-bold") }}
+                                    {{ form_admin.valor_estimado_caso(class="form-control", id="valor_estimado_adm") }}
+                                </div>
+                            </div>
+
+                            <hr>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-primary mb-0"><i class="bi bi-wallet2 me-2"></i>Esquema de Facturación y Cobro</h6>
+                                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalGuiaTarifas">
+                                    <i class="bi bi-info-circle me-1"></i>Ver Guía de Tarifas RD
+                                </button>
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">Esquema de Cobro</label>
+                                    {{ form_admin.esquema_cobro(class="form-select", id="esquema_cobro_adm", onchange="toggleCobroCampos('adm')") }}
+                                </div>
+                                <div class="col-md-4" id="tarifa_monto_container_adm">
+                                    <label class="form-label small fw-bold" id="tarifa_monto_label_adm">Tarifa / Monto Base (RD$)</label>
+                                    {{ form_admin.tarifa_monto(class="form-control") }}
+                                </div>
+                                <div class="col-md-4" id="porcentaje_exito_container_adm" style="display: none;">
+                                    <label class="form-label small fw-bold">Porcentaje de Éxito / Litis (%)</label>
+                                    {{ form_admin.porcentaje_exito(class="form-control") }}
+                                </div>
+                            </div>
+
                             <div class="mt-4 text-end">
                                 {{ form_admin.submit_admin(class="btn btn-primary px-5 py-2 shadow-sm") }}
                             </div>
@@ -71,6 +274,206 @@
         </div>
     </div>
 </main>
+
+<!-- MODAL DE GUIA DE TARIFAS -->
+<div class="modal fade" id="modalGuiaTarifas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary"><i class="bi bi-info-circle-fill me-2"></i>Guía de Tarifas de Referencia en RD</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" style="max-height: 60vh; overflow-y: auto;">
+                <p class="text-muted small">Precios orientativos promedio para firmas pequeñas y medianas en República Dominicana.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover align-middle small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Materia</th>
+                                <th>Tipo de Asunto</th>
+                                <th class="text-end">Rango Sugerido</th>
+                                <th>Observación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Civil</td><td>Carta, revisión, escrito simple</td><td class="text-end fw-bold">RD$ 3,000 - 12,000</td><td>Gestión corta puntual.</td></tr>
+                            <tr><td>Civil</td><td>Demanda o defensa media</td><td class="text-end fw-bold">RD$ 35,000 - 120,000</td><td>Por fases, con anticipo.</td></tr>
+                            <tr><td>Civil</td><td>Litigio patrimonial alto</td><td class="text-end fw-bold">RD$ 100,000 - 350,000+</td><td>Anticipo + hitos + éxito.</td></tr>
+                            <tr><td>Laboral</td><td>Consulta o cálculo de prestaciones</td><td class="text-end fw-bold">RD$ 3,000 - 10,000</td><td>Previo a demanda.</td></tr>
+                            <tr><td>Laboral</td><td>Litigio laboral (Empleador/Trabajador)</td><td class="text-end fw-bold">RD$ 40,000 - 150,000</td><td>Sube con incidentes/audiencias.</td></tr>
+                            <tr><td>Laboral</td><td>Reclamo económico (Trabajador)</td><td class="text-end fw-bold">15% - 30%</td><td>Cuota litis sobre resultado.</td></tr>
+                            <tr><td>Penal</td><td>Defensa de urgencia / Coerción</td><td class="text-end fw-bold">RD$ 50,000 - 150,000</td><td>Fase de investigación/coerción.</td></tr>
+                            <tr><td>Penal</td><td>Litigio complejo</td><td class="text-end fw-bold">RD$ 150,000 - 500,000+</td><td>Según delito y riesgo de prisión.</td></tr>
+                            <tr><td>Inmobiliaria</td><td>Due Diligence o contrato compraventa</td><td class="text-end fw-bold">RD$ 10,000 - 35,000</td><td>Fija por contrato.</td></tr>
+                            <tr><td>Inmobiliaria</td><td>Saneamiento, deslinde, litis catastral</td><td class="text-end fw-bold">RD$ 50,000 - 200,000</td><td>Por etapas y audiencias.</td></tr>
+                            <tr><td>Administrativa</td><td>Gestión, recurso o solicitud</td><td class="text-end fw-bold">RD$ 8,000 - 25,000</td><td>DGII, ONAPI, DGM. Cerrada.</td></tr>
+                            <tr><td>Corporativa</td><td>Constitución de compañía (SRL)</td><td class="text-end fw-bold">RD$ 15,000 - 40,000</td><td>Incluye registro y estatutos.</td></tr>
+                            <tr><td>Corporativa</td><td>Iguala mensual pequeña empresa</td><td class="text-end fw-bold">RD$ 20,000 - 100,000/mes</td><td>Asesoría continua.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                <button type="button" class="btn btn-sm btn-secondary fw-semibold" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleCobroCampos(prefix) {
+        const esquema = document.getElementById(`esquema_cobro_${prefix}`).value;
+        const tarifaLabel = document.getElementById(`tarifa_monto_label_${prefix}`);
+        const tarifaContainer = document.getElementById(`tarifa_monto_container_${prefix}`);
+        const exitoContainer = document.getElementById(`porcentaje_exito_container_${prefix}`);
+        
+        if (esquema === 'Por Hora') {
+            tarifaLabel.innerText = "Costo por Hora (RD$)";
+            tarifaContainer.style.display = "block";
+            exitoContainer.style.display = "none";
+        } else if (esquema === 'Contingencia') {
+            tarifaLabel.innerText = "Monto de Éxito / Anticipo (RD$)";
+            tarifaContainer.style.display = "block";
+            exitoContainer.style.display = "block";
+        } else if (esquema === 'Iguala') {
+            tarifaLabel.innerText = "Iguala Mensual (RD$)";
+            tarifaContainer.style.display = "block";
+            exitoContainer.style.display = "none";
+        } else {
+            tarifaLabel.innerText = "Tarifa / Honorario Fijo (RD$)";
+            tarifaContainer.style.display = "block";
+            exitoContainer.style.display = "none";
+        }
+    }
+
+    function renderDynamicFields(campos, containerId, savedValues = {}) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        if (!campos || campos.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        let html = '<hr><h6 class="text-primary mb-3"><i class="bi bi-ui-checks me-2"></i>Datos Específicos del Procedimiento</h6><div class="row g-3">';
+        campos.forEach(campo => {
+            const requiredAsterisk = campo.required ? ' <span class="text-danger">*</span>' : '';
+            const requiredAttr = campo.required ? 'required' : '';
+            const savedVal = savedValues[campo.name] !== undefined ? savedValues[campo.name] : '';
+
+            html += `<div class="col-md-4">
+                <label class="form-label small fw-bold" for="dyn_${campo.name}">${campo.label}${requiredAsterisk}</label>`;
+
+            if (campo.type === 'select') {
+                html += `<select class="form-select" id="dyn_${campo.name}" name="${campo.name}" ${requiredAttr}>
+                    <option value="">Seleccione una opción...</option>`;
+                campo.options.forEach(opt => {
+                    const selected = savedVal === opt ? 'selected' : '';
+                    html += `<option value="${opt}" ${selected}>${opt}</option>`;
+                });
+                html += `</select>`;
+            } else if (campo.type === 'textarea') {
+                html += `<textarea class="form-control" id="dyn_${campo.name}" name="${campo.name}" rows="2" ${requiredAttr}>${savedVal}</textarea>`;
+            } else if (campo.type === 'date') {
+                html += `<input type="date" class="form-control" id="dyn_${campo.name}" name="${campo.name}" value="${savedVal}" ${requiredAttr}>`;
+            } else if (campo.type === 'number') {
+                html += `<input type="number" step="any" class="form-control" id="dyn_${campo.name}" name="${campo.name}" value="${savedVal}" ${requiredAttr}>`;
+            } else {
+                html += `<input type="text" class="form-control" id="dyn_${campo.name}" name="${campo.name}" value="${savedVal}" ${requiredAttr}>`;
+            }
+
+            html += `</div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        container.style.display = 'block';
+    }
+
+    let materiasCache = {};
+
+    function loadMaterias(prefix, type) {
+        return fetch(`/api/materias?tipo=${type}`)
+            .then(r => r.json())
+            .then(data => {
+                materiasCache[prefix] = data;
+            });
+    }
+
+    // Manejo de selectores dinámicos mediante AJAX
+    function setupCatalogSelectors(prefix, type) {
+        const materiaSelect = document.getElementById(`materia_id_${prefix}`);
+        const procSelect = document.getElementById(`procedimiento_id_${prefix}`);
+        const procContainer = procSelect.closest('.col-md-6');
+        const dynamicContainerId = `dynamic-fields-${prefix}-container`;
+
+        // Evento al cambiar la materia
+        materiaSelect.addEventListener('change', function() {
+            const materiaId = parseInt(this.value);
+            procSelect.innerHTML = '<option value="0">Seleccione procedimiento...</option>';
+            document.getElementById(dynamicContainerId).style.display = 'none';
+
+            if (!materiaId || materiaId === 0) {
+                procContainer.style.display = 'block';
+                procSelect.setAttribute('required', 'required');
+                return;
+            }
+
+            // Buscar en el caché la materia seleccionada
+            const cache = materiasCache[prefix] || [];
+            const materia = cache.find(m => m.id === materiaId);
+
+            if (materia) {
+                if (materia.requiere_procedimiento) {
+                    procContainer.style.display = 'block';
+                    procSelect.setAttribute('required', 'required');
+                    
+                    fetch(`/api/procedimientos?materia_id=${materiaId}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            data.forEach(p => {
+                                const opt = document.createElement('option');
+                                opt.value = p.id;
+                                opt.innerText = p.nombre;
+                                procSelect.appendChild(opt);
+                            });
+                        });
+                } else {
+                    // Ocultar completamente y hacer opcional
+                    procContainer.style.display = 'none';
+                    procSelect.removeAttribute('required');
+                    procSelect.innerHTML = '<option value="0">No requiere procedimiento</option>';
+                    procSelect.value = "0";
+                }
+            }
+        });
+
+        // Evento al cambiar el procedimiento
+        procSelect.addEventListener('change', function() {
+            const procId = this.value;
+            if (procId && procId !== '0') {
+                fetch(`/api/procedimientos/${procId}/campos`)
+                    .then(r => r.json())
+                    .then(data => {
+                        renderDynamicFields(data.campos, dynamicContainerId);
+                    });
+            } else {
+                document.getElementById(dynamicContainerId).style.display = 'none';
+            }
+        });
+    }
+    
+    document.addEventListener("DOMContentLoaded", function() {
+        toggleCobroCampos('jud');
+        toggleCobroCampos('adm');
+
+        Promise.all([
+            loadMaterias('jud', 'Judicial'),
+            loadMaterias('adm', 'Administrativo')
+        ]).then(() => {
+            setupCatalogSelectors('jud', 'Judicial');
+            setupCatalogSelectors('adm', 'Administrativo');
+        });
+    });
+</script>
 
 <style>
     /* Estilos extra para que se vea más profesional */
@@ -91,7 +494,6 @@
         color: #00409A !important; 
     }
     .card { border-radius: 1rem; }
-    .form-control { border-radius: 0.5rem; border: 1px solid #ced4da; }
-    .form-control:focus { border-color: #00409A; box-shadow: 0 0 0 0.25rem rgba(0, 64, 154, 0.1); }
+    .form-control, .form-select { border-radius: 0.5rem; border: 1px solid #ced4da; }
 </style>
 {% endblock %}

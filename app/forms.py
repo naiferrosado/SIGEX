@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, DecimalField, DateField, TimeField, PasswordField, BooleanField, SubmitField, SelectField
-from wtforms.validators import DataRequired, Email, Optional, Length, EqualTo, InputRequired
+from wtforms.validators import DataRequired, Email, Optional, Length, EqualTo, InputRequired, NumberRange
 from wtforms import DateField, TextAreaField
 
 # FORMULARIO DE SEGURIDAD PARA EL LOGIN
@@ -60,6 +60,10 @@ class UsuarioForm(FlaskForm):
     ])
     # Opcional en el form. La ruta de "agregar" validará si está vacío.
     password = PasswordField('Contraseña', validators=[Optional(), Length(min=6, message="La clave debe tener al menos 6 caracteres.")])
+    
+    salario_base = DecimalField('Salario Base Mensual (RD$)', places=2, default=0.00, validators=[Optional()])
+    porcentaje_comision = DecimalField('Porcentaje de Comisión (%)', places=2, default=0.00, validators=[Optional()])
+    
     submit = SubmitField('Guardar Usuario')
 
 
@@ -82,6 +86,53 @@ class ExpedienteBaseForm(FlaskForm):
         ('Tercero', 'Tercero Interviniente')
     ], validators=[DataRequired(message="Especifique el rol de la firma.")])
 
+    # Nuevos Catálogos
+    materia_id = SelectField('Materia Jurídica', coerce=int, validators=[DataRequired(message="Debe seleccionar una materia.")])
+    procedimiento_id = SelectField('Procedimiento', coerce=int, validators=[Optional()])
+
+    # Nuevos campos generales
+    prioridad = SelectField('Prioridad', choices=[
+        ('Baja', 'Baja'),
+        ('Media', 'Media'),
+        ('Alta', 'Alta')
+    ], default='Media')
+    
+    nivel_riesgo = SelectField('Nivel de Riesgo', choices=[
+        ('Bajo', 'Bajo'),
+        ('Medio', 'Medio'),
+        ('Alto', 'Alto')
+    ], default='Medio')
+    
+    probabilidad_exito = SelectField('Probabilidad de Éxito', choices=[
+        ('Baja', 'Baja'),
+        ('Media', 'Media'),
+        ('Alta', 'Alta')
+    ], default='Media')
+    
+    origen_cliente = SelectField('Origen del Cliente', choices=[
+        ('Cliente Nuevo', 'Cliente Nuevo'),
+        ('Cliente Recurrente', 'Cliente Recurrente'),
+        ('Referido', 'Referido'),
+        ('Página Web', 'Página Web'),
+        ('Facebook', 'Facebook'),
+        ('Instagram', 'Instagram'),
+        ('WhatsApp', 'WhatsApp'),
+        ('Otro', 'Otro')
+    ], default='Cliente Nuevo')
+    
+    fecha_contratacion = DateField('Fecha de Contratación', format='%Y-%m-%d', validators=[Optional()])
+    valor_estimado_caso = DecimalField('Valor Estimado del Caso (RD$)', places=2, validators=[Optional()])
+
+    # Nuevos campos de facturación del caso
+    esquema_cobro = SelectField('Esquema de Cobro', choices=[
+        ('Fijo', 'Tarifa Fija / Fases'),
+        ('Por Hora', 'Por Hora Trabajada'),
+        ('Iguala', 'Iguala Mensual'),
+        ('Contingencia', 'Contingencia / Éxito')
+    ], default='Fijo', validators=[DataRequired(message="Debe seleccionar el esquema de cobro.")])
+    tarifa_monto = DecimalField('Tarifa / Monto Base (RD$)', places=2, default=0.00, validators=[Optional()])
+    porcentaje_exito = DecimalField('Porcentaje de Éxito / Litis (%)', places=2, default=0.00, validators=[Optional()])
+
 
 # FORMULARIO HIJO: LITIGIO
 class ExpedienteJudicialForm(ExpedienteBaseForm):
@@ -95,18 +146,21 @@ class ExpedienteJudicialForm(ExpedienteBaseForm):
         coerce=int,
         validators=[Optional()]
     )
-    rama_derecho = SelectField('Rama del Derecho', choices=[
+    # Conservados solo para compatibilidad de base de datos
+    rama_derecho = SelectField('Rama del Derecho (Antiguo)', choices=[
+        ('', 'No aplica'),
         ('Civil', 'Civil'),
         ('Penal', 'Penal'),
         ('Laboral', 'Laboral'),
         ('Inmobiliario', 'Inmobiliario'),
         ('Familia', 'Familia')
-    ], validators=[Optional()])
+    ], validators=[Optional()], default='')
     
-    sub_categoria = StringField('Sub-categoría (Ej. Delitos contra la propiedad)', validators=[Optional(), Length(max=100)])
-    tipo_accion = StringField('Tipo de Acción (Ej. Robo, Divorcio)', validators=[Optional(), Length(max=100)])
+    sub_categoria = StringField('Sub-categoría (Antiguo)', validators=[Optional(), Length(max=100)], default='')
+    tipo_accion = StringField('Tipo de Acción (Antiguo)', validators=[Optional(), Length(max=100)], default='')
     
     jurisdiccion_actual = SelectField('Instancia Actual', choices=[
+        ('', 'Seleccione una instancia...'),
         ('Juzgado de Paz', 'Juzgado de Paz'),
         ('Primera Instancia', 'Primera Instancia'),
         ('Corte de Apelacion', 'Corte de Apelación'),
@@ -124,26 +178,28 @@ class ExpedienteJudicialForm(ExpedienteBaseForm):
     abogado_contraparte = StringField('Abogado Contraparte', validators=[Optional(), Length(max=200)])
     contacto_abogado_contraparte = StringField('Contacto Abogado Contraparte', validators=[Optional(), Length(max=150)])
     
-    monto_demanda = DecimalField('Monto Involucrado (RD$)', places=2, validators=[Optional()])
+    monto_demanda = DecimalField('Monto Involucrado (RD$)', places=2, validators=[Optional(), NumberRange(min=0, message="El monto de la demanda debe ser positivo o cero.")])
     
     submit_judicial = SubmitField('Crear Expediente Judicial')
 
 
 # FORMULARIO HIJO: ADMINISTRATIVO
 class ExpedienteAdministrativoForm(ExpedienteBaseForm):
-    tipo_proceso = SelectField('Tipo de Trámite', choices=[
+    # Conservados solo para compatibilidad de base de datos
+    tipo_proceso = SelectField('Tipo de Trámite (Antiguo)', choices=[
+        ('', 'No aplica'),
         ('Migratorio', 'Migratorio'),
         ('Impuestos', 'Impuestos / DGII'),
         ('Corporativo', 'Corporativo / Mercantil'),
         ('Propiedad Intelectual', 'Propiedad Intelectual (ONAPI)')
-    ], validators=[Optional()])
+    ], validators=[Optional()], default='')
     
-    sub_proceso = StringField('Sub-proceso (Ej. Residencia Temporal)', validators=[Optional(), Length(max=100)])
+    sub_proceso = StringField('Sub-proceso (Antiguo)', validators=[Optional(), Length(max=100)], default='')
     institucion_encargada = StringField('Institución (Ej. DGM, DGII, ONAPI)', validators=[Optional(), Length(max=150)])
     numero_solicitud_oficial = StringField('Número de Solicitud (Ticket)', validators=[Optional(), Length(max=100)])
     
     descripcion_tramite = TextAreaField('Descripción del Trámite', validators=[Optional()])
-    monto_tasas_impuestos = DecimalField('Total Tasas/Impuestos (RD$)', places=2, validators=[Optional()])
+    monto_tasas_impuestos = DecimalField('Total Tasas/Impuestos (RD$)', places=2, validators=[Optional(), NumberRange(min=0, message="El monto de tasas/impuestos debe ser positivo o cero.")])
 
     submit_admin = SubmitField('Crear Expediente Administrativo')
 
@@ -232,3 +288,26 @@ class RequiredChangePasswordForm(FlaskForm):
         EqualTo('new_password', message="Las contraseñas no coinciden.")
     ])
     submit = SubmitField('Guardar y Continuar')
+
+
+class PresupuestoForm(FlaskForm):
+    cliente_id = SelectField('Cliente', coerce=int, validators=[DataRequired(message="Debe seleccionar un cliente.")])
+    titulo = StringField('Título de la Propuesta / Presupuesto', validators=[
+        DataRequired(message="El título es obligatorio."),
+        Length(max=150)
+    ])
+    materia = SelectField('Materia / Área', choices=[
+        ('Civil', 'Civil'),
+        ('Laboral', 'Laboral'),
+        ('Penal', 'Penal'),
+        ('Inmobiliaria', 'Inmobiliaria'),
+        ('Administrativa', 'Administrativa'),
+        ('Corporativa', 'Corporativa')
+    ], validators=[DataRequired(message="Debe seleccionar una materia.")])
+    
+    tipo_asunto = StringField('Tipo de Asunto / Trámite', validators=[
+        DataRequired(message="El tipo de asunto o trámite es obligatorio."),
+        Length(max=100)
+    ])
+    descripcion = TextAreaField('Descripción u Observaciones Adicionales', validators=[Optional()])
+    submit = SubmitField('Guardar Presupuesto')
