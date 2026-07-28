@@ -53,8 +53,21 @@ from app.models import (
     TipoDocumento,
     Usuario,
     VersionDocumento,
+    MateriaLegal,
+    ProcedimientoLegal,
     rd_now,
+    rd_today,
+    ParametroFiscal,
+    ContratoHonorarios,
+    CronogramaCobro,
+    ReciboInterno,
+    TransaccionPago,
+    GastoReembolsable,
+    Presupuesto,
+    PresupuestoDetalle,
 )
+from app.dynamic_fields import DYNAMIC_FIELDS_BY_PROCEDURE
+from app.services.billing_service import BillingService
 from app.utils import (
     enviar_email_alerta_preventiva,
     enviar_email_credenciales_cliente,
@@ -134,6 +147,18 @@ def _serialize_expedientes(expedientes):
             "fecha_cierre": exp.fecha_cierre.strftime("%Y-%m-%d")
             if exp.fecha_cierre
             else None,
+            "materia_id": exp.materia_id,
+            "procedimiento_id": exp.procedimiento_id,
+            "materia_nombre": exp.materia.nombre if exp.materia else "",
+            "procedimiento_nombre": exp.procedimiento.nombre if exp.procedimiento else "",
+            "prioridad": exp.prioridad or "",
+            "nivel_riesgo": exp.nivel_riesgo or "",
+            "probabilidad_exito": exp.probabilidad_exito or "",
+            "origen_cliente": exp.origen_cliente or "",
+            "fecha_contratacion": exp.fecha_contratacion.strftime("%Y-%m-%d") if exp.fecha_contratacion else None,
+            "valor_estimado_caso": float(exp.valor_estimado_caso) if exp.valor_estimado_caso is not None else None,
+            "datos_dinamicos": exp.datos_dinamicos or {},
+            "resumen_financiero": BillingService.obtener_resumen_expediente(exp.id),
         }
         if exp.tipo_tramite == "Judicial":
             next_hearing = (
@@ -1487,6 +1512,8 @@ def register_routes(app):
                 "rol": u.rol,
                 "activo": bool(u.activo),
                 "requiere_cambio": bool(u.requiere_cambio_password),
+                "salario_base": float(u.salario_base or 0.00),
+                "porcentaje_comision": float(u.porcentaje_comision or 0.00),
             }
             for u in usuarios
         ]
@@ -1494,7 +1521,7 @@ def register_routes(app):
     # --- RUTAS DE USUARIOS ---
     @app.route("/usuarios")
     @login_required
-    @roles_permitidos("Administrador")
+    @roles_permitidos("Administrador", "Socio")
     def usuarios():
         form = UsuarioForm()
         usuarios_db = Usuario.query.order_by(Usuario.nombre.asc()).all()
@@ -1510,7 +1537,7 @@ def register_routes(app):
 
     @app.route("/usuarios/agregar", methods=["POST"])
     @login_required
-    @roles_permitidos("Administrador")
+    @roles_permitidos("Administrador", "Socio")
     def agregar_usuario():
         form = UsuarioForm()
 
@@ -1531,6 +1558,8 @@ def register_routes(app):
                 password_hash=generate_password_hash(form.password.data),
                 activo=True,
                 requiere_cambio_password=True,  # Fuerza al usuario a cambiarla al entrar
+                salario_base=form.salario_base.data,
+                porcentaje_comision=form.porcentaje_comision.data,
             )
             try:
                 db.session.add(nuevo_usuario)
@@ -1550,7 +1579,7 @@ def register_routes(app):
 
     @app.route("/usuarios/<int:usuario_id>/editar", methods=["POST"])
     @login_required
-    @roles_permitidos("Administrador")
+    @roles_permitidos("Administrador", "Socio")
     def editar_usuario(usuario_id):
         usuario = Usuario.query.get_or_404(usuario_id)
         form = UsuarioForm()
@@ -1564,6 +1593,8 @@ def register_routes(app):
             usuario.nombre = form.nombre.data.strip()
             usuario.email = form.email.data.strip()
             usuario.rol = form.rol.data
+            usuario.salario_base = form.salario_base.data
+            usuario.porcentaje_comision = form.porcentaje_comision.data
 
             # Solo actualizamos la contraseña si el admin escribió una nueva
             if form.password.data:
@@ -1587,7 +1618,7 @@ def register_routes(app):
 
     @app.route("/usuarios/<int:usuario_id>/desactivar", methods=["POST"])
     @login_required
-    @roles_permitidos("Administrador")
+    @roles_permitidos("Administrador", "Socio")
     def desactivar_usuario(usuario_id):
         # Evitar que el administrador se desactive a sí mismo
         if usuario_id == current_user.id:
@@ -1703,6 +1734,9 @@ def register_routes(app):
             exp_ids = [e.id for e in cliente_db.expedientes]
             query = query.filter(Expediente.id.in_(exp_ids))
 
+        if current_user.rol == "Asociado":
+            query = query.filter(Expediente.abogado_responsable_id == current_user.id)
+
         if status != "Todos":
             query = query.filter_by(estado=status)
 
@@ -1784,6 +1818,9 @@ def register_routes(app):
         if tipo_tramite:
             query = query.filter(Expediente.tipo_tramite == tipo_tramite)
 
+        if current_user.rol == "Asociado":
+            query = query.filter(Expediente.abogado_responsable_id == current_user.id)
+
         expedientes = query.order_by(Expediente.fecha_cierre.desc()).all()
 
         results = []
@@ -1820,6 +1857,17 @@ def register_routes(app):
                 "razon_estado": exp.razon_estado,
                 "fase_actual": exp.fase_actual,
                 "fase_nota": exp.fase_nota,
+                "materia_id": exp.materia_id,
+                "procedimiento_id": exp.procedimiento_id,
+                "materia_nombre": exp.materia.nombre if exp.materia else "",
+                "procedimiento_nombre": exp.procedimiento.nombre if exp.procedimiento else "",
+                "prioridad": exp.prioridad or "",
+                "nivel_riesgo": exp.nivel_riesgo or "",
+                "probabilidad_exito": exp.probabilidad_exito or "",
+                "origen_cliente": exp.origen_cliente or "",
+                "fecha_contratacion": exp.fecha_contratacion.strftime("%Y-%m-%d") if exp.fecha_contratacion else None,
+                "valor_estimado_caso": float(exp.valor_estimado_caso) if exp.valor_estimado_caso is not None else None,
+                "datos_dinamicos": exp.datos_dinamicos or {},
             }
 
             if exp.tipo_tramite == "Judicial":
@@ -1875,6 +1923,10 @@ def register_routes(app):
     def detalle_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
 
+        # RF-SEG-002: Segregación Interna de Expedientes
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."}), 403
+
         # 1. Registrar auditoría de visualización
         registrar_auditoria(
             usuario_id=current_user.id,
@@ -1922,9 +1974,29 @@ def register_routes(app):
             if log.accion_realizada != "Visualización"
         ]
 
+        tiempos_data = []
+        if current_user.rol in ["Socio", "Asociado", "Paralegal", "Administrador"]:
+            tiempos_db = (
+                BitacoraTiempoTarea.query.filter_by(expediente_id=exp.id)
+                .order_by(BitacoraTiempoTarea.fecha_tarea.desc())
+                .all()
+            )
+            tiempos_data = [
+                {
+                    "id": t.id,
+                    "fecha": t.fecha_tarea.strftime("%Y-%m-%d"),
+                    "usuario": t.usuario.nombre if t.usuario else "Desconocido",
+                    "horas": float(t.horas_trabajadas),
+                    "descripcion": t.descripcion_gestion,
+                    "estado": t.estado_cierre
+                }
+                for t in tiempos_db
+            ]
+
         # 3. Serializar expediente
         item = {
             "id": exp.id,
+            "tiempos": tiempos_data,
             "codigo_firma": exp.codigo_firma,
             "cliente_id": exp.cliente_id,
             "cliente_nombre": exp.cliente.nombre_completo
@@ -1948,8 +2020,22 @@ def register_routes(app):
             "tipo_finalizacion": exp.tipo_finalizacion or "",
             "fase_actual": exp.fase_actual,
             "fase_nota": exp.fase_nota or "",
+            "esquema_cobro": exp.esquema_cobro or "Fijo",
+            "tarifa_monto": float(exp.tarifa_monto or 0.00),
+            "porcentaje_exito": float(exp.porcentaje_exito or 0.00),
             "auditorias": auditorias_data,
             "historial": historial_data,
+            "materia_id": exp.materia_id,
+            "procedimiento_id": exp.procedimiento_id,
+            "materia_nombre": exp.materia.nombre if exp.materia else "",
+            "procedimiento_nombre": exp.procedimiento.nombre if exp.procedimiento else "",
+            "prioridad": exp.prioridad or "",
+            "nivel_riesgo": exp.nivel_riesgo or "",
+            "probabilidad_exito": exp.probabilidad_exito or "",
+            "origen_cliente": exp.origen_cliente or "",
+            "fecha_contratacion": exp.fecha_contratacion.strftime("%Y-%m-%d") if exp.fecha_contratacion else None,
+            "valor_estimado_caso": float(exp.valor_estimado_caso) if exp.valor_estimado_caso is not None else None,
+            "datos_dinamicos": exp.datos_dinamicos or {},
         }
 
         if exp.tipo_tramite == "Judicial":
@@ -2002,11 +2088,75 @@ def register_routes(app):
             )
         return jsonify(item)
 
+    @app.route("/expedientes/<int:expediente_id>/tiempos/agregar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
+    def agregar_tiempo_expediente(expediente_id):
+        exp = Expediente.query.get_or_404(expediente_id)
+        
+        # RF-SEG-002: Segregación Interna de Expedientes
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("expedientes"))
+            
+        try:
+            horas_str = request.form.get("horas", "0")
+            descripcion = request.form.get("descripcion", "").strip()
+            fecha_str = request.form.get("fecha", "")
+            
+            try:
+                horas = float(horas_str)
+            except ValueError:
+                flash("El número de horas es inválido.", "danger")
+                return redirect(url_for("expedientes"))
+                
+            if horas <= 0:
+                flash("Las horas trabajadas deben ser mayores a cero.", "danger")
+                return redirect(url_for("expedientes"))
+            if not descripcion:
+                flash("La descripción de la gestión es obligatoria.", "danger")
+                return redirect(url_for("expedientes"))
+            if not fecha_str:
+                flash("La fecha es obligatoria.", "danger")
+                return redirect(url_for("expedientes"))
+                
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            
+            nuevo_tiempo = BitacoraTiempoTarea(
+                expediente_id=exp.id,
+                usuario_id=current_user.id,
+                fecha_tarea=fecha,
+                horas_trabajadas=horas,
+                descripcion_gestion=descripcion,
+                estado_cierre="Abierto"
+            )
+            db.session.add(nuevo_tiempo)
+            
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="REGISTRO_TIEMPO",
+                detalles=f"Registró {horas} horas de trabajo en el expediente '{exp.nombre_caso}'.",
+                expediente_id=exp.id,
+                cliente_id=exp.cliente_id
+            )
+            db.session.commit()
+            flash("Horas registradas correctamente en la bitácora.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error al registrar horas: {str(e)}", "danger")
+            
+        return redirect(url_for("expedientes"))
+
     @app.route("/expedientes/<int:expediente_id>/bitacora")
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def bitacora_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
+
+        # RF-SEG-002: Segregación Interna de Expedientes
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("expedientes"))
 
         # Obtener historial de proceso (bitácora) desde BitacoraAuditoria
         historial_raw = (
@@ -2036,6 +2186,32 @@ def register_routes(app):
             historial=historial_db,
             usuario=current_user,
         )
+
+    # --- APIS PARA CATÁLOGOS Y FORMULARIOS DINÁMICOS ---
+    @app.route("/api/materias")
+    @login_required
+    def api_get_materias():
+        tipo = request.args.get("tipo", "").strip()  # 'Judicial' o 'Administrativo'
+        if not tipo:
+            return jsonify([])
+        materias = MateriaLegal.query.filter_by(tipo_expediente=tipo, activo=True).order_by(MateriaLegal.nombre.asc()).all()
+        return jsonify([{"id": m.id, "nombre": m.nombre, "descripcion": m.descripcion, "requiere_procedimiento": m.requiere_procedimiento} for m in materias])
+
+    @app.route("/api/procedimientos")
+    @login_required
+    def api_get_procedimientos():
+        materia_id = request.args.get("materia_id", type=int)
+        if not materia_id:
+            return jsonify([])
+        procedimientos = ProcedimientoLegal.query.filter_by(materia_id=materia_id, activo=True).order_by(ProcedimientoLegal.orden.asc(), ProcedimientoLegal.nombre.asc()).all()
+        return jsonify([{"id": p.id, "nombre": p.nombre, "descripcion": p.descripcion} for p in procedimientos])
+
+    @app.route("/api/procedimientos/<int:procedimiento_id>/campos")
+    @login_required
+    def api_get_campos_dinamicos(procedimiento_id):
+        proc = ProcedimientoLegal.query.get_or_404(procedimiento_id)
+        campos = DYNAMIC_FIELDS_BY_PROCEDURE.get(proc.nombre, [])
+        return jsonify({"campos": campos})
 
     # --- CREAR NUEVO EXPEDIENTE ---
     @app.route("/expedientes/nuevo", methods=["GET", "POST"])
@@ -2070,6 +2246,28 @@ def register_routes(app):
             (0, "Seleccione un abogado...")
         ] + opciones_abogados
 
+        # Cargar materias del catálogo para el selector
+        materias_jud = MateriaLegal.query.filter_by(tipo_expediente='Judicial', activo=True).order_by(MateriaLegal.nombre.asc()).all()
+        form_judicial.materia_id.choices = [(0, "Seleccione materia...")] + [(m.id, m.nombre) for m in materias_jud]
+        
+        materias_adm = MateriaLegal.query.filter_by(tipo_expediente='Administrativo', activo=True).order_by(MateriaLegal.nombre.asc()).all()
+        form_admin.materia_id.choices = [(0, "Seleccione materia...")] + [(m.id, m.nombre) for m in materias_adm]
+
+        # Cargar procedimientos para validar el POST si se envía
+        selected_materia_jud = request.form.get("materia_id", type=int) if form_judicial.submit_judicial.name in request.form else 0
+        if selected_materia_jud:
+            procs = ProcedimientoLegal.query.filter_by(materia_id=selected_materia_jud, activo=True).order_by(ProcedimientoLegal.nombre.asc()).all()
+            form_judicial.procedimiento_id.choices = [(0, "Seleccione procedimiento...")] + [(p.id, p.nombre) for p in procs]
+        else:
+            form_judicial.procedimiento_id.choices = [(0, "Seleccione procedimiento...")]
+
+        selected_materia_adm = request.form.get("materia_id", type=int) if form_admin.submit_admin.name in request.form else 0
+        if selected_materia_adm:
+            procs = ProcedimientoLegal.query.filter_by(materia_id=selected_materia_adm, activo=True).order_by(ProcedimientoLegal.nombre.asc()).all()
+            form_admin.procedimiento_id.choices = [(0, "Seleccione procedimiento...")] + [(p.id, p.nombre) for p in procs]
+        else:
+            form_admin.procedimiento_id.choices = [(0, "Seleccione procedimiento...")]
+
         # PROCESAR EL FORMULARIO ENVIADO (POST)
         if request.method == "POST":
             codigo_generado = f"EXP-{uuid.uuid4().hex[:6].upper()}"
@@ -2103,16 +2301,58 @@ def register_routes(app):
                         form_admin=form_admin,
                     )
 
+                materia_obj = MateriaLegal.query.get(form_judicial.materia_id.data)
+                
+                # Validar procedimiento condicionalmente
+                proc_id = form_judicial.procedimiento_id.data
+                proc_obj = None
+                if materia_obj and materia_obj.requiere_procedimiento:
+                    if not proc_id or proc_id == 0:
+                        flash("Debe seleccionar un procedimiento para esta materia.", "danger")
+                        return render_template(
+                            "expedientes/nuevo.html",
+                            form_judicial=form_judicial,
+                            form_admin=form_admin,
+                        )
+                    proc_obj = ProcedimientoLegal.query.get(proc_id)
+                    actual_procedimiento_id = proc_id
+                else:
+                    actual_procedimiento_id = None
+
+                # Extraer campos dinámicos
+                datos_dinamicos_json = {}
+                if proc_obj:
+                    campos_definidos = DYNAMIC_FIELDS_BY_PROCEDURE.get(proc_obj.nombre, [])
+                    for campo in campos_definidos:
+                        field_name = campo["name"]
+                        val = request.form.get(field_name)
+                        if val is not None:
+                            datos_dinamicos_json[field_name] = val
+
                 nuevo_caso = ExpedienteJudicial(
                     codigo_firma=codigo_generado,
                     cliente_id=form_judicial.cliente_id.data,
                     abogado_responsable_id=form_judicial.abogado_responsable_id.data,
                     nombre_caso=form_judicial.nombre_caso.data,
                     rol_firma=form_judicial.rol_firma.data,
+                    
+                    # Catálogos y campos dinámicos
+                    materia_id=form_judicial.materia_id.data,
+                    procedimiento_id=actual_procedimiento_id,
+                    prioridad=form_judicial.prioridad.data,
+                    nivel_riesgo=form_judicial.nivel_riesgo.data,
+                    probabilidad_exito=form_judicial.probabilidad_exito.data,
+                    origen_cliente=form_judicial.origen_cliente.data,
+                    fecha_contratacion=form_judicial.fecha_contratacion.data,
+                    valor_estimado_caso=form_judicial.valor_estimado_caso.data,
+                    datos_dinamicos=datos_dinamicos_json,
+
+                    # Compatibilidad antigua (mapeo automático)
+                    rama_derecho=materia_obj.nombre if materia_obj else "",
+                    sub_categoria=proc_obj.nombre if proc_obj else "",
+                    tipo_accion=proc_obj.nombre if proc_obj else "",
+
                     # Campos específicos judiciales
-                    rama_derecho=form_judicial.rama_derecho.data,
-                    sub_categoria=form_judicial.sub_categoria.data,
-                    tipo_accion=form_judicial.tipo_accion.data,
                     jurisdiccion_actual=form_judicial.jurisdiccion_actual.data,
                     tribunal_asignado=form_judicial.tribunal_asignado.data,
                     numero_expediente_tribunal=form_judicial.numero_expediente_tribunal.data,
@@ -2122,6 +2362,9 @@ def register_routes(app):
                     abogado_contraparte=form_judicial.abogado_contraparte.data,
                     contacto_abogado_contraparte=form_judicial.contacto_abogado_contraparte.data,
                     monto_demanda=form_judicial.monto_demanda.data,
+                    esquema_cobro=form_judicial.esquema_cobro.data,
+                    tarifa_monto=form_judicial.tarifa_monto.data,
+                    porcentaje_exito=form_judicial.porcentaje_exito.data,
                     tipo_tramite="Judicial",
                 )
 
@@ -2167,19 +2410,64 @@ def register_routes(app):
                         form_admin=form_admin,
                     )
 
+                materia_obj = MateriaLegal.query.get(form_admin.materia_id.data)
+                
+                # Validar procedimiento condicionalmente
+                proc_id = form_admin.procedimiento_id.data
+                proc_obj = None
+                if materia_obj and materia_obj.requiere_procedimiento:
+                    if not proc_id or proc_id == 0:
+                        flash("Debe seleccionar un procedimiento para esta materia.", "danger")
+                        return render_template(
+                            "expedientes/nuevo.html",
+                            form_judicial=form_judicial,
+                            form_admin=form_admin,
+                        )
+                    proc_obj = ProcedimientoLegal.query.get(proc_id)
+                    actual_procedimiento_id = proc_id
+                else:
+                    actual_procedimiento_id = None
+
+                # Extraer campos dinámicos
+                datos_dinamicos_json = {}
+                if proc_obj:
+                    campos_definidos = DYNAMIC_FIELDS_BY_PROCEDURE.get(proc_obj.nombre, [])
+                    for campo in campos_definidos:
+                        field_name = campo["name"]
+                        val = request.form.get(field_name)
+                        if val is not None:
+                            datos_dinamicos_json[field_name] = val
+
                 nuevo_tramite = ExpedienteAdministrativo(
                     codigo_firma=codigo_generado,
                     cliente_id=form_admin.cliente_id.data,
                     abogado_responsable_id=form_admin.abogado_responsable_id.data,
                     nombre_caso=form_admin.nombre_caso.data,
                     rol_firma=form_admin.rol_firma.data,
+                    
+                    # Catálogos y campos dinámicos
+                    materia_id=form_admin.materia_id.data,
+                    procedimiento_id=actual_procedimiento_id,
+                    prioridad=form_admin.prioridad.data,
+                    nivel_riesgo=form_admin.nivel_riesgo.data,
+                    probabilidad_exito=form_admin.probabilidad_exito.data,
+                    origen_cliente=form_admin.origen_cliente.data,
+                    fecha_contratacion=form_admin.fecha_contratacion.data,
+                    valor_estimado_caso=form_admin.valor_estimado_caso.data,
+                    datos_dinamicos=datos_dinamicos_json,
+
+                    # Compatibilidad antigua (mapeo automático)
+                    tipo_proceso=materia_obj.nombre if materia_obj else "",
+                    sub_proceso=proc_obj.nombre if proc_obj else "",
+
                     # Campos específicos administrativos
-                    tipo_proceso=form_admin.tipo_proceso.data,
-                    sub_proceso=form_admin.sub_proceso.data,
                     institucion_encargada=form_admin.institucion_encargada.data,
                     numero_solicitud_oficial=form_admin.numero_solicitud_oficial.data,
                     descripcion_tramite=form_admin.descripcion_tramite.data,
                     monto_tasas_impuestos=form_admin.monto_tasas_impuestos.data,
+                    esquema_cobro=form_admin.esquema_cobro.data,
+                    tarifa_monto=form_admin.tarifa_monto.data,
+                    porcentaje_exito=form_admin.porcentaje_exito.data,
                     tipo_tramite="Administrativo",
                 )
 
@@ -2210,6 +2498,11 @@ def register_routes(app):
     def editar_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
 
+        # RF-SEG-002: Segregación Interna de Expedientes
+        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+            flash("Acceso denegado. No está asignado a este expediente.", "danger")
+            return redirect(url_for("expedientes"))
+
         # Instanciar el formulario según el tipo
         if exp.tipo_tramite == "Judicial":
             form = ExpedienteJudicialForm()
@@ -2230,12 +2523,39 @@ def register_routes(app):
             (0, "Seleccione un abogado...")
         ] + opciones_abogados
 
+        # Cargar materias del catálogo para el selector según el tipo de expediente
+        materias = MateriaLegal.query.filter_by(tipo_expediente=exp.tipo_tramite, activo=True).order_by(MateriaLegal.nombre.asc()).all()
+        form.materia_id.choices = [(0, "Seleccione materia...")] + [(m.id, m.nombre) for m in materias]
+
+        # Cargar procedimientos para el selector
+        # Si es POST, usar la materia enviada, de lo contrario la guardada en el expediente
+        materia_id_seleccionada = request.form.get("materia_id", type=int) if request.method == "POST" else exp.materia_id
+        if materia_id_seleccionada:
+            procs = ProcedimientoLegal.query.filter_by(materia_id=materia_id_seleccionada, activo=True).order_by(ProcedimientoLegal.nombre.asc()).all()
+            form.procedimiento_id.choices = [(0, "Seleccione procedimiento...")] + [(p.id, p.nombre) for p in procs]
+        else:
+            form.procedimiento_id.choices = [(0, "Seleccione procedimiento...")]
+
         if request.method == "GET":
             # Pre-poblar los campos
             form.cliente_id.data = exp.cliente_id
             form.abogado_responsable_id.data = exp.abogado_responsable_id or 0
             form.nombre_caso.data = exp.nombre_caso
             form.rol_firma.data = exp.rol_firma
+            
+            # Nuevos Catálogos y generales
+            form.materia_id.data = exp.materia_id or 0
+            form.procedimiento_id.data = exp.procedimiento_id or 0
+            form.prioridad.data = exp.prioridad or 'Media'
+            form.nivel_riesgo.data = exp.nivel_riesgo or 'Medio'
+            form.probabilidad_exito.data = exp.probabilidad_exito or 'Media'
+            form.origen_cliente.data = exp.origen_cliente or 'Cliente Nuevo'
+            form.fecha_contratacion.data = exp.fecha_contratacion
+            form.valor_estimado_caso.data = exp.valor_estimado_caso or 0.00
+
+            form.esquema_cobro.data = exp.esquema_cobro or "Fijo"
+            form.tarifa_monto.data = exp.tarifa_monto or 0.00
+            form.porcentaje_exito.data = exp.porcentaje_exito or 0.00
 
             if exp.tipo_tramite == "Judicial":
                 form.rama_derecho.data = exp.rama_derecho
@@ -2270,15 +2590,55 @@ def register_routes(app):
             )
             exp.nombre_caso = form.nombre_caso.data.strip()
             exp.rol_firma = form.rol_firma.data
+            exp.esquema_cobro = form.esquema_cobro.data
+            exp.tarifa_monto = form.tarifa_monto.data
+            exp.porcentaje_exito = form.porcentaje_exito.data
+
+            # Actualizar nuevos campos de catálogos y generales
+            exp.materia_id = form.materia_id.data
+            exp.procedimiento_id = form.procedimiento_id.data
+            exp.prioridad = form.prioridad.data
+            exp.nivel_riesgo = form.nivel_riesgo.data
+            exp.probabilidad_exito = form.probabilidad_exito.data
+            exp.origen_cliente = form.origen_cliente.data
+            exp.fecha_contratacion = form.fecha_contratacion.data
+            exp.valor_estimado_caso = form.valor_estimado_caso.data
+
+            materia_obj = MateriaLegal.query.get(form.materia_id.data)
+            
+            # Validar procedimiento condicionalmente
+            proc_id = form.procedimiento_id.data
+            proc_obj = None
+            if materia_obj and materia_obj.requiere_procedimiento:
+                if not proc_id or proc_id == 0:
+                    flash("Debe seleccionar un procedimiento para esta materia.", "danger")
+                    return render_template(
+                        "expedientes/editar.html",
+                        form=form,
+                        exp=exp,
+                    )
+                proc_obj = ProcedimientoLegal.query.get(proc_id)
+                exp.procedimiento_id = proc_id
+            else:
+                exp.procedimiento_id = None
+
+            # Extraer campos dinámicos
+            datos_dinamicos_json = {}
+            if proc_obj:
+                campos_definidos = DYNAMIC_FIELDS_BY_PROCEDURE.get(proc_obj.nombre, [])
+                for campo in campos_definidos:
+                    field_name = campo["name"]
+                    val = request.form.get(field_name)
+                    if val is not None:
+                        datos_dinamicos_json[field_name] = val
+            exp.datos_dinamicos = datos_dinamicos_json
 
             if exp.tipo_tramite == "Judicial":
-                exp.rama_derecho = form.rama_derecho.data
-                exp.sub_categoria = (
-                    form.sub_categoria.data.strip() if form.sub_categoria.data else None
-                )
-                exp.tipo_accion = (
-                    form.tipo_accion.data.strip() if form.tipo_accion.data else None
-                )
+                # Compatibilidad antigua (mapeo automático)
+                exp.rama_derecho = materia_obj.nombre if materia_obj else ""
+                exp.sub_categoria = proc_obj.nombre if proc_obj else ""
+                exp.tipo_accion = proc_obj.nombre if proc_obj else ""
+
                 exp.jurisdiccion_actual = form.jurisdiccion_actual.data
                 exp.tribunal_asignado = (
                     form.tribunal_asignado.data.strip()
@@ -2315,10 +2675,10 @@ def register_routes(app):
                 )
                 exp.monto_demanda = form.monto_demanda.data
             else:
-                exp.tipo_proceso = form.tipo_proceso.data
-                exp.sub_proceso = (
-                    form.sub_proceso.data.strip() if form.sub_proceso.data else None
-                )
+                # Compatibilidad antigua (mapeo automático)
+                exp.tipo_proceso = materia_obj.nombre if materia_obj else ""
+                exp.sub_proceso = proc_obj.nombre if proc_obj else ""
+
                 exp.institucion_encargada = (
                     form.institucion_encargada.data.strip()
                     if form.institucion_encargada.data
@@ -2549,7 +2909,7 @@ def register_routes(app):
 
     @app.route("/expedientes/<int:expediente_id>/eliminar", methods=["POST"])
     @login_required
-    @roles_permitidos("Administrador")
+    @roles_permitidos("Administrador", "Socio")
     def eliminar_expediente(expediente_id):
         exp = Expediente.query.get_or_404(expediente_id)
 
@@ -4575,6 +4935,8 @@ def register_routes(app):
                         }
                     )
                 fecha_limite = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha_limite < rd_now().date():
+                    return jsonify({"success": False, "error": "No se pueden programar tareas con fecha anterior al día en curso."})
                 asignado_id = None if asignado_a_id == 0 else asignado_a_id
 
                 tarea = Tarea(
@@ -4611,6 +4973,8 @@ def register_routes(app):
                     )
 
                 fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha < rd_now().date():
+                    return jsonify({"success": False, "error": "No se pueden programar audiencias con fecha anterior al día en curso."})
                 hora = datetime.strptime(hora_str, "%H:%M").time()
                 fecha_vencimiento = datetime.combine(fecha, hora)
 
@@ -4676,6 +5040,8 @@ def register_routes(app):
                     )
 
                 fecha_venc = datetime.strptime(fecha_str, "%Y-%m-%d")
+                if fecha_venc.date() < rd_now().date():
+                    return jsonify({"success": False, "error": "No se pueden programar plazos con fecha anterior al día en curso."})
 
                 alerta = AlertaPlazoAudiencia(
                     expediente_id=expediente_id,
@@ -4774,6 +5140,8 @@ def register_routes(app):
                     )
 
                 fecha_limite = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha_limite < rd_now().date():
+                    return jsonify({"success": False, "error": "No se pueden programar tareas con fecha anterior al día en curso."})
                 asignado_id = None if asignado_a_id == 0 else asignado_a_id
 
                 cambios = []
@@ -4842,6 +5210,8 @@ def register_routes(app):
                     )
 
                 fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha < rd_now().date():
+                    return jsonify({"success": False, "error": "No se pueden programar audiencias con fecha anterior al día en curso."})
                 hora = datetime.strptime(hora_str, "%H:%M").time()
                 fecha_vencimiento = datetime.combine(fecha, hora)
 
@@ -4890,6 +5260,8 @@ def register_routes(app):
                     )
 
                 fecha_venc = datetime.strptime(fecha_str, "%Y-%m-%d")
+                if fecha_venc.date() < rd_now().date():
+                    return jsonify({"success": False, "error": "No se pueden programar plazos con fecha anterior al día en curso."})
 
                 cambios = []
                 if plazo.titulo_hito != titulo:
@@ -5195,6 +5567,14 @@ def register_routes(app):
                 flash("El expediente seleccionado no es válido o no pertenece al cliente.", "danger")
                 return redirect(url_for("crear_factura"))
 
+            # Evitar facturar el mismo expediente más de una vez
+            factura_existente = FacturaHonorario.query.filter_by(
+                expediente_id=int(expediente_id)
+            ).filter(FacturaHonorario.estado_pago != 'Anulado').first()
+            if factura_existente:
+                flash(f"El expediente seleccionado ya tiene una factura activa registrada (Factura #{factura_existente.id}). No se puede facturar más de una vez.", "danger")
+                return redirect(url_for("crear_factura"))
+
             try:
                 fecha_emision = datetime.strptime(fecha_emision_str, "%Y-%m-%d")
             except ValueError:
@@ -5244,6 +5624,13 @@ def register_routes(app):
                 try:
                     cant = int(servicios_cant[i])
                     precio = float(servicios_precio[i])
+                    # RF-INT-001: Validación de Datos Monetarios
+                    if cant <= 0 or precio < 0:
+                        flash("Las cantidades de servicios deben ser mayores a cero y los precios no pueden ser negativos.", "danger")
+                        return redirect(url_for("crear_factura"))
+                    if round(precio, 2) != precio:
+                        flash("El precio unitario no puede tener más de dos decimales.", "danger")
+                        return redirect(url_for("crear_factura"))
                 except (ValueError, TypeError):
                     continue
                 sub_item = cant * precio
@@ -5267,6 +5654,13 @@ def register_routes(app):
                 try:
                     p_monto = float(partidas_monto[i])
                     p_fecha = datetime.strptime(partidas_fecha[i], "%Y-%m-%d").date()
+                    # RF-INT-001: Validación de Datos Monetarios
+                    if p_monto <= 0:
+                        flash("El monto de cada cuota debe ser mayor a cero.", "danger")
+                        return redirect(url_for("crear_factura"))
+                    if round(p_monto, 2) != p_monto:
+                        flash("El monto de la cuota no puede tener más de dos decimales.", "danger")
+                        return redirect(url_for("crear_factura"))
                 except (ValueError, TypeError):
                     continue
 
@@ -5318,6 +5712,16 @@ def register_routes(app):
                     )
                     db.session.add(partida)
 
+                # Si viene de facturación por lotes, marcar tiempos como Facturado
+                time_ids_str = request.form.get("prefilled_time_ids", "")
+                if time_ids_str:
+                    time_ids = [int(x) for x in time_ids_str.split(",") if x.isdigit()]
+                    tiempos_facturados = BitacoraTiempoTarea.query.filter(
+                        BitacoraTiempoTarea.id.in_(time_ids)
+                    ).all()
+                    for t in tiempos_facturados:
+                        t.estado_cierre = 'Facturado'
+
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="CREACION_FACTURA",
@@ -5337,8 +5741,128 @@ def register_routes(app):
                 flash(f"Error al guardar la factura: {str(e)}", "danger")
                 return redirect(url_for("crear_factura"))
 
+        # Prefilling logic for Lotes in GET request
         clientes = Cliente.query.all()
-        return render_template("facturas/crear_factura.html", clientes=clientes, current_date=rd_now().strftime("%Y-%m-%d"))
+        lote_cliente_id = request.args.get("lote_cliente_id", type=int)
+        expediente_id_arg = request.args.get("expediente_id", type=int)
+        prefilled_services = []
+        prefilled_time_ids = ""
+        prefilled_expediente_id = None
+        
+        if expediente_id_arg:
+            exp = Expediente.query.get(expediente_id_arg)
+            if exp:
+                prefilled_expediente_id = exp.id
+                lote_cliente_id = exp.cliente_id
+                
+                # Check billing scheme
+                if exp.esquema_cobro == 'Fijo':
+                    prefilled_services.append({
+                        "descripcion": f"Honorarios profesionales cerrados - Expediente {exp.nombre_caso} (Ref: {exp.codigo_firma})",
+                        "cantidad": 1,
+                        "precio": float(exp.tarifa_monto or 0.00)
+                    })
+                elif exp.esquema_cobro == 'Iguala':
+                    prefilled_services.append({
+                        "descripcion": f"Iguala mensual de asesoría jurídica - Expediente {exp.nombre_caso} (Ref: {exp.codigo_firma})",
+                        "cantidad": 1,
+                        "precio": float(exp.tarifa_monto or 0.00)
+                    })
+                elif exp.esquema_cobro == 'Contingencia':
+                    prefilled_services.append({
+                        "descripcion": f"Honorarios de éxito / Contingencia ({exp.porcentaje_exito or 0}%) - Expediente {exp.nombre_caso} (Ref: {exp.codigo_firma})",
+                        "cantidad": 1,
+                        "precio": float(exp.tarifa_monto or 0.00)
+                    })
+                elif exp.esquema_cobro == 'Por Hora':
+                    # Load approved times for this case
+                    tiempos = BitacoraTiempoTarea.query.filter_by(
+                        expediente_id=exp.id,
+                        estado_cierre='Aprobado'
+                    ).all()
+                    for t in tiempos:
+                        prefilled_services.append({
+                            "descripcion": f"{t.descripcion_gestion} (Horas: {t.horas_trabajadas}) (Ref: {exp.codigo_firma})",
+                            "cantidad": 1,
+                            "precio": float(t.horas_trabajadas) * float(exp.tarifa_monto or 5000.00)
+                        })
+                    prefilled_time_ids = ",".join(str(t.id) for t in tiempos)
+        elif lote_cliente_id:
+            time_ids_str = request.args.get("t_ids", "")
+            if time_ids_str:
+                time_ids = [int(x) for x in time_ids_str.split(",") if x.isdigit()]
+                tiempos = BitacoraTiempoTarea.query.filter(
+                    BitacoraTiempoTarea.id.in_(time_ids),
+                    BitacoraTiempoTarea.estado_cierre == 'Aprobado'
+                ).all()
+                
+                if tiempos:
+                    prefilled_expediente_id = tiempos[0].expediente_id
+                    
+                for t in tiempos:
+                    prefilled_services.append({
+                        "descripcion": f"{t.descripcion_gestion} (Horas: {t.horas_trabajadas}) (Ref: {t.expediente.codigo_firma})",
+                        "cantidad": 1,
+                        "precio": float(t.horas_trabajadas) * (float(t.expediente.tarifa_monto) if t.expediente.esquema_cobro == 'Por Hora' and t.expediente.tarifa_monto else 5000.00)
+                    })
+                prefilled_time_ids = ",".join(str(t.id) for t in tiempos)
+                
+        return render_template(
+            "facturas/crear_factura.html",
+            clientes=clientes,
+            current_date=rd_now().strftime("%Y-%m-%d"),
+            lote_cliente_id=lote_cliente_id,
+            prefilled_services=prefilled_services,
+            prefilled_time_ids=prefilled_time_ids,
+            prefilled_expediente_id=prefilled_expediente_id
+        )
+
+    @app.route("/tiempos/<int:tiempo_id>/aprobar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def aprobar_tiempo_tarea(tiempo_id):
+        tiempo = BitacoraTiempoTarea.query.get_or_404(tiempo_id)
+        if tiempo.estado_cierre != 'Abierto':
+            return jsonify({"success": False, "error": "Este registro de tiempo no está pendiente de aprobación."})
+        
+        try:
+            tiempo.estado_cierre = 'Aprobado'
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="APROBACION_TIEMPO",
+                detalles=f"Aprobó el registro de tiempo ID {tiempo.id} ({tiempo.horas_trabajadas} horas) para el expediente '{tiempo.expediente.nombre_caso}'.",
+                cliente_id=tiempo.expediente.cliente_id,
+                expediente_id=tiempo.expediente_id
+            )
+            db.session.commit()
+            return jsonify({"success": True, "message": "Registro de tiempo aprobado con éxito."})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "error": str(e)})
+
+    @app.route("/facturas/lotes", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def facturacion_lotes():
+        # Find all BitacoraTiempoTarea with estado_cierre == 'Aprobado'
+        tiempos = BitacoraTiempoTarea.query.filter_by(estado_cierre='Aprobado').all()
+        
+        # Group by client
+        grouped_data = {}
+        for t in tiempos:
+            cliente = t.expediente.cliente
+            if not cliente:
+                continue
+            if cliente.id not in grouped_data:
+                grouped_data[cliente.id] = {
+                    "cliente": cliente,
+                    "horas_totales": 0,
+                    "registros": []
+                }
+            grouped_data[cliente.id]["horas_totales"] += float(t.horas_trabajadas)
+            grouped_data[cliente.id]["registros"].append(t)
+            
+        return render_template("facturas/lotes.html", lotes=grouped_data.values())
 
     @app.route("/facturas/<int:factura_id>/editar", methods=["GET", "POST"])
     @login_required
@@ -5376,6 +5900,17 @@ def register_routes(app):
                 flash("El expediente seleccionado no es válido o no pertenece al cliente.", "danger")
                 return redirect(url_for("editar_factura", factura_id=factura.id))
 
+            # Evitar facturar el mismo expediente más de una vez
+            factura_existente = FacturaHonorario.query.filter_by(
+                expediente_id=int(expediente_id)
+            ).filter(
+                FacturaHonorario.id != factura.id,
+                FacturaHonorario.estado_pago != 'Anulado'
+            ).first()
+            if factura_existente:
+                flash(f"El expediente seleccionado ya tiene una factura activa registrada (Factura #{factura_existente.id}). No se puede asociar a esta factura.", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
             try:
                 fecha_emision = datetime.strptime(fecha_emision_str, "%Y-%m-%d")
             except ValueError:
@@ -5401,6 +5936,13 @@ def register_routes(app):
                 try:
                     cant = int(servicios_cant[i])
                     precio = float(servicios_precio[i])
+                    # RF-INT-001: Validación de Datos Monetarios
+                    if cant <= 0 or precio < 0:
+                        flash("Las cantidades de servicios deben ser mayores a cero y los precios no pueden ser negativos.", "danger")
+                        return redirect(url_for("editar_factura", factura_id=factura.id))
+                    if round(precio, 2) != precio:
+                        flash("El precio unitario no puede tener más de dos decimales.", "danger")
+                        return redirect(url_for("editar_factura", factura_id=factura.id))
                 except (ValueError, TypeError):
                     continue
                 sub_item = cant * precio
@@ -5424,6 +5966,13 @@ def register_routes(app):
                 try:
                     p_monto = float(partidas_monto[i])
                     p_fecha = datetime.strptime(partidas_fecha[i], "%Y-%m-%d").date()
+                    # RF-INT-001: Validación de Datos Monetarios
+                    if p_monto <= 0:
+                        flash("El monto de cada cuota debe ser mayor a cero.", "danger")
+                        return redirect(url_for("editar_factura", factura_id=factura.id))
+                    if round(p_monto, 2) != p_monto:
+                        flash("El monto de la cuota no puede tener más de dos decimales.", "danger")
+                        return redirect(url_for("editar_factura", factura_id=factura.id))
                 except (ValueError, TypeError):
                     continue
 
@@ -5622,7 +6171,7 @@ def register_routes(app):
 
     @app.route("/facturas/<int:factura_id>/pagar-cuota/<int:cuota_id>", methods=["POST"])
     @login_required
-    @roles_permitidos("Socio", "Administrador", "Asociado")
+    @roles_permitidos("Socio", "Administrador")
     def pagar_cuota_factura(factura_id, cuota_id):
         factura = FacturaHonorario.query.get_or_404(factura_id)
         cuota = PartidaPagoFactura.query.filter_by(id=cuota_id, factura_id=factura_id).first_or_404()
@@ -5690,12 +6239,442 @@ def register_routes(app):
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
     def api_cliente_expedientes(cliente_id):
+        exclude_factura_id = request.args.get("exclude_factura_id", type=int)
         expedientes = Expediente.query.filter_by(cliente_id=cliente_id).all()
-        return jsonify([{
-            "id": e.id,
-            "nombre_caso": f"{e.codigo_firma} - {e.nombre_caso} ({e.tipo_tramite})"
-        } for e in expedientes])
+        
+        result = []
+        for e in expedientes:
+            query = FacturaHonorario.query.filter_by(expediente_id=e.id).filter(
+                FacturaHonorario.estado_pago != "Anulado"
+            )
+            if exclude_factura_id:
+                query = query.filter(FacturaHonorario.id != exclude_factura_id)
+            
+            facturado = query.first() is not None
+            
+            result.append({
+                "id": e.id,
+                "nombre_caso": f"{e.codigo_firma} - {e.nombre_caso} ({e.tipo_tramite})" + (" (YA FACTURADO)" if facturado else ""),
+                "facturado": facturado
+            })
+            
+        return jsonify(result)
 
+    @app.route("/nomina", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def ver_nomina():
+        # Get selected month and year
+        now = rd_now()
+        mes = request.args.get("mes", type=int, default=now.month)
+        anio = request.args.get("anio", type=int, default=now.year)
+        
+        # Load all staff members (Asociado, Paralegal, Socio, Administrador)
+        abogados = Usuario.query.filter(Usuario.rol.in_(["Asociado", "Paralegal", "Socio"])).all()
+        
+        # Query audit logs for payments in that month and year
+        import calendar
+        start_date = datetime(anio, mes, 1, 0, 0, 0)
+        _, last_day = calendar.monthrange(anio, mes)
+        end_date = datetime(anio, mes, last_day, 23, 59, 59)
+        
+        auditorias_cobro = BitacoraAuditoria.query.filter(
+            BitacoraAuditoria.accion_realizada == "COBRO_CUOTA_FACTURA",
+            BitacoraAuditoria.fecha_hora >= start_date,
+            BitacoraAuditoria.fecha_hora <= end_date
+        ).all()
+        
+        import re
+        def parse_monto(detalles):
+            match = re.search(r'monto de RD\$\s*([\d,]+\.?\d*)', detalles)
+            if match:
+                return float(match.group(1).replace(',', ''))
+            return 0.0
+            
+        # Group commissions by user
+        pagos_abogados = {}
+        for abog in abogados:
+            pagos_abogados[abog.id] = {
+                "id": abog.id,
+                "nombre": abog.nombre,
+                "rol": abog.rol,
+                "salario_base": float(abog.salario_base or 0.0),
+                "porcentaje_comision": float(abog.porcentaje_comision or 0.0),
+                "cobros_realizados": [],
+                "total_comisiones": 0.0,
+                "total_liquidar": float(abog.salario_base or 0.0)
+            }
+            
+        for log in auditorias_cobro:
+            if not log.expediente_id:
+                continue
+            exp = Expediente.query.get(log.expediente_id)
+            if not exp or not exp.abogado_responsable_id:
+                continue
+                
+            resp_id = exp.abogado_responsable_id
+            if resp_id in pagos_abogados:
+                monto = parse_monto(log.accion_realizada + " " + log.detalles_tecnicos)
+                if monto == 0.0:
+                    monto = parse_monto(log.detalles_tecnicos)
+                
+                comision = monto * (pagos_abogados[resp_id]["porcentaje_comision"] / 100.0)
+                pagos_abogados[resp_id]["cobros_realizados"].append({
+                    "caso": exp.nombre_caso,
+                    "codigo": exp.codigo_firma,
+                    "monto_cobrado": monto,
+                    "comision": comision,
+                    "fecha": log.fecha_hora.strftime("%d/%m/%Y %I:%M %p")
+                })
+                pagos_abogados[resp_id]["total_comisiones"] += comision
+                pagos_abogados[resp_id]["total_liquidar"] += comision
+                
+        return render_template(
+            "nomina/index.html",
+            pagos_abogados=pagos_abogados.values(),
+            mes=mes,
+            anio=anio,
+            current_date=now
+        )
+
+    # ==========================================
+    # REDISEÑO DE HONORARIOS, FACTURACIÓN Y COBROS (DOC 2)
+    # ==========================================
+
+    @app.route("/presupuestos")
+    @login_required
+    def presupuestos_index():
+        presupuestos = Presupuesto.query.order_by(Presupuesto.fecha_emision.desc()).all()
+        return render_template("presupuestos/index.html", presupuestos=presupuestos)
+
+    @app.route("/presupuestos/nuevo", methods=["GET", "POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def presupuestos_nuevo():
+        clientes = Cliente.query.all()
+        if request.method == "POST":
+            cliente_id = request.form.get("cliente_id")
+            titulo = request.form.get("titulo")
+            descripcion = request.form.get("descripcion")
+            materia = request.form.get("materia")
+            tipo_asunto = request.form.get("tipo_asunto")
+            
+            descripciones = request.form.getlist("partida_desc[]")
+            cantidades = request.form.getlist("partida_cant[]")
+            precios = request.form.getlist("partida_precio[]")
+            
+            subtotal = Decimal('0.00')
+            detalles = []
+            for i in range(len(descripciones)):
+                if not descripciones[i]:
+                     continue
+                cant = int(cantidades[i]) if cantidades[i] else 1
+                precio = Decimal(precios[i]) if precios[i] else Decimal('0.00')
+                part_sub = (cant * precio).quantize(Decimal('0.01'))
+                subtotal += part_sub
+                detalles.append({
+                    'descripcion': descripciones[i],
+                    'cantidad': cant,
+                    'precio_unitario': precio,
+                    'subtotal': part_sub
+                })
+                 
+            aplica_itbis = request.form.get("aplica_itbis") == "on"
+            itbis, total = BillingService.calcular_itbis(subtotal, aplica_itbis)
+            
+            pres = Presupuesto(
+                cliente_id=cliente_id,
+                titulo=titulo,
+                descripcion=descripcion,
+                materia=materia,
+                tipo_asunto=tipo_asunto,
+                monto_subtotal=subtotal,
+                monto_itbis=itbis,
+                monto_total=total,
+                estado='Pendiente Aceptación'
+            )
+            db.session.add(pres)
+            db.session.flush()
+            
+            for det in detalles:
+                p_det = PresupuestoDetalle(
+                    presupuesto_id=pres.id,
+                    descripcion=det['descripcion'],
+                    cantidad=det['cantidad'],
+                    precio_unitario=det['precio_unitario'],
+                    subtotal=det['subtotal']
+                )
+                db.session.add(p_det)
+                 
+            db.session.commit()
+            flash("Presupuesto creado exitosamente.", "success")
+            return redirect(url_for("presupuestos_index"))
+             
+        return render_template("presupuestos/nuevo.html", clientes=clientes)
+
+    @app.route("/presupuestos/<int:presupuesto_id>/aceptar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def presupuestos_aceptar(presupuesto_id):
+        pres = Presupuesto.query.get_or_404(presupuesto_id)
+        pres.estado = 'Aceptado'
+        
+        # 1. Crear contrato de honorarios
+        contrato = ContratoHonorarios(
+            cliente_id=pres.cliente_id,
+            presupuesto_id=pres.id,
+            fecha_firma=rd_today(),
+            fecha_inicio=rd_today(),
+            estado='Vigente',
+            observaciones=f"Contrato firmado a partir de Presupuesto #{pres.id}: {pres.titulo}",
+            tipo_cobro='Fijo',
+            moneda='DOP',
+            aplica_itbis=True if pres.monto_itbis > 0 else False,
+            porcentaje_itbis=BillingService.get_itbis_percentage(),
+            subtotal=pres.monto_subtotal,
+            itbis=pres.monto_itbis,
+            total_contrato=pres.monto_total
+        )
+        db.session.add(contrato)
+        db.session.flush()
+        
+        # Generar cronograma del contrato
+        BillingService.generar_cronograma(contrato)
+        
+        # 2. Generar expediente automáticamente
+        codigo_firma = f"EXP-{uuid.uuid4().hex[:6].upper()}"
+        expediente = ExpedienteJudicial(
+            codigo_firma=codigo_firma,
+            cliente_id=pres.cliente_id,
+            nombre_caso=pres.titulo,
+            rol_firma='Demandante',
+            rama_derecho=pres.materia,
+            sub_categoria=pres.tipo_asunto,
+            tipo_accion=pres.tipo_asunto,
+            jurisdiccion_actual='No especificada',
+            tipo_tramite='Judicial',
+            estado='Activo',
+            prioridad='Media',
+            nivel_riesgo='Medio',
+            probabilidad_exito='Media',
+            origen_cliente='Cliente Nuevo',
+            fecha_contratacion=rd_today(),
+            materia_id=None,
+            procedimiento_id=None
+        )
+        db.session.add(expediente)
+        db.session.flush()
+        
+        # Vincular contrato al expediente
+        contrato.expediente_id = expediente.id
+        
+        db.session.commit()
+        flash(f"Presupuesto aceptado. Se ha generado el Contrato #{contrato.id} y el Expediente '{expediente.nombre_caso}' con código {codigo_firma}", "success")
+        return redirect(url_for("presupuestos_index"))
+
+    @app.route("/contratos")
+    @login_required
+    def contratos_index():
+        contratos = ContratoHonorarios.query.order_by(ContratoHonorarios.fecha_firma.desc()).all()
+        return render_template("contratos/index.html", contratos=contratos)
+
+    @app.route("/contratos/nuevo", methods=["GET", "POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def contratos_nuevo():
+        clientes = Cliente.query.all()
+        expedientes = Expediente.query.all()
+        if request.method == "POST":
+            cliente_id = request.form.get("cliente_id")
+            expediente_id = request.form.get("expediente_id") or None
+            if expediente_id == '0' or expediente_id == '':
+                expediente_id = None
+            fecha_firma_str = request.form.get("fecha_firma")
+            fecha_inicio_str = request.form.get("fecha_inicio")
+            tipo_cobro = request.form.get("tipo_cobro")
+            moneda = request.form.get("moneda", "DOP")
+            subtotal = Decimal(request.form.get("subtotal", 0))
+            aplica_itbis = request.form.get("aplica_itbis") == "on"
+            itbis, total = BillingService.calcular_itbis(subtotal, aplica_itbis)
+            observaciones = request.form.get("observaciones")
+            
+            contrato = ContratoHonorarios(
+                cliente_id=cliente_id,
+                expediente_id=expediente_id,
+                fecha_firma=datetime.strptime(fecha_firma_str, '%Y-%m-%d').date() if fecha_firma_str else rd_today(),
+                fecha_inicio=datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else rd_today(),
+                estado='Vigente',
+                tipo_cobro=tipo_cobro,
+                moneda=moneda,
+                aplica_itbis=aplica_itbis,
+                porcentaje_itbis=BillingService.get_itbis_percentage(),
+                subtotal=subtotal,
+                itbis=itbis,
+                total_contrato=total,
+                observaciones=observaciones
+            )
+            db.session.add(contrato)
+            db.session.flush()
+            
+            c_desc = request.form.getlist("cuota_desc[]")
+            c_monto = request.form.getlist("cuota_monto[]")
+            c_venc = request.form.getlist("cuota_venc[]")
+            
+            cuotas_data = []
+            for i in range(len(c_desc)):
+                if not c_desc[i]:
+                    continue
+                cuotas_data.append({
+                    'descripcion': c_desc[i],
+                    'monto': Decimal(c_monto[i]) if c_monto[i] else Decimal('0.00'),
+                    'fecha_vencimiento': c_venc[i]
+                })
+                 
+            BillingService.generar_cronograma(contrato, cuotas_data)
+            flash("Contrato creado exitosamente con su cronograma de cobro.", "success")
+            return redirect(url_for("contratos_index"))
+             
+        return render_template("contratos/nuevo.html", clientes=clientes, expedientes=expedientes)
+
+    @app.route("/contratos/<int:contrato_id>")
+    @login_required
+    def contratos_detalle(contrato_id):
+        contrato = ContratoHonorarios.query.get_or_404(contrato_id)
+        return render_template("contratos/detalle.html", contrato=contrato)
+
+    @app.route("/contratos/<int:contrato_id>/facturar-cuota/<int:cuota_id>", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def facturar_cuota(contrato_id, cuota_id):
+        contrato = ContratoHonorarios.query.get_or_404(contrato_id)
+        cuota = CronogramaCobro.query.get_or_404(cuota_id)
+        
+        if cuota.estado != 'Pendiente':
+            flash("Esta cuota ya ha sido facturada o cancelada.", "warning")
+            return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+             
+        # Crear FacturaHonorario
+        subtotal = cuota.monto
+        aplica_itbis = contrato.aplica_itbis
+        itbis, total = BillingService.calcular_itbis(subtotal, aplica_itbis)
+        
+        # Generar NCF Consumidor Final B02
+        last_f = FacturaHonorario.query.filter(FacturaHonorario.ncf.like('B02%')).order_by(FacturaHonorario.id.desc()).first()
+        correlativo = 1
+        if last_f and last_f.ncf:
+            try:
+                correlativo = int(last_f.ncf[3:]) + 1
+            except ValueError:
+                pass
+        ncf = f"B02{correlativo:010d}"
+        
+        factura = FacturaHonorario(
+            cliente_id=contrato.cliente_id,
+            expediente_id=contrato.expediente_id,
+            contrato_id=contrato.id,
+            cuota_id=cuota.id,
+            ncf=ncf,
+            tipo_comprobante='02',
+            monto_subtotal=subtotal,
+            monto_itbis=itbis,
+            monto_total=total,
+            estado_pago='Pendiente',
+            plazo_pago_dias=30
+        )
+        db.session.add(factura)
+        db.session.flush()
+         
+        # Crear DetalleFactura
+        detalle = DetalleFactura(
+            factura_id=factura.id,
+            descripcion=f"Cobro de Honorarios - {cuota.descripcion}",
+            cantidad=1,
+            precio_unitario=subtotal,
+            subtotal=subtotal
+        )
+        db.session.add(detalle)
+         
+        # Marcar cuota como Facturada
+        cuota.estado = 'Facturado'
+         
+        db.session.commit()
+        flash(f"Factura NCF {ncf} generada exitosamente para la cuota '{cuota.descripcion}'", "success")
+        return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+
+    @app.route("/facturas/<int:factura_id>/pagar-parcial", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def pagar_parcial(factura_id):
+        monto = request.form.get("monto")
+        metodo_pago = request.form.get("metodo_pago")
+        referencia = request.form.get("referencia")
+        
+        recibo, err = BillingService.registrar_pago(factura_id, monto, metodo_pago, referencia)
+        if err:
+            flash(err, "danger")
+        else:
+            flash(f"Pago registrado exitosamente. Se emitió el Recibo de Caja {recibo.numero_recibo}", "success")
+             
+        return redirect(url_for("ver_detalle_factura", factura_id=factura_id))
+
+    @app.route("/recibos")
+    @login_required
+    def recibos_index():
+        recibos = ReciboInterno.query.order_by(ReciboInterno.fecha_emision.desc()).all()
+        return render_template("facturas/recibos.html", recibos=recibos)
+
+    @app.route("/expedientes/<int:expediente_id>/gastos", methods=["GET", "POST"])
+    @login_required
+    def gastos_reembolsables(expediente_id):
+        exp = Expediente.query.get_or_404(expediente_id)
+        if request.method == "POST":
+            tipo_gasto = request.form.get("tipo_gasto")
+            descripcion = request.form.get("descripcion")
+            monto = Decimal(request.form.get("monto", 0))
+            fecha_str = request.form.get("fecha")
+            estado = request.form.get("estado", "Pendiente")
+             
+            gasto = GastoReembolsable(
+                expediente_id=exp.id,
+                tipo_gasto=tipo_gasto,
+                descripcion=descripcion,
+                monto=monto,
+                fecha=datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else rd_today(),
+                estado=estado
+            )
+            db.session.add(gasto)
+            db.session.commit()
+            flash("Gasto reembolsable registrado exitosamente.", "success")
+            return redirect(url_for("gastos_reembolsables", expediente_id=exp.id))
+             
+        gastos = GastoReembolsable.query.filter_by(expediente_id=exp.id).order_by(GastoReembolsable.fecha.desc()).all()
+        return render_template("expedientes/gastos.html", exp=exp, gastos=gastos)
+
+    @app.route("/facturas/reportes")
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def reportes_financieros():
+        # Métricas principales
+        total_facturado = db.session.query(db.func.sum(FacturaHonorario.monto_total)).filter(FacturaHonorario.estado_pago != 'Anulado').scalar() or 0
+        total_cobrado = db.session.query(db.func.sum(TransaccionPago.monto)).scalar() or 0
+        total_pendiente = total_facturado - total_cobrado
+        
+        # Cobros por método
+        cobros_por_metodo = db.session.query(
+            TransaccionPago.metodo_pago, db.func.sum(TransaccionPago.monto)
+        ).group_by(TransaccionPago.metodo_pago).all()
+
+        # Gastos reembolsables por estado
+        gastos_por_estado = db.session.query(
+            GastoReembolsable.estado, db.func.sum(GastoReembolsable.monto)
+        ).group_by(GastoReembolsable.estado).all()
+        
+        return render_template("facturas/reportes.html",
+                               total_facturado=total_facturado,
+                               total_cobrado=total_cobrado,
+                               total_pendiente=total_pendiente,
+                               cobros_por_metodo=cobros_por_metodo,
+                               gastos_por_estado=gastos_por_estado)
 
 def procesar_alertas_preventivas():
     """

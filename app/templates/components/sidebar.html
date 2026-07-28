@@ -188,19 +188,25 @@
                 
                 {% if current_user.rol in ['Socio', 'Asociado', 'Administrador'] %}
                 <li class="nav-item">
-                    <a href="{{ url_for('listar_facturas') }}" class="nav-link {% if request.endpoint in ['listar_facturas', 'crear_factura', 'ver_detalle_factura'] %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                    <a href="{{ url_for('listar_facturas') }}" class="nav-link {% if request.endpoint in ['listar_facturas', 'crear_factura', 'ver_detalle_factura', 'factura_detalle', 'presupuestos_index', 'presupuestos_nuevo', 'contratos_index', 'contratos_nuevo', 'contratos_detalle', 'recibos_index', 'reportes_financieros'] %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                         <i class="bi bi-receipt me-3"></i> 
                         <span class="menu-text">Facturación</span>
                     </a>
                 </li>
                 {% endif %}
                 
-                {% if current_user.rol == 'Administrador' %}
+                {% if current_user.rol in ['Administrador', 'Socio'] %}
                 <hr class="text-white-50 my-2">
                 <li class="nav-item">
                     <a href="{{ url_for('usuarios') }}" class="nav-link {% if request.endpoint == 'usuarios' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
                         <i class="bi bi-shield-lock-fill me-3"></i> 
                         <span class="menu-text">Usuarios y Roles</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('ver_nomina') }}" class="nav-link {% if request.endpoint == 'ver_nomina' %}active-sigex{% endif %} d-flex align-items-center px-3 py-2">
+                        <i class="bi bi-wallet2 me-3"></i> 
+                        <span class="menu-text">Nómina</span>
                     </a>
                 </li>
                 <li class="nav-item">
