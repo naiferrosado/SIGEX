@@ -100,7 +100,7 @@
                                     <td class="small fw-bold">{{ tiempo.horas_trabajadas }} h</td>
                                     <td class="small text-muted text-truncate" style="max-width: 150px;">{{ tiempo.descripcion_gestion }}</td>
                                     <td class="text-end">
-                                        <button class="btn btn-outline-success btn-xs py-1 px-2 fw-bold" onclick="alert('Funcionalidad de aprobación vinculada al módulo de facturación.')">Aprobar</button>
+                                        <button class="btn btn-outline-success btn-xs py-1 px-2 fw-bold" onclick="aprobarTiempo({{ tiempo.id }}, this)">Aprobar</button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -169,5 +169,46 @@
             bar.style.width = bar.getAttribute('data-width');
         });
     });
+
+    function aprobarTiempo(id, buttonEl) {
+        if (!confirm("¿Está seguro de aprobar este registro de tiempo?")) return;
+        buttonEl.disabled = true;
+        fetch(`/tiempos/${id}/aprobar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast("Registro de tiempo aprobado con éxito.", "success");
+                // Remove row with effect
+                const row = buttonEl.closest('tr');
+                row.style.transition = 'all 0.5s ease';
+                row.style.opacity = '0';
+                setTimeout(() => {
+                    row.remove();
+                    // Update badge task counter
+                    const badge = document.querySelector('.badge.bg-danger');
+                    if (badge) {
+                        let val = parseInt(badge.innerText) || 0;
+                        if (val > 0) {
+                            badge.innerText = (val - 1) + ' tareas';
+                        }
+                    }
+                }, 500);
+            } else {
+                showToast(data.error || "Ocurrió un error al aprobar.", "danger");
+                buttonEl.disabled = false;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Error de conexión al servidor.", "danger");
+            buttonEl.disabled = false;
+        });
+    }
 </script>
 {% endblock %}

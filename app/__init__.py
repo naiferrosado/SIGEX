@@ -39,6 +39,15 @@ def create_app():
     # Le enseñamos a Flask-Login cómo buscar usuarios en PostgreSQL
     from app.models import Usuario
 
+    # Asegurar que la extensión 'unaccent' esté habilitada en PostgreSQL
+    with app.app_context():
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent;"))
+            db.session.commit()
+        except Exception as e:
+            app.logger.warning(f"No se pudo crear la extensión unaccent: {e}")
+
     @login_manager.user_loader
     def load_user(user_id):
         # Esta función busca el ID del usuario en la base de datos para mantener su sesión
