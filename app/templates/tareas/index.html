@@ -424,6 +424,9 @@
                                     data-fecha-limite="{{ t.fecha_limite.strftime('%Y-%m-%d') if t.fecha_limite else '' }}"
                                     data-prioridad="{{ t.prioridad }}" data-estado="{{ t.estado }}"
                                     data-expediente-id="{{ t.expediente_id or '' }}"
+                                    data-cliente-id="{{ t.expediente.cliente_id if t.expediente else '' }}"
+                                    data-cliente-nombre="{{ t.expediente.cliente.nombres ~ ' ' ~ t.expediente.cliente.apellidos if t.expediente and t.expediente.cliente else '' }}"
+                                    data-cliente-cedula="{{ t.expediente.cliente.rnc_cedula if t.expediente and t.expediente.cliente else '' }}"
                                     data-asignados-ids="[{% for a in t.asignados %}{{ a.id }}{% if not loop.last %},{% endif %}{% endfor %}]" onclick="abrirModalEditar(this)">
                                     <i class="bi bi-pencil-square fs-5"></i>
                                 </button>
@@ -562,7 +565,7 @@
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="" id="formTarea">
+                <form method="POST" action="" id="formTarea" novalidate>
                     {{ form.hidden_tag() }}
                     <div class="modal-body p-4">
                         <!-- Título -->
@@ -627,22 +630,44 @@
                             </div>
                         </div>
 
+                        <!-- Select oculto nativo de Expediente para WTForms -->
+                        <div class="d-none">
+                            {{ form.expediente_id(id="expediente_id") }}
+                        </div>
+
+                        <!-- Cliente -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Cliente <span class="text-danger">*</span></label>
+                            
+                            <!-- Buscador de Clientes -->
+                            <div id="clientSearchContainer">
+                                <div class="input-group input-group-sm mb-1">
+                                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control bg-light border-start-0" id="searchClienteInput" placeholder="Buscar cliente por nombre o cédula..." autocomplete="off">
+                                </div>
+                                <div class="dropdown-menu w-100 shadow border p-0 mt-1" id="searchClienteDropdown" style="max-height: 200px; overflow-y: auto; display: none; z-index: 1050;">
+                                    <!-- Clientes inyectados por JS -->
+                                </div>
+                            </div>
+                            
+                            <!-- Info de Cliente Seleccionado -->
+                            <div id="selectedClienteInfo" class="p-2 border rounded bg-light d-flex align-items-center justify-content-between d-none mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-person-check-fill text-success fs-5"></i>
+                                    <div>
+                                        <div class="fw-bold text-dark small" id="selectedClienteName" style="font-size:0.75rem;">Marlin Jose Feliz</div>
+                                        <div class="text-muted small" id="selectedClienteCedula" style="font-size:0.65rem;"></div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-link text-danger fw-semibold text-decoration-none" onclick="clearSelectedClienteForTask()"><i class="bi bi-x-circle-fill"></i> Cambiar</button>
+                            </div>
+                        </div>
+
                         <!-- Expediente -->
                         <div class="mb-3">
-                            <label class="form-label small fw-semibold">{{ form.expediente_id.label.text }} <span
-                                    class="text-danger">*</span></label>
-                            
-                            <!-- Buscador de Expedientes -->
-                            <div class="input-group input-group-sm mb-2">
-                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                                <input type="text" class="form-control bg-light border-start-0" id="modalExpSearch" placeholder="Buscar expediente por código, caso, o cédula del cliente...">
-                            </div>
-
-                            <select name="expediente_id" id="expediente_id" class="form-select form-select-sm">
-                                <option value="0" data-search="">-- Seleccione un expediente --</option>
-                                {% for e in expedientes_list %}
-                                    <option value="{{ e.id }}" data-search="{{ e.codigo_firma }} {{ e.nombre_caso }} {{ e.cliente.rnc_cedula if e.cliente else '' }} {{ e.cliente.nombres if e.cliente else '' }} {{ e.cliente.apellidos if e.cliente else '' }}">{{ e.nombre_caso }} ({{ e.codigo_firma }})</option>
-                                {% endfor %}
+                            <label class="form-label small fw-semibold">Expediente / Caso <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="customExpedienteSelect" disabled onchange="syncSelectedExpedienteForTask(this.value)">
+                                <option value="">-- Primero seleccione un cliente --</option>
                             </select>
                         </div>
                     </div>
@@ -720,25 +745,29 @@
         }
     }
 
-    let masterExpedienteOptions = [];
-
     document.addEventListener("DOMContentLoaded", function () {
         modalInstance = new bootstrap.Modal(document.getElementById('modalTarea'));
         modalElimInstance = new bootstrap.Modal(document.getElementById('modalEliminarTarea'));
 
-        // Cargar opciones master para filtrar el select de expediente en el modal de tareas
-        const select = document.getElementById('expediente_id');
-        if (select) {
-            masterExpedienteOptions = Array.from(select.options).map(opt => ({
-                value: opt.value,
-                text: opt.text,
-                search: opt.getAttribute('data-search') || ''
-            }));
+        // Configurar buscador interactivo de clientes
+        const searchCliInput = document.getElementById('searchClienteInput');
+        const dropdownCliMenu = document.getElementById('searchClienteDropdown');
+        
+        if (searchCliInput && dropdownCliMenu) {
+            searchCliInput.addEventListener('input', function() {
+                buscarClientesAjax(this.value);
+            });
+            searchCliInput.addEventListener('focus', function() {
+                buscarClientesAjax(this.value);
+            });
+            
+            // Cerrar dropdown al hacer click fuera
+            document.addEventListener('click', function(e) {
+                if (!searchCliInput.contains(e.target) && !dropdownCliMenu.contains(e.target)) {
+                    dropdownCliMenu.style.display = 'none';
+                }
+            });
         }
-
-        // Registrar evento para filtrar
-        const searchInput = document.getElementById('modalExpSearch');
-        if (searchInput) searchInput.addEventListener('input', filtrarSelectExpedienteMaster);
 
         // Cargar opciones master para el buscador de asignados
         const selectAsigNative = document.getElementById('asignados_ids');
@@ -908,47 +937,114 @@
         }
     }
 
-    function filtrarSelectExpedienteMaster() {
-        const searchInput = document.getElementById('modalExpSearch');
-        const select = document.getElementById('expediente_id');
+    function buscarClientesAjax(query) {
+        const dropdownCliMenu = document.getElementById('searchClienteDropdown');
+        if (!dropdownCliMenu) return;
 
-        if (!select) return;
-
-        const query = searchInput ? searchInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-        const currentSelectedVal = select.value;
-
-        // Limpiar select
-        select.innerHTML = '';
-
-        // Filtrar y agregar
-        masterExpedienteOptions.forEach(opt => {
-            if (opt.value === '0') {
-                const newOpt = document.createElement('option');
-                newOpt.value = opt.value;
-                newOpt.text = opt.text;
-                select.appendChild(newOpt);
-                return;
-            }
-
-            const matchesQuery = opt.search.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query);
-
-            if (matchesQuery) {
-                const newOpt = document.createElement('option');
-                newOpt.value = opt.value;
-                newOpt.text = opt.text;
-                newOpt.setAttribute('data-search', opt.search);
-                select.appendChild(newOpt);
-            }
-        });
-
-        // Intentar restaurar el valor seleccionado
-        const matchesCurrent = Array.from(select.options).some(o => o.value === currentSelectedVal);
-        if (matchesCurrent) {
-            select.value = currentSelectedVal;
-        } else {
-            select.value = '0';
+        if (query.trim().length === 0) {
+            dropdownCliMenu.innerHTML = '<div class="p-2 text-muted text-center small">Escribe para buscar...</div>';
+            dropdownCliMenu.style.display = 'block';
+            return;
         }
+
+        fetch(`/clientes/buscar?q=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                dropdownCliMenu.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(c => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'dropdown-item py-2 px-3 small border-bottom';
+                        btn.style.textAlign = 'left';
+                        btn.innerHTML = `
+                            <strong>${c.nombre}</strong>
+                            <span class="text-muted d-block" style="font-size: 0.7rem;">Cédula/RNC: ${c.rnc_cedula || 'N/D'}</span>
+                        `;
+                        btn.onclick = function() {
+                            selectClienteForTask(c.id, c.nombre, c.rnc_cedula);
+                        };
+                        dropdownCliMenu.appendChild(btn);
+                    });
+                    dropdownCliMenu.style.display = 'block';
+                } else {
+                    dropdownCliMenu.innerHTML = '<div class="p-3 text-muted text-center small">No se encontraron clientes</div>';
+                    dropdownCliMenu.style.display = 'block';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                dropdownCliMenu.innerHTML = '<div class="p-3 text-danger text-center small">Error al buscar clientes</div>';
+            });
     }
+
+    window.selectClienteForTask = function(id, nombre, cedula, preselectedExpId = null) {
+        // Mostrar info seleccionada
+        document.getElementById('selectedClienteName').innerText = nombre;
+        document.getElementById('selectedClienteCedula').innerText = `Cédula/RNC: ${cedula || 'N/D'}`;
+        document.getElementById('selectedClienteInfo').classList.remove('d-none');
+        document.getElementById('clientSearchContainer').classList.add('d-none');
+        
+        // Limpiar buscador
+        const searchCliInput = document.getElementById('searchClienteInput');
+        if (searchCliInput) searchCliInput.value = '';
+
+        // Cargar expedientes del cliente
+        const expSelect = document.getElementById('customExpedienteSelect');
+        expSelect.innerHTML = '<option value="">Cargando expedientes...</option>';
+        expSelect.disabled = true;
+
+        fetch(`/api/clientes/${id}/expedientes`)
+            .then(res => res.json())
+            .then(data => {
+                expSelect.innerHTML = '';
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.text = data.length > 0 ? '-- Seleccione un expediente --' : '-- Este cliente no tiene expedientes --';
+                expSelect.appendChild(defaultOpt);
+
+                if (data.length > 0) {
+                    data.forEach(e => {
+                        const opt = document.createElement('option');
+                        opt.value = e.id;
+                        opt.text = e.nombre_caso;
+                        expSelect.appendChild(opt);
+                    });
+                    expSelect.disabled = false;
+                } else {
+                    expSelect.disabled = true;
+                }
+
+                // Preseleccionar si viene de edición
+                if (preselectedExpId) {
+                    expSelect.value = preselectedExpId;
+                    syncSelectedExpedienteForTask(preselectedExpId);
+                } else {
+                    syncSelectedExpedienteForTask('');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                expSelect.innerHTML = '<option value="">Error al cargar expedientes</option>';
+            });
+    };
+
+    window.clearSelectedClienteForTask = function() {
+        // Reset
+        document.getElementById('selectedClienteInfo').classList.add('d-none');
+        document.getElementById('clientSearchContainer').classList.remove('d-none');
+        
+        const expSelect = document.getElementById('customExpedienteSelect');
+        expSelect.innerHTML = '<option value="">-- Primero seleccione un cliente --</option>';
+        expSelect.disabled = true;
+        
+        syncSelectedExpedienteForTask('');
+    };
+
+    window.syncSelectedExpedienteForTask = function(val) {
+        document.getElementById('expediente_id').value = val ? val : "0";
+    };
 
     function abrirModalCrear() {
         document.getElementById('modalTareaTitle').innerText = 'Crear Nueva Tarea';
@@ -972,10 +1068,8 @@
         }
         renderSelectedAsignados();
 
-        // Resetear buscador
-        if (document.getElementById('modalExpSearch')) document.getElementById('modalExpSearch').value = '';
-        document.getElementById('expediente_id').value = '0';
-        filtrarSelectExpedienteMaster();
+        // Resetear cliente y expediente
+        clearSelectedClienteForTask();
 
         document.getElementById('btnSubmitForm').value = 'Crear Tarea';
         modalInstance.show();
@@ -1013,10 +1107,16 @@
         }
         renderSelectedAsignados();
 
-        // Resetear buscador antes de fijar el valor seleccionado
-        if (document.getElementById('modalExpSearch')) document.getElementById('modalExpSearch').value = '';
-        document.getElementById('expediente_id').value = expId ? expId : '0';
-        filtrarSelectExpedienteMaster();
+        // Rellenar cliente y expediente
+        const clienteId = el.getAttribute('data-cliente-id');
+        const clienteNombre = el.getAttribute('data-cliente-nombre');
+        const clienteCedula = el.getAttribute('data-cliente-cedula');
+
+        if (clienteId) {
+            selectClienteForTask(clienteId, clienteNombre, clienteCedula, expId);
+        } else {
+            clearSelectedClienteForTask();
+        }
 
         document.getElementById('btnSubmitForm').value = 'Guardar Cambios';
         modalInstance.show();

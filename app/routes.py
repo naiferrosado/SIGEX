@@ -4781,12 +4781,11 @@ def register_routes(app):
                             "type": cat,
                             "title": t.titulo,
                             "expediente_id": t.expediente_id,
-                            "expediente_codigo": t.expediente.codigo_firma
-                            if t.expediente
-                            else "",
-                            "expediente_nombre": t.expediente.nombre_caso
-                            if t.expediente
-                            else "",
+                            "expediente_codigo": t.expediente.codigo_firma if t.expediente else "",
+                            "expediente_nombre": t.expediente.nombre_caso if t.expediente else "",
+                            "cliente_id": t.expediente.cliente_id if t.expediente else None,
+                            "cliente_nombre": (t.expediente.cliente.nombres + " " + t.expediente.cliente.apellidos) if (t.expediente and t.expediente.cliente) else "",
+                            "cliente_cedula": t.expediente.cliente.rnc_cedula if (t.expediente and t.expediente.cliente) else "",
                             "asignado_nombre": ", ".join([u.nombre for u in t.asignados]) if t.asignados else "Todo el equipo",
                             "asignado_id": t.asignado_a_id or 0,
                             "asignados_ids": [u.id for u in t.asignados],
@@ -4833,12 +4832,11 @@ def register_routes(app):
                             "type": "audiencia",
                             "title": a.titulo_hito,
                             "expediente_id": a.expediente_id,
-                            "expediente_codigo": a.expediente.codigo_firma
-                            if a.expediente
-                            else "",
-                            "expediente_nombre": a.expediente.nombre_caso
-                            if a.expediente
-                            else "",
+                            "expediente_codigo": a.expediente.codigo_firma if a.expediente else "",
+                            "expediente_nombre": a.expediente.nombre_caso if a.expediente else "",
+                            "cliente_id": a.expediente.cliente_id if a.expediente else None,
+                            "cliente_nombre": (a.expediente.cliente.nombres + " " + a.expediente.cliente.apellidos) if (a.expediente and a.expediente.cliente) else "",
+                            "cliente_cedula": a.expediente.cliente.rnc_cedula if (a.expediente and a.expediente.cliente) else "",
                             "hora": a.fecha_vencimiento.strftime("%H:%M")
                             if a.fecha_vencimiento
                             else "",
@@ -4883,12 +4881,11 @@ def register_routes(app):
                             "type": "plazo",
                             "title": p.titulo_hito,
                             "expediente_id": p.expediente_id,
-                            "expediente_codigo": p.expediente.codigo_firma
-                            if p.expediente
-                            else "",
-                            "expediente_nombre": p.expediente.nombre_caso
-                            if p.expediente
-                            else "",
+                            "expediente_codigo": p.expediente.codigo_firma if p.expediente else "",
+                            "expediente_nombre": p.expediente.nombre_caso if p.expediente else "",
+                            "cliente_id": p.expediente.cliente_id if p.expediente else None,
+                            "cliente_nombre": (p.expediente.cliente.nombres + " " + p.expediente.cliente.apellidos) if (p.expediente and p.expediente.cliente) else "",
+                            "cliente_cedula": p.expediente.cliente.rnc_cedula if (p.expediente and p.expediente.cliente) else "",
                             "fecha_vencimiento": p.fecha_vencimiento.date().isoformat()
                             if p.fecha_vencimiento
                             else "",
@@ -6259,7 +6256,8 @@ def register_routes(app):
             result.append({
                 "id": e.id,
                 "nombre_caso": f"{e.codigo_firma} - {e.nombre_caso} ({e.tipo_tramite})" + (" (YA FACTURADO)" if facturado else ""),
-                "facturado": facturado
+                "facturado": facturado,
+                "tipo_tramite": e.tipo_tramite
             })
             
         return jsonify(result)

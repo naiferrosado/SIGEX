@@ -167,7 +167,7 @@
                 <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-calendar-plus-fill text-primary me-2"></i>Nuevo Evento de Agenda</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="formCrearEvento" onsubmit="guardarEvento(event)">
+            <form id="formCrearEvento" onsubmit="guardarEvento(event)" novalidate>
                 <div class="modal-body p-4">
                     <!-- Tipo de Evento -->
                     <div class="mb-3">
@@ -180,19 +180,49 @@
                         </select>
                     </div>
 
-                    <!-- Expediente Vinculado (Común) -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Expediente <span class="text-danger">*</span></label>
-                        <!-- Buscador de Expedientes -->
-                        <div class="input-group input-group-sm mb-2">
-                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                            <input type="text" class="form-control bg-light border-start-0" id="agendaExpSearch" placeholder="Buscar expediente por código, caso, o cédula del cliente...">
-                        </div>
-                        <select class="form-select form-select-sm" id="eventoExpedienteId" required>
-                            <option value="" disabled selected data-search="">-- Seleccione Expediente --</option>
+                    <!-- Select oculto nativo de Expediente para FullCalendar / Agenda -->
+                    <div class="d-none">
+                        <select id="eventoExpedienteId" required>
+                            <option value="" disabled selected></option>
                             {% for exp in expedientes_select %}
-                            <option value="{{ exp.id }}" data-tipo="{{ exp.tipo_tramite }}" data-search="{{ exp.codigo_firma }} {{ exp.nombre_caso }} {{ exp.cliente.rnc_cedula if exp.cliente else '' }} {{ exp.cliente.nombres if exp.cliente else '' }} {{ exp.cliente.apellidos if exp.cliente else '' }}">{{ exp.codigo_firma }} - {{ exp.nombre_caso }}</option>
+                            <option value="{{ exp.id }}">{{ exp.nombre_caso }}</option>
                             {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Cliente -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Cliente <span class="text-danger">*</span></label>
+                        
+                        <!-- Buscador de Clientes -->
+                        <div id="agendaClientSearchContainer">
+                            <div class="input-group input-group-sm mb-1">
+                                <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control bg-light border-start-0" id="searchAgendaClienteInput" placeholder="Buscar cliente por nombre o cédula..." autocomplete="off">
+                            </div>
+                            <div class="dropdown-menu w-100 shadow border p-0 mt-1" id="searchAgendaClienteDropdown" style="max-height: 200px; overflow-y: auto; display: none; z-index: 1050;">
+                                <!-- Clientes inyectados por JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Info de Cliente Seleccionado -->
+                        <div id="selectedAgendaClienteInfo" class="p-2 border rounded bg-light d-flex align-items-center justify-content-between d-none mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-person-check-fill text-success fs-5"></i>
+                                <div>
+                                    <div class="fw-bold text-dark small" id="selectedAgendaClienteName" style="font-size:0.75rem;"></div>
+                                    <div class="text-muted small" id="selectedAgendaClienteCedula" style="font-size:0.65rem;"></div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-link text-danger fw-semibold text-decoration-none" onclick="clearSelectedAgendaCliente()"><i class="bi bi-x-circle-fill"></i> Cambiar</button>
+                        </div>
+                    </div>
+
+                    <!-- Expediente -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Expediente / Caso <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="customAgendaExpedienteSelect" disabled onchange="syncSelectedExpedienteForAgenda(this.value)">
+                            <option value="">-- Primero seleccione un cliente --</option>
                         </select>
                     </div>
 
@@ -350,27 +380,31 @@
     let modalCrear;
     let modalDetalle;
     let isEditing = false;
+    let currentAgendaClienteId = null;
+    let currentAgendaClienteNombre = "";
+    let currentAgendaClienteCedula = "";
     const userRole = '{{ current_user.rol }}';
-    let masterAgendaExpedienteOptions = [];
-
     document.addEventListener('DOMContentLoaded', function() {
         modalCrear = new bootstrap.Modal(document.getElementById('modalCrearEvento'));
-        
-        // Cargar opciones master para filtrar el select de expediente en el modal de agenda
-        const select = document.getElementById('eventoExpedienteId');
-        if (select) {
-            masterAgendaExpedienteOptions = Array.from(select.options).map(opt => ({
-                value: opt.value,
-                text: opt.text,
-                tipo: opt.getAttribute('data-tipo') || '',
-                search: opt.getAttribute('data-search') || ''
-            }));
-        }
 
-        // Registrar evento para filtrar
-        const searchInput = document.getElementById('agendaExpSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', filtrarSelectExpedienteAgenda);
+        // Configurar buscador interactivo de clientes en agenda
+        const searchCliInput = document.getElementById('searchAgendaClienteInput');
+        const dropdownCliMenu = document.getElementById('searchAgendaClienteDropdown');
+        
+        if (searchCliInput && dropdownCliMenu) {
+            searchCliInput.addEventListener('input', function() {
+                buscarAgendaClientesAjax(this.value);
+            });
+            searchCliInput.addEventListener('focus', function() {
+                buscarAgendaClientesAjax(this.value);
+            });
+            
+            // Cerrar dropdown al hacer click fuera
+            document.addEventListener('click', function(e) {
+                if (!searchCliInput.contains(e.target) && !dropdownCliMenu.contains(e.target)) {
+                    dropdownCliMenu.style.display = 'none';
+                }
+            });
         }
 
         // Cargar opciones master para el buscador de asignados de agenda
@@ -468,24 +502,11 @@
         inputHora.required = false;
         groupAsignacion.style.display = 'none';
 
-        // Filtrar expedientes para audiencias (solo judiciales)
-        const expSelect = document.getElementById('eventoExpedienteId');
-        Array.from(expSelect.options).forEach(opt => {
-            if (opt.value === "") return;
-            const tipoTramite = opt.getAttribute('data-tipo');
-            if (tipo === 'audiencia') {
-                if (tipoTramite !== 'Judicial') {
-                    opt.disabled = true;
-                    opt.style.display = 'none';
-                } else {
-                    opt.disabled = false;
-                    opt.style.display = 'block';
-                }
-            } else {
-                opt.disabled = false;
-                opt.style.display = 'block';
-            }
-        });
+        // Re-filtrar los expedientes dinámicos del cliente actual según el tipo de hito
+        if (currentAgendaClienteId) {
+            const expSelectVal = document.getElementById('eventoExpedienteId').value;
+            selectAgendaCliente(currentAgendaClienteId, currentAgendaClienteNombre, currentAgendaClienteCedula, expSelectVal);
+        }
 
         if (tipo === 'tarea') {
             groupTitulo.style.display = 'block';
@@ -506,10 +527,6 @@
     function abrirModalCrear(dateStr = '') {
         isEditing = false;
         document.getElementById('formCrearEvento').reset();
-        if (document.getElementById('agendaExpSearch')) {
-            document.getElementById('agendaExpSearch').value = '';
-            filtrarSelectExpedienteAgenda();
-        }
         document.getElementById('eventoTipo').disabled = false;
         document.getElementById('eventoExpedienteId').disabled = false;
         document.getElementById('modalCrearEvento').querySelector('.modal-title').innerHTML = '<i class="bi bi-calendar-plus-fill text-primary me-2"></i>Nuevo Evento de Agenda';
@@ -528,6 +545,13 @@
         }
         renderSelectedAgendaAsignados();
         
+        clearSelectedAgendaCliente();
+
+        const searchCliInput = document.getElementById('searchAgendaClienteInput');
+        if (searchCliInput) searchCliInput.disabled = false;
+        const changeBtn = document.querySelector('#selectedAgendaClienteInfo button');
+        if (changeBtn) changeBtn.style.display = 'inline-block';
+        
         modalCrear.show();
     }
 
@@ -537,11 +561,6 @@
         isEditing = true;
         const raw = selectedEventData.raw_data;
         const type = selectedEventData.type;
-
-        if (document.getElementById('agendaExpSearch')) {
-            document.getElementById('agendaExpSearch').value = '';
-            filtrarSelectExpedienteAgenda();
-        }
 
         const typeSelect = document.getElementById('eventoTipo');
         const expSelect = document.getElementById('eventoExpedienteId');
@@ -556,6 +575,21 @@
         
         expSelect.value = selectedEventData.expediente_id;
         expSelect.disabled = true;
+
+        // Rellenar cliente y expediente en edición
+        if (raw.cliente_id) {
+            selectAgendaCliente(raw.cliente_id, raw.cliente_nombre, raw.cliente_cedula, selectedEventData.expediente_id);
+        } else {
+            clearSelectedAgendaCliente();
+        }
+
+        // Deshabilitar buscador de cliente y selector de expediente en edición
+        const searchCliInput = document.getElementById('searchAgendaClienteInput');
+        if (searchCliInput) searchCliInput.disabled = true;
+        const changeBtn = document.querySelector('#selectedAgendaClienteInfo button');
+        if (changeBtn) changeBtn.style.display = 'none';
+        const customExpSelect = document.getElementById('customAgendaExpedienteSelect');
+        if (customExpSelect) customExpSelect.disabled = true;
         
         toggleFormFields(baseType);
 
@@ -1012,51 +1046,137 @@
         `;
     }
 
-    function filtrarSelectExpedienteAgenda() {
-        const searchInput = document.getElementById('agendaExpSearch');
-        const select = document.getElementById('eventoExpedienteId');
+    function buscarAgendaClientesAjax(query) {
+        const dropdownCliMenu = document.getElementById('searchAgendaClienteDropdown');
+        if (!dropdownCliMenu) return;
 
-        if (!select) return;
-
-        const query = searchInput ? searchInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-        const currentSelectedVal = select.value;
-
-        // Limpiar select
-        select.innerHTML = '';
-
-        // Filtrar y agregar
-        masterAgendaExpedienteOptions.forEach(opt => {
-            if (opt.value === '') {
-                const newOpt = document.createElement('option');
-                newOpt.value = opt.value;
-                newOpt.text = opt.text;
-                newOpt.disabled = true;
-                if (!query) {
-                    newOpt.selected = true;
-                }
-                select.appendChild(newOpt);
-                return;
-            }
-
-            const matchesQuery = opt.search.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query);
-
-            if (matchesQuery) {
-                const newOpt = document.createElement('option');
-                newOpt.value = opt.value;
-                newOpt.text = opt.text;
-                newOpt.setAttribute('data-tipo', opt.tipo);
-                newOpt.setAttribute('data-search', opt.search);
-                select.appendChild(newOpt);
-            }
-        });
-
-        // Intentar restaurar el valor seleccionado
-        const matchesCurrent = Array.from(select.options).some(o => o.value === currentSelectedVal);
-        if (matchesCurrent && currentSelectedVal !== '') {
-            select.value = currentSelectedVal;
-        } else {
-            select.value = '';
+        if (query.trim().length === 0) {
+            dropdownCliMenu.innerHTML = '<div class="p-2 text-muted text-center small">Escribe para buscar...</div>';
+            dropdownCliMenu.style.display = 'block';
+            return;
         }
+
+        fetch(`/clientes/buscar?q=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                dropdownCliMenu.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(c => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'dropdown-item py-2 px-3 small border-bottom';
+                        btn.style.textAlign = 'left';
+                        btn.innerHTML = `
+                            <strong>${c.nombre}</strong>
+                            <span class="text-muted d-block" style="font-size: 0.7rem;">Cédula/RNC: ${c.rnc_cedula || 'N/D'}</span>
+                        `;
+                        btn.onclick = function() {
+                            selectAgendaCliente(c.id, c.nombre, c.rnc_cedula);
+                        };
+                        dropdownCliMenu.appendChild(btn);
+                    });
+                    dropdownCliMenu.style.display = 'block';
+                } else {
+                    dropdownCliMenu.innerHTML = '<div class="p-3 text-muted text-center small">No se encontraron clientes</div>';
+                    dropdownCliMenu.style.display = 'block';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                dropdownCliMenu.innerHTML = '<div class="p-3 text-danger text-center small">Error al buscar clientes</div>';
+            });
     }
+
+    window.selectAgendaCliente = function(id, nombre, cedula, preselectedExpId = null) {
+        currentAgendaClienteId = id;
+        currentAgendaClienteNombre = nombre;
+        currentAgendaClienteCedula = cedula;
+
+        // Mostrar info seleccionada
+        document.getElementById('selectedAgendaClienteName').innerText = nombre;
+        document.getElementById('selectedAgendaClienteCedula').innerText = `Cédula/RNC: ${cedula || 'N/D'}`;
+        document.getElementById('selectedAgendaClienteInfo').classList.remove('d-none');
+        document.getElementById('agendaClientSearchContainer').classList.add('d-none');
+        
+        // Limpiar buscador
+        const searchCliInput = document.getElementById('searchAgendaClienteInput');
+        if (searchCliInput) searchCliInput.value = '';
+
+        // Cargar expedientes del cliente
+        const expSelect = document.getElementById('customAgendaExpedienteSelect');
+        expSelect.innerHTML = '<option value="">Cargando expedientes...</option>';
+        expSelect.disabled = true;
+
+        fetch(`/api/clientes/${id}/expedientes`)
+            .then(res => res.json())
+            .then(data => {
+                expSelect.innerHTML = '';
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.text = data.length > 0 ? '-- Seleccione un expediente --' : '-- Este cliente no tiene expedientes --';
+                expSelect.appendChild(defaultOpt);
+
+                // En la agenda, si el tipo de evento es audiencia, solo debemos mostrar expedientes judiciales
+                const currentType = document.getElementById('eventoTipo').value;
+
+                if (data.length > 0) {
+                    let count = 0;
+                    data.forEach(e => {
+                        // Filtrado por audiencia (solo Judicial)
+                        if (currentType === 'audiencia' && e.tipo_tramite !== 'Judicial') {
+                            return; // saltar
+                        }
+
+                        const opt = document.createElement('option');
+                        opt.value = e.id;
+                        opt.text = e.nombre_caso;
+                        expSelect.appendChild(opt);
+                        count++;
+                    });
+
+                    if (count > 0) {
+                        expSelect.disabled = false;
+                    } else {
+                        defaultOpt.text = '-- No hay expedientes judiciales para este cliente --';
+                        expSelect.disabled = true;
+                    }
+                } else {
+                    expSelect.disabled = true;
+                }
+
+                // Preseleccionar si viene de edición
+                if (preselectedExpId) {
+                    expSelect.value = preselectedExpId;
+                    syncSelectedExpedienteForAgenda(preselectedExpId);
+                } else {
+                    syncSelectedExpedienteForAgenda('');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                expSelect.innerHTML = '<option value="">Error al cargar expedientes</option>';
+            });
+    };
+
+    window.clearSelectedAgendaCliente = function() {
+        currentAgendaClienteId = null;
+        currentAgendaClienteNombre = "";
+        currentAgendaClienteCedula = "";
+
+        // Reset
+        document.getElementById('selectedAgendaClienteInfo').classList.add('d-none');
+        document.getElementById('agendaClientSearchContainer').classList.remove('d-none');
+        
+        const expSelect = document.getElementById('customAgendaExpedienteSelect');
+        expSelect.innerHTML = '<option value="">-- Primero seleccione un cliente --</option>';
+        expSelect.disabled = true;
+        
+        syncSelectedExpedienteForAgenda('');
+    };
+
+    window.syncSelectedExpedienteForAgenda = function(val) {
+        document.getElementById('eventoExpedienteId').value = val;
+    };
 </script>
 {% endblock %}
