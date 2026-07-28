@@ -568,6 +568,12 @@
                 <form method="POST" action="" id="formTarea" novalidate>
                     {{ form.hidden_tag() }}
                     <div class="modal-body p-4">
+                        <!-- Contenedor para mostrar errores AJAX de validación -->
+                        <div id="modalAlertContainer" class="alert alert-danger d-none py-2 px-3 small rounded-3 mb-3" style="border-radius: 8px;">
+                            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Por favor corrija los siguientes errores:</div>
+                            <ul class="mb-0 ps-3" id="modalAlertList"></ul>
+                        </div>
+
                         <!-- Título -->
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">{{ form.titulo.label.text }} <span
@@ -795,6 +801,59 @@
                 if (!searchAsigInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
                     dropdownMenu.style.display = 'none';
                 }
+            });
+        }
+        // Configurar submit por AJAX para el formulario de tareas
+        const formTarea = document.getElementById('formTarea');
+        if (formTarea) {
+            formTarea.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Limpiar errores del modal
+                const modalAlertContainer = document.getElementById('modalAlertContainer');
+                const modalAlertList = document.getElementById('modalAlertList');
+                if (modalAlertContainer) modalAlertContainer.classList.add('d-none');
+                if (modalAlertList) modalAlertList.innerHTML = '';
+                
+                const formData = new FormData(this);
+                const actionUrl = this.getAttribute('action') || window.location.pathname;
+
+                fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        modalInstance.hide();
+                        window.location.reload();
+                    } else {
+                        // Mostrar errores dentro del modal
+                        if (modalAlertContainer && modalAlertList) {
+                            if (data.errors && data.errors.length > 0) {
+                                data.errors.forEach(err => {
+                                    const li = document.createElement('li');
+                                    li.innerText = err;
+                                    modalAlertList.appendChild(li);
+                                });
+                                modalAlertContainer.classList.remove('d-none');
+                                modalAlertContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            }
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    if (modalAlertContainer && modalAlertList) {
+                        const li = document.createElement('li');
+                        li.innerText = "Error de red al guardar la tarea.";
+                        modalAlertList.appendChild(li);
+                        modalAlertContainer.classList.remove('d-none');
+                    }
+                });
             });
         }
     });
@@ -1047,6 +1106,12 @@
     };
 
     function abrirModalCrear() {
+        // Limpiar errores previos del modal
+        const modalAlertContainer = document.getElementById('modalAlertContainer');
+        const modalAlertList = document.getElementById('modalAlertList');
+        if (modalAlertContainer) modalAlertContainer.classList.add('d-none');
+        if (modalAlertList) modalAlertList.innerHTML = '';
+
         document.getElementById('modalTareaTitle').innerText = 'Crear Nueva Tarea';
         document.getElementById('modalTareaSub').innerText = 'Define los parámetros de la actividad o plazo procesal.';
         document.getElementById('formTarea').action = "{{ url_for('crear_tarea') }}";
@@ -1084,6 +1149,12 @@
         const estado = el.getAttribute('data-estado');
         const expId = el.getAttribute('data-expediente-id');
         const asignadosIds = JSON.parse(el.getAttribute('data-asignados-ids') || '[]');
+
+        // Limpiar errores previos del modal
+        const modalAlertContainer = document.getElementById('modalAlertContainer');
+        const modalAlertList = document.getElementById('modalAlertList');
+        if (modalAlertContainer) modalAlertContainer.classList.add('d-none');
+        if (modalAlertList) modalAlertList.innerHTML = '';
 
         document.getElementById('modalTareaTitle').innerText = 'Editar Tarea';
         document.getElementById('modalTareaSub').innerText = 'Modifica los parámetros o reasigna esta actividad.';

@@ -4428,6 +4428,8 @@ def register_routes(app):
             (u.id, u.nombre) for u in usuarios_list
         ]
 
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
         if form.validate_on_submit():
             exp_id = form.expediente_id.data
             
@@ -4464,16 +4466,28 @@ def register_routes(app):
                     expediente_id=exp_id,
                     cliente_id=nueva_tarea.expediente.cliente_id,
                 )
-                flash(f"Tarea '{form.titulo.data}' creada exitosamente.", "success")
+                msg = f"Tarea '{form.titulo.data}' creada exitosamente."
+                if is_ajax:
+                    return jsonify({"success": True, "message": msg})
+                flash(msg, "success")
             except Exception as e:
                 db.session.rollback()
-                flash(f"Error al guardar la tarea: {str(e)}", "danger")
+                err_msg = f"Error al guardar la tarea: {str(e)}"
+                if is_ajax:
+                    return jsonify({"success": False, "errors": [err_msg]})
+                flash(err_msg, "danger")
         else:
+            errors_list = []
             for field, errors in form.errors.items():
                 for error in errors:
-                    flash(
-                        f"Error en {getattr(form, field).label.text}: {error}", "danger"
-                    )
+                    label = getattr(form, field).label.text
+                    errors_list.append(f"Error en {label}: {error}")
+            
+            if is_ajax:
+                return jsonify({"success": False, "errors": errors_list})
+            
+            for err in errors_list:
+                flash(err, "danger")
 
         return redirect(url_for("listar_tareas"))
 
@@ -4508,6 +4522,8 @@ def register_routes(app):
         form.asignados_ids.choices = [
             (u.id, u.nombre) for u in usuarios_list
         ]
+
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
         if form.validate_on_submit():
             exp_id = form.expediente_id.data
@@ -4554,16 +4570,28 @@ def register_routes(app):
                     expediente_id=exp_id,
                     cliente_id=tarea.expediente.cliente_id,
                 )
-                flash(f"Tarea '{tarea.titulo}' modificada con éxito.", "success")
+                msg = f"Tarea '{tarea.titulo}' modificada con éxito."
+                if is_ajax:
+                    return jsonify({"success": True, "message": msg})
+                flash(msg, "success")
             except Exception as e:
                 db.session.rollback()
-                flash(f"Error al actualizar la tarea: {str(e)}", "danger")
+                err_msg = f"Error al actualizar la tarea: {str(e)}"
+                if is_ajax:
+                    return jsonify({"success": False, "errors": [err_msg]})
+                flash(err_msg, "danger")
         else:
+            errors_list = []
             for field, errors in form.errors.items():
                 for error in errors:
-                    flash(
-                        f"Error en {getattr(form, field).label.text}: {error}", "danger"
-                    )
+                    label = getattr(form, field).label.text
+                    errors_list.append(f"Error en {label}: {error}")
+            
+            if is_ajax:
+                return jsonify({"success": False, "errors": errors_list})
+            
+            for err in errors_list:
+                flash(err, "danger")
 
         return redirect(url_for("listar_tareas"))
 
