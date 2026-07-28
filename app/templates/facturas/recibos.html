@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Page -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-receipt-cutoff text-primary me-2"></i>Recibos Internos de Caja</h4>
+            <p class="text-muted small mb-0">Listado de transacciones y comprobantes de caja generados por cobros.</p>
+        </div>
+        <a href="{{ url_for('listar_facturas') }}" class="btn btn-outline-primary fw-semibold btn-sm rounded-3 px-3 py-2">
+            <i class="bi bi-receipt me-1"></i> Ir a Facturación NCF
+        </a>
+    </div>
+
+    <!-- Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="bg-light text-dark fw-bold" style="font-size: 0.85rem;">
+                    <tr>
+                        <th class="ps-4">Nro. Recibo</th>
+                        <th>Fecha Emisión</th>
+                        <th>Cliente</th>
+                        <th>Concepto / Observación</th>
+                        <th class="text-end pe-4">Monto Recibido</th>
+                    </tr>
+                </thead>
+                <tbody style="font-size: 0.88rem;">
+                    {% if recibos %}
+                        {% for r in recibos %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark">{{ r.numero_recibo }}</span>
+                            </td>
+                            <td>{{ r.fecha_emision.strftime('%d/%m/%Y %I:%M %p') if r.fecha_emision else '—' }}</td>
+                            <td>{{ r.cliente.nombre_completo if r.cliente else '—' }}</td>
+                            <td>{{ r.observaciones or '—' }}</td>
+                            <td class="text-end fw-bold text-success pe-4">RD$ {{ "{:,.2f}".format(r.monto_total) }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-receipt-cutoff fs-1 d-block mb-3"></i>
+                                No se encontraron recibos de caja emitidos.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

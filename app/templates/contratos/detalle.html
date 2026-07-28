@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-file-earmark-lock-fill text-primary me-2"></i>Contrato #CON-{{ contrato.id }}</h4>
+            <p class="text-muted small mb-0">Detalles económicos y control del cronograma de cobro pactado.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('contratos_index') }}" class="btn btn-outline-secondary btn-sm rounded-3 me-2">
+                <i class="bi bi-arrow-left me-1"></i> Lista de Contratos
+            </a>
+            {% if contrato.expediente %}
+            <a href="{{ url_for('detalle_expediente', expediente_id=contrato.expediente_id) }}" class="btn btn-primary btn-sm rounded-3 fw-semibold">
+                <i class="bi bi-folder-fill me-1"></i> Ir al Expediente
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Contract info cards -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4 mb-4">
+                <h6 class="text-primary fw-bold mb-3"><i class="bi bi-card-text me-2"></i>Resumen General</h6>
+                
+                <div class="mb-3 border-bottom pb-2">
+                    <span class="text-muted d-block small">Cliente:</span>
+                    <span class="fw-semibold text-dark">{{ contrato.cliente.nombre_completo if contrato.cliente else '—' }}</span>
+                </div>
+                
+                <div class="mb-3 border-bottom pb-2">
+                    <span class="text-muted d-block small">Expediente Vinculado:</span>
+                    <span class="fw-semibold text-dark">{{ contrato.expediente.nombre_caso if contrato.expediente else 'Sin vincular' }}</span>
+                </div>
+
+                <div class="row g-2 mb-3 border-bottom pb-2">
+                    <div class="col-6">
+                        <span class="text-muted d-block small">Firma:</span>
+                        <span class="fw-semibold text-dark">{{ contrato.fecha_firma.strftime('%d/%m/%Y') if contrato.fecha_firma else '—' }}</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="text-muted d-block small">Inicio:</span>
+                        <span class="fw-semibold text-dark">{{ contrato.fecha_inicio.strftime('%d/%m/%Y') if contrato.fecha_inicio else '—' }}</span>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <span class="text-muted d-block small">Esquema Cobro:</span>
+                        <span class="badge bg-primary-light text-primary rounded-pill px-2 py-1 small fw-semibold">{{ contrato.tipo_cobro }}</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="text-muted d-block small">Moneda:</span>
+                        <span class="fw-bold text-dark">{{ contrato.moneda }}</span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-light rounded-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Subtotal:</span>
+                        <span class="fw-bold text-dark">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.subtotal) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">ITBIS ({{ contrato.porcentaje_itbis }}%):</span>
+                        <span class="fw-bold text-dark">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.itbis) }}</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-primary small fw-bold">Total Contrato:</span>
+                        <span class="fw-bold text-primary fs-6">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.total_contrato) }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if contrato.observaciones %}
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                <h6 class="text-primary fw-bold mb-2"><i class="bi bi-journal-text me-2"></i>Observaciones</h6>
+                <p class="text-dark small mb-0" style="white-space: pre-wrap;">{{ contrato.observaciones }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Cronograma de cuotas list -->
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                <h6 class="text-primary fw-bold mb-3"><i class="bi bi-calendar-check me-2"></i>Compromisos del Cronograma</h6>
+                
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light small fw-bold">
+                            <tr>
+                                <th>Orden</th>
+                                <th>Concepto / Cuota</th>
+                                <th>Vencimiento</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 0.88rem;">
+                            {% if contrato.cronograma %}
+                                {% for cuota in contrato.cronograma %}
+                                <tr>
+                                    <td>{{ cuota.orden }}</td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ cuota.descripcion }}</div>
+                                        <div class="text-muted small">Tipo: {{ cuota.tipo }}</div>
+                                    </td>
+                                    <td>{{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                                    <td class="text-end fw-bold text-dark">{{ contrato.moneda }} {{ "{:,.2f}".format(cuota.monto) }}</td>
+                                    <td class="text-center">
+                                        {% if cuota.estado == 'Pagado' %}
+                                            <span class="badge bg-success-light text-success px-3 py-1 rounded-pill fw-semibold">Pagado</span>
+                                        {% elif cuota.estado == 'Facturado' %}
+                                            <span class="badge bg-info-light text-info px-3 py-1 rounded-pill fw-semibold">Facturado</span>
+                                        {% elif cuota.estado == 'Pendiente' %}
+                                            <span class="badge bg-warning-light text-warning px-3 py-1 rounded-pill fw-semibold">Pendiente</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-light text-secondary px-3 py-1 rounded-pill fw-semibold">{{ cuota.estado }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if cuota.estado == 'Pendiente' %}
+                                            <form action="{{ url_for('facturar_cuota', contrato_id=contrato.id, cuota_id=cuota.id) }}" method="POST">
+                                                <button type="submit" class="btn btn-sm btn-primary rounded-3 px-3">
+                                                    <i class="bi bi-file-earmark-text me-1"></i> Facturar NCF
+                                                </button>
+                                            </form>
+                                        {% elif cuota.estado == 'Facturado' %}
+                                            {% if cuota.factura_rel %}
+                                            <a href="{{ url_for('factura_detalle', factura_id=cuota.factura_rel.id) }}" class="btn btn-sm btn-outline-info rounded-3 px-3">
+                                                <i class="bi bi-receipt me-1"></i> Ver Factura NCF
+                                            </a>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted small"><i class="bi bi-check-circle me-1"></i> Completado</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No hay cuotas programadas.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-primary-light { background-color: rgba(0, 64, 154, 0.1); }
+    .bg-success-light { background-color: rgba(25, 135, 84, 0.1); }
+    .bg-info-light { background-color: rgba(13, 202, 240, 0.1); }
+    .bg-warning-light { background-color: rgba(255, 193, 7, 0.15); }
+    .bg-secondary-light { background-color: #f3f4f6; }
+</style>
+{% endblock %}

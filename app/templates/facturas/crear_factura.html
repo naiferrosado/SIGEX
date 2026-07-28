@@ -171,6 +171,7 @@
         <div class="col-md-9">
             <form id="facturaForm" method="POST" action="{{ url_for('crear_factura') }}" novalidate>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="prefilled_time_ids" name="prefilled_time_ids" value="{{ prefilled_time_ids or '' }}">
 
                 <!-- SECCIÓN 1: DATOS GENERALES -->
                 <div class="card billing-card shadow-sm wizard-section" id="section-1">
@@ -255,9 +256,14 @@
                 <div class="card billing-card shadow-sm wizard-section d-none" id="section-2">
                     <div class="billing-card-header d-flex justify-content-between align-items-center">
                         <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-briefcase-fill me-2"></i>Paso 2: Detalle de Honorarios y Servicios</h5>
-                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btn-add-servicio">
-                            <i class="bi bi-plus-lg"></i> Agregar Línea
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalGuiaTarifas">
+                                <i class="bi bi-info-circle me-1"></i>Ver Guía de Tarifas RD
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btn-add-servicio">
+                                <i class="bi bi-plus-lg"></i> Agregar Línea
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -271,20 +277,39 @@
                                     </tr>
                                 </thead>
                                 <tbody id="servicios-tbody">
-                                    <tr>
-                                        <td class="ps-4">
-                                            <input type="text" name="servicio_descripcion[]" class="form-control form-control-sm" placeholder="Honorarios por representación judicial..." required style="border-radius: 8px;">
-                                        </td>
-                                        <td>
-                                            <input type="number" name="servicio_cantidad[]" class="form-control form-control-sm input-cantidad text-end" min="1" value="1" required style="border-radius: 8px;">
-                                        </td>
-                                        <td>
-                                            <input type="number" name="servicio_precio[]" class="form-control form-control-sm input-precio text-end" min="0" step="0.01" placeholder="0.00" required style="border-radius: 8px;">
-                                        </td>
-                                        <td class="text-center">
-                                            <i class="bi bi-trash3-fill remove-row-btn btn-remove-servicio"></i>
-                                        </td>
-                                    </tr>
+                                    {% if prefilled_services %}
+                                        {% for s in prefilled_services %}
+                                        <tr>
+                                            <td class="ps-4">
+                                                <input type="text" name="servicio_descripcion[]" class="form-control form-control-sm" value="{{ s.descripcion }}" placeholder="Honorarios por representación judicial..." required style="border-radius: 8px;">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="servicio_cantidad[]" class="form-control form-control-sm input-cantidad text-end" min="1" step="0.1" value="{{ s.cantidad }}" required style="border-radius: 8px;">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="servicio_precio[]" class="form-control form-control-sm input-precio text-end" min="0" step="0.01" value="{{ s.precio }}" required style="border-radius: 8px;">
+                                            </td>
+                                            <td class="text-center">
+                                                <i class="bi bi-trash3-fill remove-row-btn btn-remove-servicio"></i>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td class="ps-4">
+                                                <input type="text" name="servicio_descripcion[]" class="form-control form-control-sm" placeholder="Honorarios por representación judicial..." required style="border-radius: 8px;">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="servicio_cantidad[]" class="form-control form-control-sm input-cantidad text-end" min="1" value="1" required style="border-radius: 8px;">
+                                            </td>
+                                            <td>
+                                                <input type="number" name="servicio_precio[]" class="form-control form-control-sm input-precio text-end" min="0" step="0.01" placeholder="0.00" required style="border-radius: 8px;">
+                                            </td>
+                                            <td class="text-center">
+                                                <i class="bi bi-trash3-fill remove-row-btn btn-remove-servicio"></i>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
                                 </tbody>
                             </table>
                         </div>
@@ -510,10 +535,16 @@
                         $warning.addClass('d-none').removeClass('d-flex');
                         let options = '<option value="">Seleccione un expediente...</option>';
                         data.forEach(function(exp) {
-                            options += `<option value="${exp.id}">${exp.nombre_caso}</option>`;
+                            const disabledAttr = exp.facturado ? 'disabled' : '';
+                            options += `<option value="${exp.id}" ${disabledAttr}>${exp.nombre_caso}</option>`;
                         });
                         $expedienteSelect.html(options);
                         $expedienteSelect.prop('disabled', false);
+                        {% if prefilled_expediente_id %}
+                        if (prefilledExpId) {
+                            $expedienteSelect.val(prefilledExpId);
+                        }
+                        {% endif %}
                     } else {
                         $warning.removeClass('d-none').addClass('d-flex');
                         $expedienteSelect.html('<option value="">El cliente no tiene expedientes</option>');
@@ -539,22 +570,22 @@
                 const expedienteId = $('#expediente_id').val();
                 
                 if (!clienteId || !fechaEmision) {
-                    alert("Por favor complete los campos obligatorios del Paso 1 (Cliente y Fecha de Emisión).");
+                    showToast("Por favor complete los campos obligatorios del Paso 1 (Cliente y Fecha de Emisión).");
                     return;
                 }
                 
                 if (!$('#no-expedientes-warning').hasClass('d-none')) {
-                    alert("No se puede facturar a un cliente que no tiene expedientes registrados.");
+                    showToast("No se puede facturar a un cliente que no tiene expedientes registrados.");
                     return;
                 }
                 
                 if (!expedienteId) {
-                    alert("Debe seleccionar un expediente asociado para emitir la factura.");
+                    showToast("Debe seleccionar un expediente asociado para emitir la factura.");
                     return;
                 }
             } else if (currentStep === 2) {
                 if (totalFactura <= 0) {
-                    alert("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
+                    showToast("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
                     return;
                 }
             }
@@ -606,7 +637,7 @@
                 $(this).closest('tr').remove();
                 calcularTotalesFactura();
             } else {
-                alert("Debe mantener al menos una línea de servicio.");
+                showToast("Debe mantener al menos una línea de servicio.");
             }
         });
 
@@ -625,7 +656,7 @@
                 $(this).closest('tr').remove();
                 calcularDistribucionPartidas();
             } else {
-                alert("Debe definir al menos una cuota o hito de pago.");
+                showToast("Debe definir al menos una cuota o hito de pago.");
             }
         });
 
@@ -819,7 +850,7 @@
             const expedienteId = $('#expediente_id').val();
             
             if (!clienteId || !fechaEmision || !expedienteId) {
-                alert("Por favor complete los datos obligatorios del Paso 1 (Cliente, Expediente y Fecha de Emisión).");
+                showToast("Por favor complete los datos obligatorios del Paso 1 (Cliente, Expediente y Fecha de Emisión).");
                 isValid = false;
                 // Ir al paso 1 visualmente
                 $(`.wizard-section`).addClass('d-none');
@@ -831,7 +862,7 @@
             
             // 2. Validar Paso 2: Servicios
             if (totalFactura <= 0) {
-                alert("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
+                showToast("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
                 isValid = false;
                 $(`.wizard-section`).addClass('d-none');
                 $(`#section-2`).removeClass('d-none');
@@ -853,7 +884,7 @@
             });
             
             if (!serviciosValidos) {
-                alert("Por favor complete todos los campos de descripción, cantidad y precio de los servicios en el Paso 2.");
+                showToast("Por favor complete todos los campos de descripción, cantidad y precio de los servicios en el Paso 2.");
                 isValid = false;
                 $(`.wizard-section`).addClass('d-none');
                 $(`#section-2`).removeClass('d-none');
@@ -878,14 +909,14 @@
             });
             
             if (!partidasValidas) {
-                alert("Por favor complete los datos de descripción, monto y fecha de todas las cuotas en el Paso 3.");
+                showToast("Por favor complete los datos de descripción, monto y fecha de todas las cuotas en el Paso 3.");
                 isValid = false;
                 return false;
             }
             
             const absDiferencia = Math.abs(totalFactura - totalDistribuido);
             if (absDiferencia > 0.05) {
-                alert(`La suma de las partidas (RD$ ${totalDistribuido.toFixed(2)}) no coincide con el total de la factura (RD$ ${totalFactura.toFixed(2)}).`);
+                showToast(`La suma de las partidas (RD$ ${totalDistribuido.toFixed(2)}) no coincide con el total de la factura (RD$ ${totalFactura.toFixed(2)}).`);
                 isValid = false;
             }
             
@@ -894,8 +925,154 @@
             }
         });
 
+        {% if lote_cliente_id %}
+        // Pre-rellenar cliente y expediente del lote de facturación
+        const initialClientId = "{{ lote_cliente_id }}";
+        const prefilledExpId = "{{ prefilled_expediente_id or '' }}";
+        
+        {% for c in clientes %}
+            if ("{{ c.id }}" == initialClientId) {
+                $('#cliente_search').val("{{ c.nombres }} {{ c.apellidos }} ({{ c.rnc_cedula }})");
+                $('#cliente_id').val(initialClientId).trigger('change');
+            }
+        {% endfor %}
+        {% endif %}
+
         // Ejecutar cálculo inicial
         calcularTotalesFactura();
+
+        // 6. Lógica dinámica de auto-completar por esquema de cobro del expediente
+        let cargandoCobroExpediente = false;
+        $('#expediente_id').change(function() {
+            const expId = $(this).val();
+            if (!expId || cargandoCobroExpediente) return;
+            
+            cargandoCobroExpediente = true;
+            fetch(`/expedientes/${expId}/detalle`)
+                .then(res => res.json())
+                .then(e => {
+                    // Si viene de lotes (con IDs de tiempos pre-poblados), no sobreescribir
+                    const prefilledTimeIds = $('#prefilled_time_ids').val();
+                    if (prefilledTimeIds && prefilledTimeIds.trim() !== '') {
+                        cargandoCobroExpediente = false;
+                        return;
+                    }
+                    
+                    $('#servicios-tbody').empty();
+                    
+                    if (e.esquema_cobro === 'Fijo') {
+                        agregarFilaServicio(
+                            `Honorarios profesionales cerrados - Expediente: ${e.nombre_caso} (Ref: ${e.codigo_firma})`,
+                            1,
+                            e.tarifa_monto || 0
+                        );
+                    } else if (e.esquema_cobro === 'Iguala') {
+                        agregarFilaServicio(
+                            `Iguala mensual de asesoría jurídica - Expediente: ${e.nombre_caso} (Ref: ${e.codigo_firma})`,
+                            1,
+                            e.tarifa_monto || 0
+                        );
+                    } else if (e.esquema_cobro === 'Contingencia') {
+                        agregarFilaServicio(
+                            `Honorarios de éxito / Contingencia (${e.porcentaje_exito}%) - Expediente: ${e.nombre_caso} (Ref: ${e.codigo_firma})`,
+                            1,
+                            e.tarifa_monto || 0
+                        );
+                    } else if (e.esquema_cobro === 'Por Hora') {
+                        const aprobados = e.tiempos.filter(t => t.estado === 'Aprobado');
+                        if (aprobados.length > 0) {
+                            let timeIds = [];
+                            aprobados.forEach(t => {
+                                agregarFilaServicio(
+                                    `${t.descripcion} (Horas: ${t.horas}) (Ref: ${e.codigo_firma})`,
+                                    1,
+                                    parseFloat(t.horas) * parseFloat(e.tarifa_monto || 5000)
+                                );
+                                timeIds.push(t.id);
+                            });
+                            $('#prefilled_time_ids').val(timeIds.join(','));
+                        } else {
+                            agregarFilaServicio(
+                                `Honorarios por horas trabajadas - Expediente: ${e.nombre_caso} (Ref: ${e.codigo_firma})`,
+                                1,
+                                e.tarifa_monto || 5000
+                            );
+                        }
+                    }
+                    
+                    calcularTotalesFactura();
+                    cargandoCobroExpediente = false;
+                })
+                .catch(err => {
+                    console.error("Error al obtener esquema de cobro:", err);
+                    cargandoCobroExpediente = false;
+                });
+        });
+        
+        function agregarFilaServicio(descripcion, cantidad, precio) {
+            const newRow = `
+                <tr>
+                    <td class="ps-4">
+                        <input type="text" name="servicio_descripcion[]" class="form-control form-control-sm" value="${descripcion}" required style="border-radius: 8px;">
+                    </td>
+                    <td>
+                        <input type="number" name="servicio_cantidad[]" class="form-control form-control-sm input-cantidad text-end" min="1" value="${cantidad}" required style="border-radius: 8px;">
+                    </td>
+                    <td>
+                        <input type="number" name="servicio_precio[]" class="form-control form-control-sm input-precio text-end" min="0" step="0.01" value="${parseFloat(precio).toFixed(2)}" required style="border-radius: 8px;">
+                    </td>
+                    <td class="text-center">
+                        <i class="bi bi-trash3-fill remove-row-btn btn-remove-servicio"></i>
+                    </td>
+                </tr>
+            `;
+            $('#servicios-tbody').append(newRow);
+        }
     });
 </script>
+
+<!-- MODAL DE GUIA DE TARIFAS -->
+<div class="modal fade" id="modalGuiaTarifas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary"><i class="bi bi-info-circle-fill me-2"></i>Guía de Tarifas de Referencia en RD</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" style="max-height: 60vh; overflow-y: auto;">
+                <p class="text-muted small">Precios orientativos promedio para firmas pequeñas y medianas en República Dominicana.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover align-middle small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Materia</th>
+                                <th>Tipo de Asunto</th>
+                                <th class="text-end">Rango Sugerido</th>
+                                <th>Observación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Civil</td><td>Carta, revisión, escrito simple</td><td class="text-end fw-bold">RD$ 3,000 - 12,000</td><td>Gestión corta puntual.</td></tr>
+                            <tr><td>Civil</td><td>Demanda o defensa media</td><td class="text-end fw-bold">RD$ 35,000 - 120,000</td><td>Por fases, con anticipo.</td></tr>
+                            <tr><td>Civil</td><td>Litigio patrimonial alto</td><td class="text-end fw-bold">RD$ 100,000 - 350,000+</td><td>Anticipo + hitos + éxito.</td></tr>
+                            <tr><td>Laboral</td><td>Consulta o cálculo de prestaciones</td><td class="text-end fw-bold">RD$ 3,000 - 10,000</td><td>Previo a demanda.</td></tr>
+                            <tr><td>Laboral</td><td>Litigio laboral (Empleador/Trabajador)</td><td class="text-end fw-bold">RD$ 40,000 - 150,000</td><td>Sube con incidentes/audiencias.</td></tr>
+                            <tr><td>Laboral</td><td>Reclamo económico (Trabajador)</td><td class="text-end fw-bold">15% - 30%</td><td>Cuota litis sobre resultado.</td></tr>
+                            <tr><td>Penal</td><td>Defensa de urgencia / Coerción</td><td class="text-end fw-bold">RD$ 50,000 - 150,000</td><td>Fase de investigación/coerción.</td></tr>
+                            <tr><td>Penal</td><td>Litigio complejo</td><td class="text-end fw-bold">RD$ 150,000 - 500,000+</td><td>Según delito y riesgo de prisión.</td></tr>
+                            <tr><td>Inmobiliaria</td><td>Due Diligence o contrato compraventa</td><td class="text-end fw-bold">RD$ 10,000 - 35,000</td><td>Fija por contrato.</td></tr>
+                            <tr><td>Inmobiliaria</td><td>Saneamiento, deslinde, litis catastral</td><td class="text-end fw-bold">RD$ 50,000 - 200,000</td><td>Por etapas y audiencias.</td></tr>
+                            <tr><td>Administrativa</td><td>Gestión, recurso o solicitud</td><td class="text-end fw-bold">RD$ 8,000 - 25,000</td><td>DGII, ONAPI, DGM. Cerrada.</td></tr>
+                            <tr><td>Corporativa</td><td>Constitución de compañía (SRL)</td><td class="text-end fw-bold">RD$ 15,000 - 40,000</td><td>Incluye registro y estatutos.</td></tr>
+                            <tr><td>Corporativa</td><td>Iguala mensual pequeña empresa</td><td class="text-end fw-bold">RD$ 20,000 - 100,000/mes</td><td>Asesoría continua.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 rounded-bottom-4">
+                <button type="button" class="btn btn-sm btn-secondary fw-semibold" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

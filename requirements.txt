@@ -40,3 +40,4 @@ webencodings==0.5.1
 Werkzeug==3.1.8
 WTForms==3.2.2
 zopfli==0.4.3
+xhtml2pdf==0.2.17

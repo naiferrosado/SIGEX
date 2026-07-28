@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-file-earmark-plus-fill text-primary me-2"></i>Crear Nuevo Presupuesto</h4>
+            <p class="text-muted small mb-0">Genere una cotización estructurada de servicios para un cliente.</p>
+        </div>
+        <a href="{{ url_for('presupuestos_index') }}" class="btn btn-outline-secondary btn-sm rounded-3">
+            <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
+        </a>
+    </div>
+
+    <form method="POST">
+        <div class="row g-4">
+            <!-- Left Panel: General Info -->
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                    <h6 class="text-primary fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Información General</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Cliente</label>
+                        <select class="form-select rounded-3" name="cliente_id" required>
+                            <option value="">Seleccione cliente...</option>
+                            {% for c in clientes %}
+                            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Título de la Cotización</label>
+                        <input type="text" class="form-control rounded-3" name="titulo" placeholder="Ej: Divorcio de mutuo acuerdo - Juan Pérez" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Descripción / Notas</label>
+                        <textarea class="form-control rounded-3" name="descripcion" rows="3" placeholder="Detalle adicional..."></textarea>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Materia</label>
+                            <input type="text" class="form-control rounded-3" name="materia" placeholder="Ej: Civil" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Procedimiento</label>
+                            <input type="text" class="form-control rounded-3" name="tipo_asunto" placeholder="Ej: Divorcio" required>
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" id="aplica_itbis" name="aplica_itbis" checked>
+                        <label class="form-check-label small fw-bold" for="aplica_itbis">Aplicar ITBIS (18%)</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Items/Partidas -->
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-primary fw-bold mb-0"><i class="bi bi-list-check me-2"></i>Partidas de la Cotización</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-3" onclick="addRow()">
+                            <i class="bi bi-plus-lg me-1"></i> Agregar Partida
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle" id="itemsTable">
+                            <thead class="table-light small fw-bold">
+                                <tr>
+                                    <th>Descripción de la Tarea / Concepto</th>
+                                    <th style="width: 100px;">Cantidad</th>
+                                    <th style="width: 180px;">Precio Unitario (RD$)</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm rounded-2" name="partida_desc[]" placeholder="Ej: Honorario fijo por representación" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm rounded-2 quantity-field" name="partida_cant[]" value="1" min="1" onchange="calculateTotals()" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" class="form-control form-control-sm rounded-2 price-field" name="partida_precio[]" placeholder="0.00" onchange="calculateTotals()" required>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-link text-danger" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Summary Block -->
+                    <div class="row justify-content-end mt-4">
+                        <div class="col-md-5">
+                            <div class="p-3 bg-light rounded-4">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted small fw-medium">Subtotal:</span>
+                                    <span class="fw-bold text-dark" id="subtotalVal">RD$ 0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted small fw-medium">ITBIS (18%):</span>
+                                    <span class="fw-bold text-dark" id="itbisVal">RD$ 0.00</span>
+                                </div>
+                                <hr class="my-2">
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-primary small fw-bold">Total Estimado:</span>
+                                    <span class="fw-bold text-primary fs-5" id="totalVal">RD$ 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary fw-bold rounded-3 px-5 py-2">
+                            <i class="bi bi-check2-all me-1"></i> Guardar Presupuesto
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    function addRow() {
+        const tbody = document.querySelector("#itemsTable tbody");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>
+                <input type="text" class="form-control form-control-sm rounded-2" name="partida_desc[]" placeholder="Concepto..." required>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm rounded-2 quantity-field" name="partida_cant[]" value="1" min="1" onchange="calculateTotals()" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" class="form-control form-control-sm rounded-2 price-field" name="partida_precio[]" placeholder="0.00" onchange="calculateTotals()" required>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-link text-danger" onclick="removeRow(this)"><i class="bi bi-trash-fill"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        calculateTotals();
+    }
+
+    function removeRow(btn) {
+        const tbody = document.querySelector("#itemsTable tbody");
+        if (tbody.children.length > 1) {
+            btn.closest("tr").remove();
+            calculateTotals();
+        }
+    }
+
+    function calculateTotals() {
+        let subtotal = 0;
+        const rows = document.querySelectorAll("#itemsTable tbody tr");
+        rows.forEach(row => {
+            const qty = parseFloat(row.querySelector(".quantity-field").value) || 0;
+            const price = parseFloat(row.querySelector(".price-field").value) || 0;
+            subtotal += qty * price;
+        });
+
+        const aplicaItbis = document.getElementById("aplica_itbis").checked;
+        const itbis = aplicaItbis ? subtotal * 0.18 : 0;
+        const total = subtotal + itbis;
+
+        document.getElementById("subtotalVal").innerText = "RD$ " + subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById("itbisVal").innerText = "RD$ " + itbis.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        document.getElementById("totalVal").innerText = "RD$ " + total.toLocaleString('es-DO', {minimumFractionDigits: 2});
+    }
+
+    document.getElementById("aplica_itbis").addEventListener("change", calculateTotals);
+    
+    // Inicializar totales
+    calculateTotals();
+</script>
+{% endblock %}

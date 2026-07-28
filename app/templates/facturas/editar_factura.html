@@ -545,7 +545,7 @@
             $expedienteSelect.prop('disabled', true);
 
             $.ajax({
-                url: `/api/clientes/${clienteId}/expedientes`,
+                url: `/api/clientes/${clienteId}/expedientes?exclude_factura_id={{ factura.id }}`,
                 method: 'GET',
                 success: function(data) {
                     const $warning = $('#no-expedientes-warning');
@@ -553,7 +553,8 @@
                         $warning.addClass('d-none').removeClass('d-flex');
                         let options = '<option value="">Seleccione un expediente...</option>';
                         data.forEach(function(exp) {
-                            options += `<option value="${exp.id}">${exp.nombre_caso}</option>`;
+                            const disabledAttr = exp.facturado ? 'disabled' : '';
+                            options += `<option value="${exp.id}" ${disabledAttr}>${exp.nombre_caso}</option>`;
                         });
                         $expedienteSelect.html(options);
                         $expedienteSelect.prop('disabled', false);
@@ -582,22 +583,22 @@
                 const expedienteId = $('#expediente_id').val();
                 
                 if (!clienteId || !fechaEmision) {
-                    alert("Por favor complete los campos obligatorios del Paso 1 (Cliente y Fecha de Emisión).");
+                    showToast("Por favor complete los campos obligatorios del Paso 1 (Cliente y Fecha de Emisión).");
                     return;
                 }
                 
                 if (!$('#no-expedientes-warning').hasClass('d-none')) {
-                    alert("No se puede facturar a un cliente que no tiene expedientes registrados.");
+                    showToast("No se puede facturar a un cliente que no tiene expedientes registrados.");
                     return;
                 }
                 
                 if (!expedienteId) {
-                    alert("Debe seleccionar un expediente asociado para emitir la factura.");
+                    showToast("Debe seleccionar un expediente asociado para emitir la factura.");
                     return;
                 }
             } else if (currentStep === 2) {
                 if (totalFactura <= 0) {
-                    alert("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
+                    showToast("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
                     return;
                 }
             }
@@ -649,7 +650,7 @@
                 $(this).closest('tr').remove();
                 calcularTotalesFactura();
             } else {
-                alert("Debe mantener al menos una línea de servicio.");
+                showToast("Debe mantener al menos una línea de servicio.");
             }
         });
 
@@ -668,7 +669,7 @@
                 $(this).closest('tr').remove();
                 calcularDistribucionPartidas();
             } else {
-                alert("Debe definir al menos una cuota o hito de pago.");
+                showToast("Debe definir al menos una cuota o hito de pago.");
             }
         });
 
@@ -862,7 +863,7 @@
             const expedienteId = $('#expediente_id').val();
             
             if (!clienteId || !fechaEmision || !expedienteId) {
-                alert("Por favor complete los datos obligatorios del Paso 1 (Cliente, Expediente y Fecha de Emisión).");
+                showToast("Por favor complete los datos obligatorios del Paso 1 (Cliente, Expediente y Fecha de Emisión).");
                 isValid = false;
                 // Ir al paso 1 visualmente
                 $(`.wizard-section`).addClass('d-none');
@@ -874,7 +875,7 @@
             
             // 2. Validar Paso 2: Servicios
             if (totalFactura <= 0) {
-                alert("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
+                showToast("Debe ingresar al menos un servicio o concepto con monto válido en el Paso 2.");
                 isValid = false;
                 $(`.wizard-section`).addClass('d-none');
                 $(`#section-2`).removeClass('d-none');
@@ -896,7 +897,7 @@
             });
             
             if (!serviciosValidos) {
-                alert("Por favor complete todos los campos de descripción, cantidad y precio de los servicios en el Paso 2.");
+                showToast("Por favor complete todos los campos de descripción, cantidad y precio de los servicios en el Paso 2.");
                 isValid = false;
                 $(`.wizard-section`).addClass('d-none');
                 $(`#section-2`).removeClass('d-none');
@@ -921,21 +922,21 @@
             });
             
             if (!partidasValidas) {
-                alert("Por favor complete los datos de descripción, monto y fecha de todas las cuotas en el Paso 3.");
+                showToast("Por favor complete los datos de descripción, monto y fecha de todas las cuotas en el Paso 3.");
                 isValid = false;
                 return false;
             }
             
             const absDiferencia = Math.abs(totalFactura - totalDistribuido);
             if (absDiferencia > 0.05) {
-                alert(`La suma de las partidas (RD$ ${totalDistribuido.toFixed(2)}) no coincide con el total de la factura (RD$ ${totalFactura.toFixed(2)}).`);
+                showToast(`La suma de las partidas (RD$ ${totalDistribuido.toFixed(2)}) no coincide con el total de la factura (RD$ ${totalFactura.toFixed(2)}).`);
                 isValid = false;
                 return false;
             }
 
             const justificacion = $('#justificacion_edicion').val().trim();
             if (!justificacion) {
-                alert("Debe proporcionar una justificación válida para la edición de esta factura.");
+                showToast("Debe proporcionar una justificación válida para la edición de esta factura.");
                 isValid = false;
                 $('#justificacion_edicion').focus();
                 return false;

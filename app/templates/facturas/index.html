@@ -75,13 +75,30 @@
             <h1 class="h3 fw-bold mb-1" style="color: #071c4d;">Consola de Facturación</h1>
             <p class="text-muted small mb-0">Control administrativo de cobros, igualadas de honorarios y plazos vencidos.</p>
         </div>
-        {% if current_user.rol in ['Socio', 'Asociado', 'Administrador'] %}
-        <div>
-            <a href="{{ url_for('crear_factura') }}" class="btn btn-primary d-flex align-items-center gap-2 fw-semibold px-3 py-2 shadow-sm" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('presupuestos_index') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Presupuestos
+            </a>
+            <a href="{{ url_for('contratos_index') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
+                <i class="bi bi-file-earmark-lock"></i> Contratos
+            </a>
+            <a href="{{ url_for('recibos_index') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
+                <i class="bi bi-receipt-cutoff"></i> Recibos Caja
+            </a>
+            {% if current_user.rol in ['Socio', 'Administrador'] %}
+            <a href="{{ url_for('reportes_financieros') }}" class="btn btn-outline-info btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
+                <i class="bi bi-pie-chart"></i> Reportes
+            </a>
+            <a href="{{ url_for('facturacion_lotes') }}" class="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2 border-2" style="color: #00409A; border-color: #00409A; border-radius: 8px;">
+                <i class="bi bi-layers-half"></i> Lotes
+            </a>
+            {% endif %}
+            {% if current_user.rol in ['Socio', 'Asociado', 'Administrador'] %}
+            <a href="{{ url_for('crear_factura') }}" class="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2 shadow-sm" style="background-color: #00409A; border-color: #00409A; border-radius: 8px;">
                 <i class="bi bi-plus-lg"></i> Registrar Factura
             </a>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     <!-- Alertas Flash -->

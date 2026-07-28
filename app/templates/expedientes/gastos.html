@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-wallet2 text-primary me-2"></i>Gastos Reembolsables</h4>
+            <p class="text-muted small mb-0">Expediente: <strong class="text-dark">{{ exp.nombre_caso }} ({{ exp.codigo_firma }})</strong></p>
+        </div>
+        <a href="{{ url_for('detalle_expediente', expediente_id=exp.id) }}" class="btn btn-outline-secondary btn-sm rounded-3">
+            <i class="bi bi-arrow-left me-1"></i> Volver al Expediente
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Register Gasto Form -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                <h6 class="text-primary fw-bold mb-3"><i class="bi bi-plus-circle me-2"></i>Registrar Gasto</h6>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Tipo de Gasto</label>
+                        <select class="form-select rounded-3" name="tipo_gasto" required>
+                            <option value="Tasas">Tasas / Impuestos Oficiales</option>
+                            <option value="Legalizaciones">Legalizaciones</option>
+                            <option value="Copias certificadas">Copias certificadas</option>
+                            <option value="Mensajería">Mensajería / Courier</option>
+                            <option value="Viáticos">Viáticos / Transporte</option>
+                            <option value="Alguacil">Alguacil / Notificaciones</option>
+                            <option value="Notaría">Notaría</option>
+                            <option value="Otros">Otros Gastos</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Descripción del Concepto</label>
+                        <input type="text" class="form-control rounded-3" name="descripcion" placeholder="Ej: Pago de tasas de ONAPI para registro" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Monto (RD$)</label>
+                        <input type="number" step="0.01" class="form-control rounded-3" name="monto" placeholder="0.00" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Fecha Gasto</label>
+                        <input type="date" class="form-control rounded-3" name="fecha" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Tratamiento del Gasto</label>
+                        <select class="form-select rounded-3" name="estado" required>
+                            <option value="Pendiente">Borrador / Pendiente de Cobro</option>
+                            <option value="Absorbido Firma">Absorbido por la Firma (Pérdida)</option>
+                            <option value="Facturado Cliente">Facturado al Cliente</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-bold rounded-3 py-2 mt-2">
+                        <i class="bi bi-save me-1"></i> Guardar Gasto
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Expenses List Table -->
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                <h6 class="text-primary fw-bold mb-3"><i class="bi bi-list-ul me-2"></i>Historial de Gastos del Caso</h6>
+                
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light small fw-bold">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Concepto</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 0.88rem;">
+                            {% if gastos %}
+                                {% for g in gastos %}
+                                <tr>
+                                    <td>{{ g.fecha.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary-light text-secondary rounded-pill px-2 py-1 small">{{ g.tipo_gasto }}</span>
+                                    </td>
+                                    <td>{{ g.descripcion }}</td>
+                                    <td class="text-end fw-bold text-dark">RD$ {{ "{:,.2f}".format(g.monto) }}</td>
+                                    <td class="text-center">
+                                        {% if g.estado == 'Reembolsado' or g.estado == 'Facturado Cliente' %}
+                                            <span class="badge bg-success-light text-success px-3 py-1 rounded-pill fw-semibold">{{ g.estado }}</span>
+                                        {% elif g.estado == 'Absorbido Firma' %}
+                                            <span class="badge bg-danger-light text-danger px-3 py-1 rounded-pill fw-semibold">Absorbido</span>
+                                        {% else %}
+                                            <span class="badge bg-warning-light text-warning px-3 py-1 rounded-pill fw-semibold">Pendiente</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">No se han registrado gastos para este expediente.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Fecha por defecto hoy
+    document.addEventListener("DOMContentLoaded", function() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementsByName("fecha")[0].value = todayStr;
+    });
+</script>
+
+<style>
+    .bg-success-light { background-color: rgba(25, 135, 84, 0.1); }
+    .bg-danger-light { background-color: rgba(220, 53, 69, 0.1); }
+    .bg-warning-light { background-color: rgba(255, 193, 7, 0.15); }
+    .bg-secondary-light { background-color: #f3f4f6; }
+</style>
+{% endblock %}

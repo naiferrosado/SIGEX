@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<style>
+    .lotes-card {
+        border: none;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .lotes-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+    }
+    .text-sigex-blue {
+        color: #00409A;
+    }
+    .btn-sigex-blue {
+        background-color: #00409A;
+        color: white;
+        border-radius: 8px;
+    }
+    .btn-sigex-blue:hover {
+        background-color: #002d70;
+        color: white;
+    }
+    .table th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table td {
+        font-size: 0.875rem;
+        vertical-align: middle;
+    }
+    .collapse-header {
+        cursor: pointer;
+        user-select: none;
+    }
+</style>
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1" style="color: #071c4d;">Facturación por Lotes</h1>
+            <p class="text-muted small mb-0">Agrupa y aprueba las horas reportadas en la bitácora para emitir facturas mensuales.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('listar_facturas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2" style="border-radius: 8px;">
+                <i class="bi bi-arrow-left"></i> Volver a Facturación
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
+                    {{ message|safe }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row justify-content-center">
+        <div class="col-12">
+            {% if lotes %}
+                <div class="d-flex flex-column gap-4">
+                    {% for lote in lotes %}
+                    <div class="card lotes-card">
+                        <div class="card-header bg-white border-0 py-3 px-4 collapse-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#lote-collapse-{{ lote.cliente.id }}" aria-expanded="false">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-light text-primary d-flex align-items-center justify-content-center fw-bold border" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                                    {{ lote.cliente.nombres[:1] }}{{ lote.cliente.apellidos[:1] }}
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-0 text-dark">{{ lote.cliente.nombre_completo }}</h5>
+                                    <span class="text-muted small">Cédula/RNC: {{ lote.cliente.rnc_cedula }}</span>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-4">
+                                <div class="text-end">
+                                    <span class="text-muted d-block small fw-semibold">Horas Pendientes</span>
+                                    <span class="fs-5 fw-bold text-dark">{{ lote.horas_totales }} horas</span>
+                                </div>
+                                <div class="text-end">
+                                    <span class="text-muted d-block small fw-semibold">Honorarios Proyectados</span>
+                                    <span class="fs-5 fw-bold text-success">RD$ {{ "{:,.2f}".format(lote.horas_totales * 5000) }}</span>
+                                </div>
+                                <div>
+                                    {% set time_ids = lote.registros | map(attribute='id') | list | join(',') %}
+                                    <a href="{{ url_for('crear_factura', lote_cliente_id=lote.cliente.id, t_ids=time_ids) }}" class="btn btn-sigex-blue px-3 py-2 fw-semibold">
+                                        <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> Generar Factura
+                                    </a>
+                                </div>
+                                <i class="bi bi-chevron-down text-muted fs-5 ms-2"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="collapse" id="lote-collapse-{{ lote.cliente.id }}">
+                            <div class="card-body border-top bg-light bg-opacity-50 py-3 px-4">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th class="ps-3" style="width: 15%">Fecha</th>
+                                                <th style="width: 30%">Expediente / Caso</th>
+                                                <th style="width: 15%" class="text-end">Horas</th>
+                                                <th>Descripción de Gestión</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for t in lote.registros %}
+                                            <tr>
+                                                <td class="ps-3 text-muted">{{ t.fecha_tarea.strftime('%d/%m/%Y') }}</td>
+                                                <td>
+                                                    <span class="fw-semibold d-block text-dark">{{ t.expediente.nombre_caso }}</span>
+                                                    <span class="text-muted small">Cód: {{ t.expediente.codigo_firma }}</span>
+                                                </td>
+                                                <td class="text-end fw-bold text-primary">{{ t.horas_trabajadas }} h</td>
+                                                <td class="text-muted">{{ t.descripcion_gestion }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="card lotes-card text-center py-5">
+                    <div class="card-body">
+                        <i class="bi bi-layers text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="fw-bold text-dark mt-4">Sin lotes pendientes</h4>
+                        <p class="text-muted col-md-6 mx-auto mt-2">No hay registros de tiempo aprobados y listos para facturar en este momento. Los abogados asociados deben reportar tiempos en sus respectivos expedientes y estos deben ser aprobados por un Socio.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+{% endblock %}

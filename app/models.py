@@ -9,6 +9,9 @@ tz_rd = pytz.timezone('America/Santo_Domingo')
 def rd_now():
     return datetime.now(tz_rd)
 
+def rd_today():
+    return rd_now().date()
+
 # 1. SEGURIDAD Y AUTENTICACIÓN
 
 class Usuario(UserMixin, db.Model):
@@ -24,7 +27,9 @@ class Usuario(UserMixin, db.Model):
     activo = db.Column(db.Boolean, nullable=False, default=True)
     requiere_cambio_password = db.Column(db.Boolean, nullable=False, default=True)
     intentos_fallidos = db.Column(db.Integer, nullable=False, default=0)
-    bloqueado_hasta = db.Column(db.DateTime(timezone=True), nullable=True)
+    bloqueado_hasta = db.Column(db.DateTime, nullable=True)
+    salario_base = db.Column(db.Numeric(18, 2), nullable=True, default=0.00)
+    porcentaje_comision = db.Column(db.Numeric(5, 2), nullable=True, default=0.00)
 
     # Propiedades helper
     @property
@@ -74,6 +79,32 @@ class Cliente(db.Model):
     def nombre_completo(self):
         return f"{self.nombres} {self.apellidos}"
 
+# TABLAS DE CATÁLOGO (Nuevos Catálogos)
+class MateriaLegal(db.Model):
+    __tablename__ = 'materias_legales'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    tipo_expediente = db.Column(db.String(50), nullable=False) # 'Judicial' o 'Administrativo'
+    activo = db.Column(db.Boolean, nullable=False, default=True)
+    descripcion = db.Column(db.Text, nullable=True)
+    requiere_procedimiento = db.Column(db.Boolean, nullable=False, default=True, server_default='true')
+
+    procedimientos = db.relationship('ProcedimientoLegal', backref='materia', lazy=True, cascade="all, delete-orphan")
+
+
+class ProcedimientoLegal(db.Model):
+    __tablename__ = 'procedimientos_legales'
+
+    id = db.Column(db.Integer, primary_key=True)
+    materia_id = db.Column(db.Integer, db.ForeignKey('materias_legales.id', ondelete='CASCADE'), nullable=False)
+    nombre = db.Column(db.String(150), nullable=False)
+    activo = db.Column(db.Boolean, nullable=False, default=True)
+    descripcion = db.Column(db.Text, nullable=True)
+    orden = db.Column(db.Integer, nullable=False, default=0)
+    tipo_cobro_sugerido = db.Column(db.String(30), nullable=True)
+
+
 # TABLA PADRE (Datos comunes a todos los expedientes)
 class Expediente(db.Model):
     __tablename__ = 'expedientes'
@@ -101,13 +132,35 @@ class Expediente(db.Model):
     fase_actual = db.Column(db.Integer, nullable=False, default=1)
     fase_nota = db.Column(db.String(255), nullable=True)
  
+    # Nuevos campos de esquema de cobro y tarifas
+    esquema_cobro = db.Column(db.String(30), nullable=True, default='Fijo')
+    tarifa_monto = db.Column(db.Numeric(18, 2), nullable=True, default=0.00)
+    porcentaje_exito = db.Column(db.Numeric(5, 2), nullable=True, default=0.00)
+
+    # Catálogos y campos dinámicos
+    materia_id = db.Column(db.Integer, db.ForeignKey('materias_legales.id', ondelete='RESTRICT'), nullable=True)
+    procedimiento_id = db.Column(db.Integer, db.ForeignKey('procedimientos_legales.id', ondelete='RESTRICT'), nullable=True)
+    
+    prioridad = db.Column(db.String(50), nullable=True) # Alta, Media, Baja
+    nivel_riesgo = db.Column(db.String(50), nullable=True) # Bajo, Medio, Alto
+    probabilidad_exito = db.Column(db.String(50), nullable=True) # Alta, Media, Baja
+    origen_cliente = db.Column(db.String(100), nullable=True) # Cliente Nuevo, Cliente Recurrente, Referido, etc.
+    fecha_contratacion = db.Column(db.Date, nullable=True)
+    valor_estimado_caso = db.Column(db.Numeric(18, 2), nullable=True, default=0.00)
+    
+    datos_dinamicos = db.Column(db.JSON, nullable=True)
+
     # Relaciones base
     documentos = db.relationship('Documento', backref='expediente', lazy=True, cascade="all, delete-orphan")
     tiempos = db.relationship('BitacoraTiempoTarea', backref='expediente', lazy=True)
     auditorias = db.relationship('BitacoraAuditoria', backref='expediente_afectado', lazy=True)
     abogado_responsable = db.relationship(
-    'Usuario',
-    foreign_keys=[abogado_responsable_id])
+        'Usuario',
+        foreign_keys=[abogado_responsable_id]
+    )
+    
+    materia = db.relationship('MateriaLegal', foreign_keys=[materia_id], backref=db.backref('expedientes', lazy=True))
+    procedimiento = db.relationship('ProcedimientoLegal', foreign_keys=[procedimiento_id], backref=db.backref('expedientes', lazy=True))
 
     __mapper_args__ = {
         'polymorphic_on': tipo_tramite,
@@ -299,17 +352,25 @@ class FacturaHonorario(db.Model):
     estado_pago = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'Cobrado', 'Anulado'
     plazo_pago_dias = db.Column(db.Integer, nullable=True, default=30)
     tasa_mora_mensual = db.Column(db.Numeric(5, 2), nullable=True, default=0.00)
+    contrato_id = db.Column(db.Integer, db.ForeignKey('contratos_honorarios.id', ondelete='SET NULL'), nullable=True)
+    cuota_id = db.Column(db.Integer, db.ForeignKey('cronogramas_cobro.id', ondelete='SET NULL'), nullable=True)
 
     # Relaciones
     expediente = db.relationship('Expediente', backref=db.backref('facturas_list', lazy=True))
+    contrato = db.relationship('ContratoHonorarios', backref=db.backref('facturas', lazy=True))
+    cuota = db.relationship('CronogramaCobro', backref=db.backref('factura_rel', uselist=False))
 
     @property
     def total_pagado(self):
+        from decimal import Decimal
+        if self.pagos_asoc:
+            return sum(p.monto for p in self.pagos_asoc)
         return sum(p.monto for p in self.partidas if p.estado_pago == 'Pagado')
 
     @property
     def total_pendiente(self):
-        return sum(p.monto for p in self.partidas if p.estado_pago == 'Pendiente')
+        from decimal import Decimal
+        return max(Decimal('0.00'), self.monto_total - self.total_pagado)
 
     @property
     def porcentaje_pagado(self):
@@ -425,4 +486,126 @@ class RegistroEnvioAlerta(db.Model):
     dias_anticipacion = db.Column(db.Integer, nullable=False) # 30, 15, o 3
     fecha_envio = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
 
-    partida_factura = db.relationship('PartidaPagoFactura', backref=db.backref('alertas_envios', lazy=True, cascade="all, delete-orphan"))
+    partida_factura = db.relationship('PartidaPagoFactura', backref=db.backref('alertas_envios', lazy=True, cascade="all, delete-orphan"))
+
+
+class Presupuesto(db.Model):
+    __tablename__ = 'presupuestos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False)
+    titulo = db.Column(db.String(150), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    materia = db.Column(db.String(50), nullable=False)
+    tipo_asunto = db.Column(db.String(100), nullable=False)
+    monto_subtotal = db.Column(db.Numeric(18, 2), nullable=False)
+    monto_itbis = db.Column(db.Numeric(18, 2), nullable=False)
+    monto_total = db.Column(db.Numeric(18, 2), nullable=False)
+    fecha_emision = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+    estado = db.Column(db.String(30), nullable=False, default='Borrador') # 'Borrador', 'Pendiente Aceptación', 'Aceptado', 'Rechazado'
+
+    cliente = db.relationship('Cliente', backref=db.backref('presupuestos', lazy=True))
+
+
+class PresupuestoDetalle(db.Model):
+    __tablename__ = 'detalles_presupuestos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id', ondelete='CASCADE'), nullable=False)
+    descripcion = db.Column(db.String(255), nullable=False)
+    cantidad = db.Column(db.Integer, nullable=False, default=1)
+    precio_unitario = db.Column(db.Numeric(18, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(18, 2), nullable=False)
+
+    presupuesto = db.relationship('Presupuesto', backref=db.backref('detalles', lazy=True, cascade="all, delete-orphan"))
+
+
+class ParametroFiscal(db.Model):
+    __tablename__ = 'parametros_fiscales'
+    id = db.Column(db.Integer, primary_key=True)
+    clave = db.Column(db.String(50), unique=True, nullable=False)
+    valor = db.Column(db.Numeric(10, 2), nullable=False)
+    descripcion = db.Column(db.String(255), nullable=True)
+
+
+class ContratoHonorarios(db.Model):
+    __tablename__ = 'contratos_honorarios'
+    id = db.Column(db.Integer, primary_key=True)
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='SET NULL'), nullable=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False)
+    presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuestos.id', ondelete='SET NULL'), nullable=True)
+    fecha_firma = db.Column(db.Date, nullable=False, default=rd_today)
+    fecha_inicio = db.Column(db.Date, nullable=True)
+    fecha_finalizacion_estimada = db.Column(db.Date, nullable=True)
+    estado = db.Column(db.String(30), nullable=False, default='Borrador') # 'Borrador', 'Pendiente Firma', 'Vigente', 'Suspendido', 'Finalizado', 'Cancelado'
+    observaciones = db.Column(db.Text, nullable=True)
+    tipo_cobro = db.Column(db.String(30), nullable=False) # 'Fijo', 'Por Hora', 'Éxito', 'Mixto', 'Iguala', 'Etapas', 'Cuotas'
+    moneda = db.Column(db.String(3), nullable=False, default='DOP') # 'DOP', 'USD'
+    aplica_itbis = db.Column(db.Boolean, nullable=False, default=True)
+    porcentaje_itbis = db.Column(db.Numeric(5, 2), nullable=False, default=18.00)
+    subtotal = db.Column(db.Numeric(18, 2), nullable=False, default=0.00)
+    itbis = db.Column(db.Numeric(18, 2), nullable=False, default=0.00)
+    total_contrato = db.Column(db.Numeric(18, 2), nullable=False, default=0.00)
+    porcentaje_honorario_exito = db.Column(db.Numeric(5, 2), nullable=True)
+    monto_honorario_exito = db.Column(db.Numeric(18, 2), nullable=True)
+    requiere_anticipo = db.Column(db.Boolean, nullable=False, default=False)
+    monto_anticipo = db.Column(db.Numeric(18, 2), nullable=True)
+
+    cliente = db.relationship('Cliente', backref=db.backref('contratos_honorarios', lazy=True))
+    expediente = db.relationship('Expediente', backref=db.backref('contratos_honorarios', lazy=True))
+    presupuesto = db.relationship('Presupuesto', backref=db.backref('contrato_rel', uselist=False))
+
+
+class CronogramaCobro(db.Model):
+    __tablename__ = 'cronogramas_cobro'
+    id = db.Column(db.Integer, primary_key=True)
+    contrato_id = db.Column(db.Integer, db.ForeignKey('contratos_honorarios.id', ondelete='CASCADE'), nullable=False)
+    descripcion = db.Column(db.String(255), nullable=False)
+    fecha_vencimiento = db.Column(db.Date, nullable=False)
+    monto = db.Column(db.Numeric(18, 2), nullable=False)
+    estado = db.Column(db.String(30), nullable=False, default='Pendiente') # 'Pendiente', 'Facturado', 'Pagado', 'Vencido', 'Anulado'
+    orden = db.Column(db.Integer, nullable=False, default=0)
+    tipo = db.Column(db.String(30), nullable=False, default='Cuota') # 'Cuota', 'Anticipo', 'Exito', 'Iguala', 'Hora'
+
+    contrato = db.relationship('ContratoHonorarios', backref=db.backref('cronograma', lazy=True, cascade="all, delete-orphan", order_by="CronogramaCobro.orden.asc()"))
+
+
+class ReciboInterno(db.Model):
+    __tablename__ = 'recibos_internos'
+    id = db.Column(db.Integer, primary_key=True)
+    numero_recibo = db.Column(db.String(20), unique=True, nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id', ondelete='RESTRICT'), nullable=False)
+    fecha_emision = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+    monto_total = db.Column(db.Numeric(18, 2), nullable=False)
+    observaciones = db.Column(db.Text, nullable=True)
+
+    cliente = db.relationship('Cliente', backref=db.backref('recibos_internos', lazy=True))
+
+
+class TransaccionPago(db.Model):
+    __tablename__ = 'transacciones_pagos'
+    id = db.Column(db.Integer, primary_key=True)
+    factura_id = db.Column(db.Integer, db.ForeignKey('facturas_honorarios.id', ondelete='CASCADE'), nullable=False)
+    recibo_id = db.Column(db.Integer, db.ForeignKey('recibos_internos.id', ondelete='SET NULL'), nullable=True)
+    monto = db.Column(db.Numeric(18, 2), nullable=False)
+    fecha_pago = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+    metodo_pago = db.Column(db.String(50), nullable=False) # 'Efectivo', 'Transferencia', 'Cheque', 'Tarjeta', 'Depósito', 'Pago electrónico', 'Otro'
+    referencia = db.Column(db.String(100), nullable=True)
+
+    factura_asoc = db.relationship('FacturaHonorario', backref=db.backref('pagos_asoc', lazy=True, cascade="all, delete-orphan"))
+    recibo = db.relationship('ReciboInterno', backref=db.backref('pagos', lazy=True))
+
+
+class GastoReembolsable(db.Model):
+    __tablename__ = 'gastos_reembolsables'
+    id = db.Column(db.Integer, primary_key=True)
+    expediente_id = db.Column(db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), nullable=False)
+    tipo_gasto = db.Column(db.String(50), nullable=False) # 'Impuestos', 'Tasas', 'Legalizaciones', 'Copias certificadas', 'Mensajería', 'Viáticos', 'Alguacil', 'Notaría', 'Otros'
+    descripcion = db.Column(db.String(255), nullable=False)
+    monto = db.Column(db.Numeric(18, 2), nullable=False)
+    fecha = db.Column(db.Date, nullable=False, default=rd_today)
+    estado = db.Column(db.String(30), nullable=False, default='Pendiente') # 'Pendiente', 'Absorbido Firma', 'Facturado Cliente', 'Reembolsado'
+    factura_id = db.Column(db.Integer, db.ForeignKey('facturas_honorarios.id', ondelete='SET NULL'), nullable=True)
+
+    expediente = db.relationship('Expediente', backref=db.backref('gastos_reembolsables_list', lazy=True, cascade="all, delete-orphan"))
+    factura = db.relationship('FacturaHonorario', backref=db.backref('gastos_asoc', lazy=True))
