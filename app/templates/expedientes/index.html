@@ -472,15 +472,7 @@
                         </div>
                     </div>
 
-                    <!-- Eliminar Expediente (Solo para Admin) -->
-                    {% if current_user.rol == 'Administrador' %}
-                    <form method="POST" action="" id="formEliminar" class="mt-2">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="button" class="btn btn-sm btn-white border border-danger text-danger w-100 fw-semibold disabled" id="btnEliminar">
-                            <i class="bi bi-trash3-fill me-1"></i> Eliminar Expediente
-                        </button>
-                    </form>
-                    {% endif %}
+
                 </div>
             </div>
         </div>
