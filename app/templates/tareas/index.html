@@ -300,8 +300,8 @@
                         </td>
                         <!-- Asignado a -->
                         <td class="fw-medium text-dark">
-                            {% if t.asignado_a %}
-                            {{ t.asignado_a.nombre }}
+                            {% if t.asignados %}
+                            {{ t.asignados|map(attribute='nombre')|join(', ') }}
                             {% else %}
                             <span
                                 class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-0.5"
@@ -424,7 +424,7 @@
                                     data-fecha-limite="{{ t.fecha_limite.strftime('%Y-%m-%d') if t.fecha_limite else '' }}"
                                     data-prioridad="{{ t.prioridad }}" data-estado="{{ t.estado }}"
                                     data-expediente-id="{{ t.expediente_id or '' }}"
-                                    data-asignado-a-id="{{ t.asignado_a_id or 0 }}" onclick="abrirModalEditar(this)">
+                                    data-asignados-ids="[{% for a in t.asignados %}{{ a.id }}{% if not loop.last %},{% endif %}{% endfor %}]" onclick="abrirModalEditar(this)">
                                     <i class="bi bi-pencil-square fs-5"></i>
                                 </button>
                                 <button class="btn btn-link p-0 text-secondary hover-text-danger" title="Eliminar tarea"
@@ -602,9 +602,28 @@
                             </div>
                             <!-- Asignado A -->
                             <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-semibold">{{ form.asignado_a_id.label.text }} <span
-                                        class="text-danger">*</span></label>
-                                {{ form.asignado_a_id(class="form-select form-select-sm") }}
+                                <label class="form-label small fw-semibold">Asignar a Abogado(s)/Paralegal(es) <span class="text-danger">*</span></label>
+                                
+                                <!-- Select oculto nativo -->
+                                <div class="d-none">
+                                    {{ form.asignados_ids(id="asignados_ids", multiple="multiple") }}
+                                </div>
+                                
+                                <!-- Buscador interactivo -->
+                                <div class="position-relative">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control bg-light border-start-0" id="searchAsignadosInput" placeholder="Escribe para buscar..." autocomplete="off">
+                                    </div>
+                                    <div class="dropdown-menu w-100 shadow border p-0 mt-1" id="searchAsignadosDropdown" style="max-height: 200px; overflow-y: auto; display: none; z-index: 1050;">
+                                        <!-- Opciones inyectadas dinámicamente por JS -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Chips / Badges de seleccionados -->
+                                <div class="d-flex flex-wrap gap-1 mt-2" id="selectedAsignadosContainer">
+                                    <!-- Chips inyectados por JS -->
+                                </div>
                             </div>
                         </div>
 
@@ -720,7 +739,143 @@
         // Registrar evento para filtrar
         const searchInput = document.getElementById('modalExpSearch');
         if (searchInput) searchInput.addEventListener('input', filtrarSelectExpedienteMaster);
+
+        // Cargar opciones master para el buscador de asignados
+        const selectAsigNative = document.getElementById('asignados_ids');
+        if (selectAsigNative) {
+            masterAsignadosOptions = Array.from(selectAsigNative.options).map(opt => ({
+                id: parseInt(opt.value),
+                nombre: opt.text
+            }));
+        }
+
+        // Configurar buscador interactivo
+        const searchAsigInput = document.getElementById('searchAsignadosInput');
+        const dropdownMenu = document.getElementById('searchAsignadosDropdown');
+        
+        if (searchAsigInput && dropdownMenu) {
+            searchAsigInput.addEventListener('input', function() {
+                renderDropdownResults(this.value);
+            });
+            searchAsigInput.addEventListener('focus', function() {
+                renderDropdownResults(this.value);
+            });
+            
+            // Cerrar dropdown al hacer click fuera
+            document.addEventListener('click', function(e) {
+                if (!searchAsigInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                    dropdownMenu.style.display = 'none';
+                }
+            });
+        }
     });
+
+    let masterAsignadosOptions = [];
+
+    function renderSelectedAsignados() {
+        const selectAsigNative = document.getElementById('asignados_ids');
+        const container = document.getElementById('selectedAsignadosContainer');
+        if (!selectAsigNative || !container) return;
+
+        container.innerHTML = '';
+        
+        // Obtener IDs seleccionados
+        const selectedIds = Array.from(selectAsigNative.options)
+            .filter(opt => opt.selected)
+            .map(opt => parseInt(opt.value));
+        
+        masterAsignadosOptions.forEach(opt => {
+            if (selectedIds.includes(opt.id)) {
+                const chip = document.createElement('span');
+                chip.className = 'badge bg-light text-dark border d-flex align-items-center gap-1 py-1.5 px-2 rounded-3 small';
+                chip.style.fontSize = '0.75rem';
+                chip.style.fontWeight = '500';
+                chip.innerHTML = `
+                    <i class="bi bi-person text-secondary"></i>
+                    ${opt.nombre}
+                    <button type="button" class="btn-close ms-1" style="font-size: 0.55rem; width: 0.25rem; height: 0.25rem;" onclick="removeAsignado(${opt.id})"></button>
+                `;
+                container.appendChild(chip);
+            }
+        });
+    }
+
+    window.removeAsignado = function(id) {
+        const selectAsigNative = document.getElementById('asignados_ids');
+        if (!selectAsigNative) return;
+        
+        Array.from(selectAsigNative.options).forEach(opt => {
+            if (parseInt(opt.value) === id) {
+                opt.selected = false;
+            }
+        });
+        renderSelectedAsignados();
+        
+        const searchInput = document.getElementById('searchAsignadosInput');
+        if (searchInput) {
+            renderDropdownResults(searchInput.value);
+        }
+    };
+
+    window.selectAsignado = function(id) {
+        const selectAsigNative = document.getElementById('asignados_ids');
+        if (!selectAsigNative) return;
+        
+        Array.from(selectAsigNative.options).forEach(opt => {
+            if (parseInt(opt.value) === id) {
+                opt.selected = true;
+            }
+        });
+        renderSelectedAsignados();
+        
+        const searchInput = document.getElementById('searchAsignadosInput');
+        if (searchInput) {
+            searchInput.value = '';
+            renderDropdownResults('');
+        }
+        
+        const dropdownMenu = document.getElementById('searchAsignadosDropdown');
+        if (dropdownMenu) {
+            dropdownMenu.style.display = 'none';
+        }
+    };
+
+    function renderDropdownResults(query) {
+        const dropdownMenu = document.getElementById('searchAsignadosDropdown');
+        const selectAsigNative = document.getElementById('asignados_ids');
+        if (!dropdownMenu || !selectAsigNative) return;
+
+        const normalizedQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const selectedIds = Array.from(selectAsigNative.options)
+            .filter(opt => opt.selected)
+            .map(opt => parseInt(opt.value));
+        
+        dropdownMenu.innerHTML = '';
+        
+        const filtered = masterAsignadosOptions.filter(opt => {
+            const matchesQuery = opt.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalizedQuery);
+            const isNotSelected = !selectedIds.includes(opt.id);
+            return matchesQuery && isNotSelected;
+        });
+
+        if (filtered.length > 0) {
+            filtered.forEach(u => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'dropdown-item d-flex align-items-center py-2 px-3 small border-bottom';
+                btn.style.textAlign = 'left';
+                btn.innerHTML = `<i class="bi bi-person-plus text-primary me-2"></i> ${u.nombre}`;
+                btn.onclick = function() {
+                    selectAsignado(u.id);
+                };
+                dropdownMenu.appendChild(btn);
+            });
+            dropdownMenu.style.display = 'block';
+        } else {
+            dropdownMenu.innerHTML = '<div class="p-3 text-muted text-center small">No se encontraron abogados</div>';
+            dropdownMenu.style.display = 'block';
+        }
+    }
 
     function filtrarSelectExpedienteMaster() {
         const searchInput = document.getElementById('modalExpSearch');
@@ -775,7 +930,16 @@
         document.getElementById('fecha_limite').value = '';
         document.getElementById('prioridad').value = 'Media';
         document.getElementById('estado').value = 'Pendiente';
-        document.getElementById('asignado_a_id').value = '{{ current_user.id }}'; // Autoasignar por defecto
+        const selectAsig = document.getElementById('asignados_ids');
+        if (selectAsig) {
+            Array.from(selectAsig.options).forEach(opt => {
+                opt.selected = (parseInt(opt.value) === parseInt('{{ current_user.id }}'));
+            });
+        }
+        if (document.getElementById('searchAsignadosInput')) {
+            document.getElementById('searchAsignadosInput').value = '';
+        }
+        renderSelectedAsignados();
 
         // Resetear buscador
         if (document.getElementById('modalExpSearch')) document.getElementById('modalExpSearch').value = '';
@@ -794,7 +958,7 @@
         const prioridad = el.getAttribute('data-prioridad');
         const estado = el.getAttribute('data-estado');
         const expId = el.getAttribute('data-expediente-id');
-        const asignadoId = el.getAttribute('data-asignado-a-id');
+        const asignadosIds = JSON.parse(el.getAttribute('data-asignados-ids') || '[]');
 
         document.getElementById('modalTareaTitle').innerText = 'Editar Tarea';
         document.getElementById('modalTareaSub').innerText = 'Modifica los parámetros o reasigna esta actividad.';
@@ -806,7 +970,17 @@
         document.getElementById('fecha_limite').value = fechaLimite;
         document.getElementById('prioridad').value = prioridad;
         document.getElementById('estado').value = estado;
-        document.getElementById('asignado_a_id').value = asignadoId;
+        
+        const selectAsig = document.getElementById('asignados_ids');
+        if (selectAsig) {
+            Array.from(selectAsig.options).forEach(opt => {
+                opt.selected = asignadosIds.includes(parseInt(opt.value));
+            });
+        }
+        if (document.getElementById('searchAsignadosInput')) {
+            document.getElementById('searchAsignadosInput').value = '';
+        }
+        renderSelectedAsignados();
 
         // Resetear buscador antes de fijar el valor seleccionado
         if (document.getElementById('modalExpSearch')) document.getElementById('modalExpSearch').value = '';

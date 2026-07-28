@@ -35,8 +35,9 @@
                             {{ form.rol_firma(class="form-select") }}
                         </div>
                         <div class="col-md-3">
-                            {{ form.abogado_responsable_id.label(class="form-label small fw-bold") }}
-                            {{ form.abogado_responsable_id(class="form-select") }}
+                            {{ form.abogados_ids.label(class="form-label small fw-bold") }}
+                            {{ form.abogados_ids(class="form-select", multiple="multiple") }}
+                            <div class="form-text mt-1 text-muted" style="font-size: 0.7rem;">Usa Ctrl/Cmd para seleccionar varios.</div>
                         </div>
                     </div>
                     

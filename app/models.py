@@ -105,6 +105,13 @@ class ProcedimientoLegal(db.Model):
     tipo_cobro_sugerido = db.Column(db.String(30), nullable=True)
 
 
+# Tabla de asociación muchos-a-muchos entre Expediente y Usuario (Abogados)
+expediente_abogados = db.Table('expediente_abogados',
+    db.Column('expediente_id', db.Integer, db.ForeignKey('expedientes.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('usuario_id', db.Integer, db.ForeignKey('usuarios.id', ondelete='CASCADE'), primary_key=True)
+)
+
+
 # TABLA PADRE (Datos comunes a todos los expedientes)
 class Expediente(db.Model):
     __tablename__ = 'expedientes'
@@ -157,6 +164,11 @@ class Expediente(db.Model):
     abogado_responsable = db.relationship(
         'Usuario',
         foreign_keys=[abogado_responsable_id]
+    )
+    abogados = db.relationship(
+        'Usuario',
+        secondary=expediente_abogados,
+        backref=db.backref('expedientes_asociados', lazy=True)
     )
     
     materia = db.relationship('MateriaLegal', foreign_keys=[materia_id], backref=db.backref('expedientes', lazy=True))
@@ -438,6 +450,13 @@ class BitacoraAuditoria(db.Model):
     cliente_afectado = db.relationship('Cliente', backref=db.backref('auditorias_list', lazy=True, cascade='all, delete-orphan'))
 
 
+# Tabla de asociación muchos a muchos entre Tareas y Usuarios
+tarea_asignados = db.Table('tarea_asignados',
+    db.Column('tarea_id', db.Integer, db.ForeignKey('tareas.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('usuario_id', db.Integer, db.ForeignKey('usuarios.id', ondelete='CASCADE'), primary_key=True)
+)
+
+
 class Tarea(db.Model):
     __tablename__ = 'tareas'
 
@@ -459,6 +478,7 @@ class Tarea(db.Model):
     expediente = db.relationship('Expediente', backref=db.backref('tareas', lazy=True, cascade="all, delete-orphan"))
     asignado_a = db.relationship('Usuario', foreign_keys=[asignado_a_id], backref=db.backref('tareas_asignadas', lazy=True))
     creado_por = db.relationship('Usuario', foreign_keys=[creado_por_id], backref=db.backref('tareas_creadas', lazy=True))
+    asignados = db.relationship('Usuario', secondary=tarea_asignados, backref=db.backref('tareas_asignadas_m2m', lazy=True))
 
 
 class NotificacionInterna(db.Model):

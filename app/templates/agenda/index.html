@@ -227,12 +227,29 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">Asignado a</label>
-                                <select class="form-select form-select-sm" id="eventoAsignadoId">
-                                    <option value="0">Todo el equipo</option>
+                                
+                                <!-- Select oculto nativo -->
+                                <select class="d-none" id="eventoAsignadoId" multiple="multiple">
                                     {% for u in usuarios_select %}
                                     <option value="{{ u.id }}">{{ u.nombre }}</option>
                                     {% endfor %}
                                 </select>
+                                
+                                <!-- Buscador interactivo -->
+                                <div class="position-relative">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control bg-light border-start-0" id="searchAgendaAsignadosInput" placeholder="Escribe para buscar..." autocomplete="off">
+                                    </div>
+                                    <div class="dropdown-menu w-100 shadow border p-0 mt-1" id="searchAgendaAsignadosDropdown" style="max-height: 200px; overflow-y: auto; display: none; z-index: 1050;">
+                                        <!-- Opciones inyectadas dinámicamente por JS -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Chips / Badges de seleccionados -->
+                                <div class="d-flex flex-wrap gap-1 mt-2" id="selectedAgendaAsignadosContainer">
+                                    <!-- Chips inyectados por JS -->
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">Prioridad</label>
@@ -355,6 +372,35 @@
         if (searchInput) {
             searchInput.addEventListener('input', filtrarSelectExpedienteAgenda);
         }
+
+        // Cargar opciones master para el buscador de asignados de agenda
+        const selectAsigNative = document.getElementById('eventoAsignadoId');
+        if (selectAsigNative) {
+            masterAgendaAsignadosOptions = Array.from(selectAsigNative.options).map(opt => ({
+                id: parseInt(opt.value),
+                nombre: opt.text
+            }));
+        }
+
+        // Configurar buscador interactivo de agenda
+        const searchAsigInput = document.getElementById('searchAgendaAsignadosInput');
+        const dropdownMenu = document.getElementById('searchAgendaAsignadosDropdown');
+        
+        if (searchAsigInput && dropdownMenu) {
+            searchAsigInput.addEventListener('input', function() {
+                renderAgendaDropdownResults(this.value);
+            });
+            searchAsigInput.addEventListener('focus', function() {
+                renderAgendaDropdownResults(this.value);
+            });
+            
+            // Cerrar dropdown al hacer click fuera
+            document.addEventListener('click', function(e) {
+                if (!searchAsigInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                    dropdownMenu.style.display = 'none';
+                }
+            });
+        }
         modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleEvento'));
         const calendarEl = document.getElementById('calendar');
 
@@ -476,6 +522,11 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('eventoFecha').value = today;
         }
+
+        if (document.getElementById('searchAgendaAsignadosInput')) {
+            document.getElementById('searchAgendaAsignadosInput').value = '';
+        }
+        renderSelectedAgendaAsignados();
         
         modalCrear.show();
     }
@@ -511,7 +562,15 @@
         if (baseType === 'tarea') {
             document.getElementById('eventoTitulo').value = raw.title || selectedEventData.title.replace('[Tarea] ', '');
             document.getElementById('eventoDescripcion').value = raw.descripcion || '';
-            document.getElementById('eventoAsignadoId').value = raw.asignado_id || 0;
+            const asignadosIds = raw.asignados_ids || (raw.asignado_id ? [raw.asignado_id] : []);
+            const selectAsig = document.getElementById('eventoAsignadoId');
+            Array.from(selectAsig.options).forEach(opt => {
+                opt.selected = asignadosIds.includes(parseInt(opt.value));
+            });
+            if (document.getElementById('searchAgendaAsignadosInput')) {
+                document.getElementById('searchAgendaAsignadosInput').value = '';
+            }
+            renderSelectedAgendaAsignados();
             document.getElementById('eventoPrioridad').value = raw.prioridad || 'Media';
         } else if (baseType === 'plazo') {
             document.getElementById('eventoTitulo').value = raw.title || selectedEventData.title.replace('[Plazo] ', '');
@@ -629,7 +688,8 @@
         const descripcion = document.getElementById('eventoDescripcion').value;
         const fecha = document.getElementById('eventoFecha').value;
         const hora = document.getElementById('eventoHora').value;
-        const asignado_a_id = document.getElementById('eventoAsignadoId').value;
+        const selectAsig = document.getElementById('eventoAsignadoId');
+        const asignados_ids = Array.from(selectAsig.selectedOptions).map(opt => parseInt(opt.value));
         const prioridad = document.getElementById('eventoPrioridad').value;
 
         const csrfToken = '{{ csrf_token() }}';
@@ -641,7 +701,7 @@
             descripcion,
             fecha,
             hora,
-            asignado_a_id: parseInt(asignado_a_id),
+            asignados_ids: asignados_ids,
             prioridad
         };
 
@@ -801,6 +861,113 @@
             `;
             container.appendChild(div);
         });
+    }
+
+    let masterAgendaAsignadosOptions = [];
+
+    function renderSelectedAgendaAsignados() {
+        const selectAsigNative = document.getElementById('eventoAsignadoId');
+        const container = document.getElementById('selectedAgendaAsignadosContainer');
+        if (!selectAsigNative || !container) return;
+
+        container.innerHTML = '';
+        
+        // Obtener IDs seleccionados
+        const selectedIds = Array.from(selectAsigNative.options)
+            .filter(opt => opt.selected)
+            .map(opt => parseInt(opt.value));
+        
+        masterAgendaAsignadosOptions.forEach(opt => {
+            if (selectedIds.includes(opt.id)) {
+                const chip = document.createElement('span');
+                chip.className = 'badge bg-light text-dark border d-flex align-items-center gap-1 py-1.5 px-2 rounded-3 small';
+                chip.style.fontSize = '0.75rem';
+                chip.style.fontWeight = '500';
+                chip.innerHTML = `
+                    <i class="bi bi-person text-secondary"></i>
+                    ${opt.nombre}
+                    <button type="button" class="btn-close ms-1" style="font-size: 0.55rem; width: 0.25rem; height: 0.25rem;" onclick="removeAgendaAsignado(${opt.id})"></button>
+                `;
+                container.appendChild(chip);
+            }
+        });
+    }
+
+    window.removeAgendaAsignado = function(id) {
+        const selectAsigNative = document.getElementById('eventoAsignadoId');
+        if (!selectAsigNative) return;
+        
+        Array.from(selectAsigNative.options).forEach(opt => {
+            if (parseInt(opt.value) === id) {
+                opt.selected = false;
+            }
+        });
+        renderSelectedAgendaAsignados();
+        
+        const searchInput = document.getElementById('searchAgendaAsignadosInput');
+        if (searchInput) {
+            renderAgendaDropdownResults(searchInput.value);
+        }
+    };
+
+    window.selectAgendaAsignado = function(id) {
+        const selectAsigNative = document.getElementById('eventoAsignadoId');
+        if (!selectAsigNative) return;
+        
+        Array.from(selectAsigNative.options).forEach(opt => {
+            if (parseInt(opt.value) === id) {
+                opt.selected = true;
+            }
+        });
+        renderSelectedAgendaAsignados();
+        
+        const searchInput = document.getElementById('searchAgendaAsignadosInput');
+        if (searchInput) {
+            searchInput.value = '';
+            renderAgendaDropdownResults('');
+        }
+        
+        const dropdownMenu = document.getElementById('searchAgendaAsignadosDropdown');
+        if (dropdownMenu) {
+            dropdownMenu.style.display = 'none';
+        }
+    };
+
+    function renderAgendaDropdownResults(query) {
+        const dropdownMenu = document.getElementById('searchAgendaAsignadosDropdown');
+        const selectAsigNative = document.getElementById('eventoAsignadoId');
+        if (!dropdownMenu || !selectAsigNative) return;
+
+        const normalizedQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const selectedIds = Array.from(selectAsigNative.options)
+            .filter(opt => opt.selected)
+            .map(opt => parseInt(opt.value));
+        
+        dropdownMenu.innerHTML = '';
+        
+        const filtered = masterAgendaAsignadosOptions.filter(opt => {
+            const matchesQuery = opt.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalizedQuery);
+            const isNotSelected = !selectedIds.includes(opt.id);
+            return matchesQuery && isNotSelected;
+        });
+
+        if (filtered.length > 0) {
+            filtered.forEach(u => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'dropdown-item d-flex align-items-center py-2 px-3 small border-bottom';
+                btn.style.textAlign = 'left';
+                btn.innerHTML = `<i class="bi bi-person-plus text-primary me-2"></i> ${u.nombre}`;
+                btn.onclick = function() {
+                    selectAgendaAsignado(u.id);
+                };
+                dropdownMenu.appendChild(btn);
+            });
+            dropdownMenu.style.display = 'block';
+        } else {
+            dropdownMenu.innerHTML = '<div class="p-3 text-muted text-center small">No se encontraron abogados</div>';
+            dropdownMenu.style.display = 'block';
+        }
     }
 
     function showFlashAlert(message, category) {

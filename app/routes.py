@@ -134,9 +134,7 @@ def _serialize_expedientes(expedientes):
             if exp.cliente
             else "Desconocido",
             "abogado_responsable_id": exp.abogado_responsable_id,
-            "abogado_responsable_nombre": exp.abogado_responsable.nombre
-            if exp.abogado_responsable
-            else "No asignado",
+            "abogado_responsable_nombre": ", ".join([a.nombre for a in exp.abogados]) if exp.abogados else "No asignado",
             "nombre_caso": exp.nombre_caso,
             "rol_firma": exp.rol_firma,
             "tipo_tramite": exp.tipo_tramite,
@@ -498,7 +496,7 @@ def register_routes(app):
             elif rol == "Asociado":
                 # Filtrar métricas de sus expedientes asignados
                 mis_expedientes_activos = (
-                    Expediente.query.filter_by(abogado_responsable_id=current_user.id)
+                    Expediente.query.filter(Expediente.abogados.any(Usuario.id == current_user.id))
                     .filter(Expediente.estado != "Archivado")
                     .count()
                 )
@@ -506,8 +504,8 @@ def register_routes(app):
                 # Obtener IDs de sus expedientes para alertas
                 mis_expedientes_ids = [
                     e.id
-                    for e in Expediente.query.filter_by(
-                        abogado_responsable_id=current_user.id
+                    for e in Expediente.query.filter(
+                        Expediente.abogados.any(Usuario.id == current_user.id)
                     ).all()
                 ]
 
@@ -553,7 +551,7 @@ def register_routes(app):
                     .all()
                 )
                 mis_expedientes_todos = (
-                    Expediente.query.filter_by(abogado_responsable_id=current_user.id)
+                    Expediente.query.filter(Expediente.abogados.any(Usuario.id == current_user.id))
                     .order_by(Expediente.fecha_apertura.desc())
                     .limit(5)
                     .all()
@@ -1735,7 +1733,7 @@ def register_routes(app):
             query = query.filter(Expediente.id.in_(exp_ids))
 
         if current_user.rol == "Asociado":
-            query = query.filter(Expediente.abogado_responsable_id == current_user.id)
+            query = query.filter(Expediente.abogados.any(Usuario.id == current_user.id))
 
         if status != "Todos":
             query = query.filter_by(estado=status)
@@ -1819,7 +1817,7 @@ def register_routes(app):
             query = query.filter(Expediente.tipo_tramite == tipo_tramite)
 
         if current_user.rol == "Asociado":
-            query = query.filter(Expediente.abogado_responsable_id == current_user.id)
+            query = query.filter(Expediente.abogados.any(Usuario.id == current_user.id))
 
         expedientes = query.order_by(Expediente.fecha_cierre.desc()).all()
 
@@ -1924,7 +1922,7 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
 
         # RF-SEG-002: Segregación Interna de Expedientes
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if current_user.rol == "Asociado" and current_user not in exp.abogados:
             return jsonify({"success": False, "error": "Acceso denegado. No está asignado a este expediente."}), 403
 
         # 1. Registrar auditoría de visualización
@@ -2003,9 +2001,7 @@ def register_routes(app):
             if exp.cliente
             else "Desconocido",
             "abogado_responsable_id": exp.abogado_responsable_id,
-            "abogado_responsable_nombre": exp.abogado_responsable.nombre
-            if exp.abogado_responsable
-            else "No asignado",
+            "abogado_responsable_nombre": ", ".join([a.nombre for a in exp.abogados]) if exp.abogados else "No asignado",
             "nombre_caso": exp.nombre_caso,
             "rol_firma": exp.rol_firma,
             "tipo_tramite": exp.tipo_tramite,
@@ -2095,7 +2091,7 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
         
         # RF-SEG-002: Segregación Interna de Expedientes
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if current_user.rol == "Asociado" and current_user not in exp.abogados:
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("expedientes"))
             
@@ -2154,7 +2150,7 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
 
         # RF-SEG-002: Segregación Interna de Expedientes
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if current_user.rol == "Asociado" and current_user not in exp.abogados:
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("expedientes"))
 
@@ -2231,20 +2227,16 @@ def register_routes(app):
         ).all()
         opciones_abogados = [(a.id, a.nombre) for a in abogados_db]
 
-        # Asignamos las opciones — usamos 0 como placeholder (no '') para evitar ValueError con coerce=int
+        # Asignamos las opciones
         form_judicial.cliente_id.choices = [
             (0, "Seleccione un cliente...")
         ] + opciones_clientes
-        form_judicial.abogado_responsable_id.choices = [
-            (0, "Seleccione un abogado...")
-        ] + opciones_abogados
+        form_judicial.abogados_ids.choices = opciones_abogados
 
         form_admin.cliente_id.choices = [
             (0, "Seleccione un cliente...")
         ] + opciones_clientes
-        form_admin.abogado_responsable_id.choices = [
-            (0, "Seleccione un abogado...")
-        ] + opciones_abogados
+        form_admin.abogados_ids.choices = opciones_abogados
 
         # Cargar materias del catálogo para el selector
         materias_jud = MateriaLegal.query.filter_by(tipo_expediente='Judicial', activo=True).order_by(MateriaLegal.nombre.asc()).all()
@@ -2289,17 +2281,16 @@ def register_routes(app):
                         form_admin=form_admin,
                     )
 
-                # Validar abogado responsable
-                if (
-                    not form_judicial.abogado_responsable_id.data
-                    or form_judicial.abogado_responsable_id.data == 0
-                ):
-                    flash("Debe seleccionar un abogado responsable.", "danger")
+                # Validar abogados asignados
+                if not form_judicial.abogados_ids.data:
+                    flash("Debe seleccionar al menos un abogado para el expediente.", "danger")
                     return render_template(
                         "expedientes/nuevo.html",
                         form_judicial=form_judicial,
                         form_admin=form_admin,
                     )
+
+                abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(form_judicial.abogados_ids.data)).all()
 
                 materia_obj = MateriaLegal.query.get(form_judicial.materia_id.data)
                 
@@ -2332,7 +2323,7 @@ def register_routes(app):
                 nuevo_caso = ExpedienteJudicial(
                     codigo_firma=codigo_generado,
                     cliente_id=form_judicial.cliente_id.data,
-                    abogado_responsable_id=form_judicial.abogado_responsable_id.data,
+                    abogado_responsable_id=form_judicial.abogados_ids.data[0] if form_judicial.abogados_ids.data else None,
                     nombre_caso=form_judicial.nombre_caso.data,
                     rol_firma=form_judicial.rol_firma.data,
                     
@@ -2367,6 +2358,7 @@ def register_routes(app):
                     porcentaje_exito=form_judicial.porcentaje_exito.data,
                     tipo_tramite="Judicial",
                 )
+                nuevo_caso.abogados = abogados_seleccionados
 
                 try:
                     db.session.add(nuevo_caso)
@@ -2398,17 +2390,16 @@ def register_routes(app):
                         form_admin=form_admin,
                     )
 
-                # Validar abogado responsable
-                if (
-                    not form_admin.abogado_responsable_id.data
-                    or form_admin.abogado_responsable_id.data == 0
-                ):
-                    flash("Debe seleccionar un abogado responsable.", "danger")
+                # Validar abogados asignados
+                if not form_admin.abogados_ids.data:
+                    flash("Debe seleccionar al menos un abogado para el trámite.", "danger")
                     return render_template(
                         "expedientes/nuevo.html",
                         form_judicial=form_judicial,
                         form_admin=form_admin,
                     )
+
+                abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(form_admin.abogados_ids.data)).all()
 
                 materia_obj = MateriaLegal.query.get(form_admin.materia_id.data)
                 
@@ -2441,7 +2432,7 @@ def register_routes(app):
                 nuevo_tramite = ExpedienteAdministrativo(
                     codigo_firma=codigo_generado,
                     cliente_id=form_admin.cliente_id.data,
-                    abogado_responsable_id=form_admin.abogado_responsable_id.data,
+                    abogado_responsable_id=form_admin.abogados_ids.data[0] if form_admin.abogados_ids.data else None,
                     nombre_caso=form_admin.nombre_caso.data,
                     rol_firma=form_admin.rol_firma.data,
                     
@@ -2470,6 +2461,7 @@ def register_routes(app):
                     porcentaje_exito=form_admin.porcentaje_exito.data,
                     tipo_tramite="Administrativo",
                 )
+                nuevo_tramite.abogados = abogados_seleccionados
 
                 try:
                     db.session.add(nuevo_tramite)
@@ -2499,7 +2491,7 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
 
         # RF-SEG-002: Segregación Interna de Expedientes
-        if current_user.rol == "Asociado" and exp.abogado_responsable_id != current_user.id:
+        if current_user.rol == "Asociado" and current_user not in exp.abogados:
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("expedientes"))
 
@@ -2519,9 +2511,7 @@ def register_routes(app):
         opciones_abogados = [(a.id, a.nombre) for a in abogados_db]
 
         form.cliente_id.choices = opciones_clientes
-        form.abogado_responsable_id.choices = [
-            (0, "Seleccione un abogado...")
-        ] + opciones_abogados
+        form.abogados_ids.choices = opciones_abogados
 
         # Cargar materias del catálogo para el selector según el tipo de expediente
         materias = MateriaLegal.query.filter_by(tipo_expediente=exp.tipo_tramite, activo=True).order_by(MateriaLegal.nombre.asc()).all()
@@ -2539,7 +2529,7 @@ def register_routes(app):
         if request.method == "GET":
             # Pre-poblar los campos
             form.cliente_id.data = exp.cliente_id
-            form.abogado_responsable_id.data = exp.abogado_responsable_id or 0
+            form.abogados_ids.data = [a.id for a in exp.abogados]
             form.nombre_caso.data = exp.nombre_caso
             form.rol_firma.data = exp.rol_firma
             
@@ -2583,11 +2573,9 @@ def register_routes(app):
         if form.validate_on_submit():
             # Actualizar datos comunes
             exp.cliente_id = form.cliente_id.data
-            exp.abogado_responsable_id = (
-                form.abogado_responsable_id.data
-                if form.abogado_responsable_id.data != 0
-                else None
-            )
+            abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(form.abogados_ids.data)).all()
+            exp.abogados = abogados_seleccionados
+            exp.abogado_responsable_id = form.abogados_ids.data[0] if form.abogados_ids.data else None
             exp.nombre_caso = form.nombre_caso.data.strip()
             exp.rol_firma = form.rol_firma.data
             exp.esquema_cobro = form.esquema_cobro.data
@@ -2809,7 +2797,7 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
         if (
             current_user.rol == "Asociado"
-            and exp.abogado_responsable_id != current_user.id
+            and current_user not in exp.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("expedientes", id=exp.id))
@@ -2970,7 +2958,7 @@ def register_routes(app):
             expedientes_select = (
                 Expediente.query.filter(
                     Expediente.estado != "Archivado",
-                    Expediente.abogado_responsable_id == current_user.id,
+                    Expediente.abogados.any(Usuario.id == current_user.id),
                 )
                 .order_by(Expediente.nombre_caso.asc())
                 .all()
@@ -3000,7 +2988,7 @@ def register_routes(app):
             if (
                 expediente_preseleccionado
                 and rol == "Asociado"
-                and expediente_preseleccionado.abogado_responsable_id != current_user.id
+                and current_user not in expediente_preseleccionado.abogados
             ):
                 flash("Acceso denegado. No está asignado a este expediente.", "danger")
                 return redirect(url_for("documentos"))
@@ -3237,7 +3225,7 @@ def register_routes(app):
 
         if (
             current_user.rol == "Asociado"
-            and exp.abogado_responsable_id != current_user.id
+            and current_user not in exp.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -3416,10 +3404,10 @@ def register_routes(app):
             )
             db.session.add(nueva_version)
 
-            # Notificar al abogado responsable del caso si está asignado
-            if exp.abogado_responsable_id:
+            # Notificar a los abogados del caso si están asignados
+            for abogado_c in exp.abogados:
                 notif = NotificacionInterna(
-                    usuario_id=exp.abogado_responsable_id,
+                    usuario_id=abogado_c.id,
                     mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento: '{sec_filename}' en el expediente '{exp.nombre_caso}'.",
                     leida=False,
                     expediente_id=exp.id,
@@ -3427,19 +3415,18 @@ def register_routes(app):
                 )
                 db.session.add(notif)
 
-                if exp.abogado_responsable:
-                    try:
-                        from app.utils import enviar_email_notificacion_cliente
+                try:
+                    from app.utils import enviar_email_notificacion_cliente
 
-                        enviar_email_notificacion_cliente(
-                            usuario=exp.abogado_responsable,
-                            subject="Cliente subió documento - SIGEX",
-                            mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento compartido: '{sec_filename}' en el expediente '{exp.nombre_caso}'.",
-                        )
-                    except Exception as e_mail:
-                        print(
-                            f"Error al notificar al abogado del documento subido: {e_mail}"
-                        )
+                    enviar_email_notificacion_cliente(
+                        usuario=abogado_c,
+                        subject="Cliente subió documento - SIGEX",
+                        mensaje=f"Tu cliente '{cliente_db.nombre_completo}' ha subido un nuevo documento compartido: '{sec_filename}' en el expediente '{exp.nombre_caso}'.",
+                    )
+                except Exception as e_mail:
+                    print(
+                        f"Error al notificar al abogado del documento subido: {e_mail}"
+                    )
 
             db.session.commit()
 
@@ -3469,7 +3456,7 @@ def register_routes(app):
         doc = Documento.query.get_or_404(documento_id)
         if (
             current_user.rol == "Asociado"
-            and doc.expediente.abogado_responsable_id != current_user.id
+            and current_user not in doc.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -3591,7 +3578,7 @@ def register_routes(app):
 
         if (
             current_user.rol == "Asociado"
-            and doc.expediente.abogado_responsable_id != current_user.id
+            and current_user not in doc.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -3652,7 +3639,7 @@ def register_routes(app):
 
         if (
             current_user.rol == "Asociado"
-            and doc.expediente.abogado_responsable_id != current_user.id
+            and current_user not in doc.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -3735,7 +3722,7 @@ def register_routes(app):
         doc = Documento.query.get_or_404(documento_id)
         if (
             current_user.rol == "Asociado"
-            and doc.expediente.abogado_responsable_id != current_user.id
+            and current_user not in doc.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -3830,7 +3817,7 @@ def register_routes(app):
         doc = Documento.query.get_or_404(documento_id)
         if (
             current_user.rol == "Asociado"
-            and doc.expediente.abogado_responsable_id != current_user.id
+            and current_user not in doc.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -4073,7 +4060,7 @@ def register_routes(app):
         exp = Expediente.query.get_or_404(expediente_id)
         if (
             current_user.rol == "Asociado"
-            and exp.abogado_responsable_id != current_user.id
+            and current_user not in exp.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -4117,7 +4104,7 @@ def register_routes(app):
         carpeta = Carpeta.query.get_or_404(carpeta_id)
         if (
             current_user.rol == "Asociado"
-            and carpeta.expediente.abogado_responsable_id != current_user.id
+            and current_user not in carpeta.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -4198,7 +4185,7 @@ def register_routes(app):
         doc = Documento.query.get_or_404(documento_id)
         if (
             current_user.rol == "Asociado"
-            and doc.expediente.abogado_responsable_id != current_user.id
+            and current_user not in doc.expediente.abogados
         ):
             flash("Acceso denegado. No está asignado a este expediente.", "danger")
             return redirect(url_for("documentos"))
@@ -4270,17 +4257,17 @@ def register_routes(app):
         if current_user.rol in ["Asociado", "Paralegal"]:
             query = query.filter(
                 db.or_(
-                    Tarea.asignado_a_id == current_user.id,
-                    Tarea.asignado_a_id.is_(None),
+                    Tarea.asignados.any(Usuario.id == current_user.id),
+                    ~Tarea.asignados.any(),
                 )
             )
         elif filtro_asignado != "Todos":
             if filtro_asignado == "General":
-                query = query.filter_by(asignado_a_id=None)
+                query = query.filter(~Tarea.asignados.any())
             else:
                 try:
                     a_id = int(filtro_asignado)
-                    query = query.filter_by(asignado_a_id=a_id)
+                    query = query.filter(Tarea.asignados.any(Usuario.id == a_id))
                 except ValueError:
                     pass
 
@@ -4348,7 +4335,7 @@ def register_routes(app):
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, f"{e.nombre_caso} ({e.codigo_firma})") for e in expedientes_list
         ]
-        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [
+        form.asignados_ids.choices = [
             (u.id, u.nombre) for u in usuarios_list
         ]
 
@@ -4357,8 +4344,8 @@ def register_routes(app):
         if current_user.rol in ["Asociado", "Paralegal"]:
             stat_query = stat_query.filter(
                 db.or_(
-                    Tarea.asignado_a_id == current_user.id,
-                    Tarea.asignado_a_id.is_(None),
+                    Tarea.asignados.any(Usuario.id == current_user.id),
+                    ~Tarea.asignados.any(),
                 )
             )
 
@@ -4437,15 +4424,15 @@ def register_routes(app):
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, e.nombre_caso) for e in expedientes_list
         ]
-        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [
+        form.asignados_ids.choices = [
             (u.id, u.nombre) for u in usuarios_list
         ]
 
         if form.validate_on_submit():
             exp_id = form.expediente_id.data
-            asignado_id = form.asignado_a_id.data
-            if asignado_id == 0:
-                asignado_id = None
+            
+            abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(form.asignados_ids.data)).all()
+            asignado_id = form.asignados_ids.data[0] if form.asignados_ids.data else None
 
             nueva_tarea = Tarea(
                 titulo=form.titulo.data.strip(),
@@ -4459,15 +4446,16 @@ def register_routes(app):
                 asignado_a_id=asignado_id,
                 creado_por_id=current_user.id,
             )
+            nueva_tarea.asignados = abogados_seleccionados
             try:
                 db.session.add(nueva_tarea)
                 db.session.commit()
 
                 # Auditoría
                 nombre_asignado = (
-                    "Todo el equipo"
-                    if asignado_id is None
-                    else nueva_tarea.asignado_a.nombre
+                    ", ".join([u.nombre for u in nueva_tarea.asignados])
+                    if nueva_tarea.asignados
+                    else "Todo el equipo"
                 )
                 registrar_auditoria(
                     usuario_id=current_user.id,
@@ -4498,8 +4486,8 @@ def register_routes(app):
         # Validar permisos
         if (
             current_user.rol in ["Asociado", "Paralegal"]
-            and tarea.asignado_a_id is not None
-            and tarea.asignado_a_id != current_user.id
+            and tarea.asignados
+            and current_user not in tarea.asignados
         ):
             flash("No tiene permisos para modificar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
@@ -4517,7 +4505,7 @@ def register_routes(app):
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, e.nombre_caso) for e in expedientes_list
         ]
-        form.asignado_a_id.choices = [(0, "Todo el equipo")] + [
+        form.asignados_ids.choices = [
             (u.id, u.nombre) for u in usuarios_list
         ]
 
@@ -4526,11 +4514,11 @@ def register_routes(app):
 
             if current_user.rol in ["Asociado", "Paralegal"]:
                 # Asociado/Paralegal no pueden reasignar
+                abogados_seleccionados = tarea.asignados
                 asignado_id = tarea.asignado_a_id
             else:
-                asignado_id = form.asignado_a_id.data
-                if asignado_id == 0:
-                    asignado_id = None
+                abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(form.asignados_ids.data)).all()
+                asignado_id = form.asignados_ids.data[0] if form.asignados_ids.data else None
 
             tarea.titulo = form.titulo.data.strip()
             tarea.descripcion = (
@@ -4548,13 +4536,16 @@ def register_routes(app):
 
             tarea.expediente_id = exp_id
             tarea.asignado_a_id = asignado_id
+            tarea.asignados = abogados_seleccionados
 
             try:
                 db.session.commit()
 
                 # Auditoría
                 nombre_asignado = (
-                    "Todo el equipo" if asignado_id is None else tarea.asignado_a.nombre
+                    ", ".join([u.nombre for u in tarea.asignados])
+                    if tarea.asignados
+                    else "Todo el equipo"
                 )
                 registrar_auditoria(
                     usuario_id=current_user.id,
@@ -4585,7 +4576,8 @@ def register_routes(app):
         # Validar permisos
         if (
             current_user.rol in ["Asociado", "Paralegal"]
-            and tarea.asignado_a_id != current_user.id
+            and tarea.asignados
+            and current_user not in tarea.asignados
         ):
             flash("No tiene permisos para modificar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
@@ -4672,7 +4664,8 @@ def register_routes(app):
         # Validar permisos
         if (
             current_user.rol in ["Asociado", "Paralegal"]
-            and tarea.asignado_a_id != current_user.id
+            and tarea.asignados
+            and current_user not in tarea.asignados
         ):
             flash("No tiene permisos para modificar esta tarea.", "danger")
             return redirect(url_for("listar_tareas"))
@@ -4771,7 +4764,7 @@ def register_routes(app):
 
                 if (
                     current_user.rol == "Asociado"
-                    and t.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in t.expediente.abogados
                 ):
                     continue
 
@@ -4794,10 +4787,9 @@ def register_routes(app):
                             "expediente_nombre": t.expediente.nombre_caso
                             if t.expediente
                             else "",
-                            "asignado_nombre": t.asignado_a.nombre
-                            if t.asignado_a
-                            else "Todo el equipo",
+                            "asignado_nombre": ", ".join([u.nombre for u in t.asignados]) if t.asignados else "Todo el equipo",
                             "asignado_id": t.asignado_a_id or 0,
+                            "asignados_ids": [u.id for u in t.asignados],
                             "prioridad": t.prioridad,
                             "descripcion": t.descripcion or "",
                             "start": t.fecha_limite.isoformat()
@@ -4822,7 +4814,7 @@ def register_routes(app):
             for a in aud_query.all():
                 if (
                     current_user.rol == "Asociado"
-                    and a.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in a.expediente.abogados
                 ):
                     continue
 
@@ -4872,7 +4864,7 @@ def register_routes(app):
             for p in plazo_query.all():
                 if (
                     current_user.rol == "Asociado"
-                    and p.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in p.expediente.abogados
                 ):
                     continue
 
@@ -4918,6 +4910,7 @@ def register_routes(app):
         fecha_str = data.get("fecha", "")
         hora_str = data.get("hora", "")
         asignado_a_id = data.get("asignado_a_id")
+        asignados_ids = data.get("asignados_ids", [])
         prioridad = data.get("prioridad", "Media")
 
         if not tipo or not expediente_id or not fecha_str:
@@ -4926,7 +4919,7 @@ def register_routes(app):
         expediente = Expediente.query.get_or_404(expediente_id)
         if (
             current_user.rol == "Asociado"
-            and expediente.abogado_responsable_id != current_user.id
+            and current_user not in expediente.abogados
         ):
             return jsonify(
                 {
@@ -4947,7 +4940,8 @@ def register_routes(app):
                 fecha_limite = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 if fecha_limite < rd_now().date():
                     return jsonify({"success": False, "error": "No se pueden programar tareas con fecha anterior al día en curso."})
-                asignado_id = None if asignado_a_id == 0 else asignado_a_id
+                abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(asignados_ids)).all()
+                asignado_id = asignados_ids[0] if asignados_ids else None
 
                 tarea = Tarea(
                     expediente_id=expediente_id,
@@ -4959,6 +4953,7 @@ def register_routes(app):
                     asignado_a_id=asignado_id,
                     creado_por_id=current_user.id,
                 )
+                tarea.asignados = abogados_seleccionados
                 db.session.add(tarea)
                 db.session.commit()
 
@@ -5122,6 +5117,7 @@ def register_routes(app):
         fecha_str = data.get("fecha", "")
         hora_str = data.get("hora", "")
         asignado_a_id = data.get("asignado_a_id")
+        asignados_ids = data.get("asignados_ids", [])
         prioridad = data.get("prioridad", "Media")
 
         if not fecha_str:
@@ -5132,7 +5128,7 @@ def register_routes(app):
                 tarea = Tarea.query.get_or_404(evento_id)
                 if (
                     current_user.rol == "Asociado"
-                    and tarea.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in tarea.expediente.abogados
                 ):
                     return jsonify(
                         {
@@ -5152,7 +5148,8 @@ def register_routes(app):
                 fecha_limite = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 if fecha_limite < rd_now().date():
                     return jsonify({"success": False, "error": "No se pueden programar tareas con fecha anterior al día en curso."})
-                asignado_id = None if asignado_a_id == 0 else asignado_a_id
+                abogados_seleccionados = Usuario.query.filter(Usuario.id.in_(asignados_ids)).all()
+                asignado_id = asignados_ids[0] if asignados_ids else None
 
                 cambios = []
                 if tarea.titulo != titulo:
@@ -5171,19 +5168,16 @@ def register_routes(app):
                 if tarea.prioridad != prioridad:
                     cambios.append(f"prioridad: '{tarea.prioridad}' -> '{prioridad}'")
                     tarea.prioridad = prioridad
-                if tarea.asignado_a_id != asignado_id:
-                    anterior_nom = (
-                        tarea.asignado_a.nombre
-                        if tarea.asignado_a
-                        else "Todo el equipo"
-                    )
+
+                set_actual = {u.id for u in tarea.asignados}
+                set_nuevo = set(asignados_ids)
+                if set_actual != set_nuevo:
+                    anterior_nom = ", ".join([u.nombre for u in tarea.asignados]) if tarea.asignados else "Todo el equipo"
+                    tarea.asignados = abogados_seleccionados
                     tarea.asignado_a_id = asignado_id
-                    nuevo_nom = (
-                        tarea.asignado_a.nombre
-                        if tarea.asignado_a
-                        else "Todo el equipo"
-                    )
-                    cambios.append(f"asignado a: '{anterior_nom}' -> '{nuevo_nom}'")
+                    db.session.flush()
+                    nuevo_nom = ", ".join([u.nombre for u in tarea.asignados]) if tarea.asignados else "Todo el equipo"
+                    cambios.append(f"asignados: '{anterior_nom}' -> '{nuevo_nom}'")
 
                 if cambios:
                     db.session.commit()
@@ -5202,7 +5196,7 @@ def register_routes(app):
                 audiencia = AlertaPlazoAudiencia.query.get_or_404(evento_id)
                 if (
                     current_user.rol == "Asociado"
-                    and audiencia.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in audiencia.expediente.abogados
                 ):
                     return jsonify(
                         {
@@ -5252,7 +5246,7 @@ def register_routes(app):
                 plazo = AlertaPlazoAudiencia.query.get_or_404(evento_id)
                 if (
                     current_user.rol == "Asociado"
-                    and plazo.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in plazo.expediente.abogados
                 ):
                     return jsonify(
                         {
@@ -5330,7 +5324,7 @@ def register_routes(app):
                 tarea = Tarea.query.get_or_404(evento_id)
                 if (
                     current_user.rol == "Asociado"
-                    and tarea.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in tarea.expediente.abogados
                 ):
                     return jsonify(
                         {
@@ -5364,7 +5358,7 @@ def register_routes(app):
                 alerta = AlertaPlazoAudiencia.query.get_or_404(evento_id)
                 if (
                     current_user.rol == "Asociado"
-                    and alerta.expediente.abogado_responsable_id != current_user.id
+                    and current_user not in alerta.expediente.abogados
                 ):
                     return jsonify(
                         {
@@ -5413,7 +5407,7 @@ def register_routes(app):
         tarea = Tarea.query.get_or_404(tarea_id)
         if (
             current_user.rol == "Asociado"
-            and tarea.expediente.abogado_responsable_id != current_user.id
+            and current_user not in tarea.expediente.abogados
         ):
             return jsonify(
                 {

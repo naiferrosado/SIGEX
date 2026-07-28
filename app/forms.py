@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, DecimalField, DateField, TimeField, PasswordField, BooleanField, SubmitField, SelectField
+from wtforms import StringField, TextAreaField, DecimalField, DateField, TimeField, PasswordField, BooleanField, SubmitField, SelectField, SelectMultipleField
 from wtforms.validators import DataRequired, Email, Optional, Length, EqualTo, InputRequired, NumberRange
 from wtforms import DateField, TextAreaField
 
@@ -71,7 +71,11 @@ class UsuarioForm(FlaskForm):
 class ExpedienteBaseForm(FlaskForm):
     # Usamos coerce=int porque los IDs de la base de datos son números enteros
     cliente_id = SelectField('Cliente', coerce=int, validators=[DataRequired(message="Debe seleccionar un cliente.")])
-    abogado_responsable_id = SelectField('Abogado Responsable', coerce=int, validators=[Optional()])
+    abogados_ids = SelectMultipleField(
+        'Abogados Asignados',
+        coerce=int,
+        validators=[DataRequired(message="Debe seleccionar al menos un abogado.")]
+    )
     
     nombre_caso = StringField('Nombre del Caso / Expediente', validators=[
         DataRequired(message="El nombre del caso es obligatorio."),
@@ -140,11 +144,6 @@ class ExpedienteJudicialForm(ExpedienteBaseForm):
         'Cliente',
         coerce=int,
         validators=[DataRequired(message='Debe seleccionar un cliente.')]
-    )
-    abogado_responsable_id = SelectField(
-        'Abogado responsable',
-        coerce=int,
-        validators=[Optional()]
     )
     # Conservados solo para compatibilidad de base de datos
     rama_derecho = SelectField('Rama del Derecho (Antiguo)', choices=[
@@ -243,7 +242,11 @@ class TareaForm(FlaskForm):
     ], default='Pendiente', validators=[DataRequired(message="Debe seleccionar un estado.")])
     
     expediente_id = SelectField('Expediente / Caso', coerce=int, validators=[DataRequired(message="Debe seleccionar un expediente.")])
-    asignado_a_id = SelectField('Asignar a Abogado/Paralegal', coerce=int, validators=[InputRequired(message="Debe seleccionar a quién asignar la tarea.")])
+    asignados_ids = SelectMultipleField(
+        'Asignar a Abogado(s)/Paralegal(es)',
+        coerce=int,
+        validators=[DataRequired(message="Debe seleccionar al menos a quién asignar la tarea.")]
+    )
     submit = SubmitField('Guardar Tarea')
 
 

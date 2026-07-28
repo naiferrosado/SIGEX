@@ -46,10 +46,11 @@
                                     {{ form_judicial.rol_firma.label(class="form-label small fw-bold") }}
                                     {{ form_judicial.rol_firma(class="form-select") }}
                                 </div>
-                                <div class="col-md-3">
-                                    {{ form_judicial.abogado_responsable_id.label(class="form-label small fw-bold") }}
-                                    {{ form_judicial.abogado_responsable_id(class="form-select") }}
-                                </div>
+                                 <div class="col-md-3">
+                                     {{ form_judicial.abogados_ids.label(class="form-label small fw-bold") }}
+                                     {{ form_judicial.abogados_ids(class="form-select", multiple="multiple") }}
+                                     <div class="form-text mt-1 text-muted" style="font-size: 0.7rem;">Usa Ctrl/Cmd para seleccionar varios.</div>
+                                 </div>
                             </div>
                             
                             <hr>
@@ -169,10 +170,11 @@
                                     {{ form_admin.rol_firma.label(class="form-label small fw-bold") }}
                                     {{ form_admin.rol_firma(class="form-select") }}
                                 </div>
-                                <div class="col-md-3">
-                                    {{ form_admin.abogado_responsable_id.label(class="form-label small fw-bold") }}
-                                    {{ form_admin.abogado_responsable_id(class="form-select") }}
-                                </div>
+                                 <div class="col-md-3">
+                                     {{ form_admin.abogados_ids.label(class="form-label small fw-bold") }}
+                                     {{ form_admin.abogados_ids(class="form-select", multiple="multiple") }}
+                                     <div class="form-text mt-1 text-muted" style="font-size: 0.7rem;">Usa Ctrl/Cmd para seleccionar varios.</div>
+                                 </div>
                             </div>
                             
                             <hr>
