@@ -4337,7 +4337,9 @@ def register_routes(app):
             .all()
         )
         usuarios_list = (
-            Usuario.query.filter(Usuario.activo).order_by(Usuario.nombre.asc()).all()
+            Usuario.query.filter(Usuario.activo, Usuario.rol != 'Cliente')
+            .order_by(Usuario.nombre.asc())
+            .all()
         )
 
         # Instanciar el formulario
@@ -4427,7 +4429,11 @@ def register_routes(app):
         expedientes_list = Expediente.query.filter(
             Expediente.estado != "Archivado"
         ).all()
-        usuarios_list = Usuario.query.filter(Usuario.activo).all()
+        usuarios_list = (
+            Usuario.query.filter(Usuario.activo, Usuario.rol != 'Cliente')
+            .order_by(Usuario.nombre.asc())
+            .all()
+        )
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, e.nombre_caso) for e in expedientes_list
         ]
@@ -4503,7 +4509,11 @@ def register_routes(app):
         expedientes_list = Expediente.query.filter(
             Expediente.estado != "Archivado"
         ).all()
-        usuarios_list = Usuario.query.filter(Usuario.activo).all()
+        usuarios_list = (
+            Usuario.query.filter(Usuario.activo, Usuario.rol != 'Cliente')
+            .order_by(Usuario.nombre.asc())
+            .all()
+        )
         form.expediente_id.choices = [(0, "-- Seleccione un expediente --")] + [
             (e.id, e.nombre_caso) for e in expedientes_list
         ]
