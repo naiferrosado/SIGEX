@@ -840,6 +840,27 @@
         }
     };
 
+    window.selectAllAsignados = function() {
+        const selectAsigNative = document.getElementById('asignados_ids');
+        if (!selectAsigNative) return;
+        
+        Array.from(selectAsigNative.options).forEach(opt => {
+            opt.selected = true;
+        });
+        renderSelectedAsignados();
+        
+        const searchInput = document.getElementById('searchAsignadosInput');
+        if (searchInput) {
+            searchInput.value = '';
+            renderDropdownResults('');
+        }
+        
+        const dropdownMenu = document.getElementById('searchAsignadosDropdown');
+        if (dropdownMenu) {
+            dropdownMenu.style.display = 'none';
+        }
+    };
+
     function renderDropdownResults(query) {
         const dropdownMenu = document.getElementById('searchAsignadosDropdown');
         const selectAsigNative = document.getElementById('asignados_ids');
@@ -859,6 +880,16 @@
         });
 
         if (filtered.length > 0) {
+            const btnAll = document.createElement('button');
+            btnAll.type = 'button';
+            btnAll.className = 'dropdown-item d-flex align-items-center py-2 px-3 small border-bottom text-primary fw-semibold';
+            btnAll.style.textAlign = 'left';
+            btnAll.innerHTML = `<i class="bi bi-people-fill me-2"></i> Seleccionar todos`;
+            btnAll.onclick = function() {
+                selectAllAsignados();
+            };
+            dropdownMenu.appendChild(btnAll);
+
             filtered.forEach(u => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
