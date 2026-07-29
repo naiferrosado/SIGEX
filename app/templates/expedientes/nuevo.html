@@ -36,7 +36,34 @@
                             <div class="row g-3 mb-4">
                                 <div class="col-md-3">
                                     {{ form_judicial.cliente_id.label(class="form-label small fw-bold") }}
-                                    {{ form_judicial.cliente_id(class="form-select") }}
+                                    
+                                    <!-- Select oculto nativo de WTForms -->
+                                    <div class="d-none">
+                                        {{ form_judicial.cliente_id(class="form-select", id="cliente_id_jud") }}
+                                    </div>
+                                    
+                                    <!-- Buscador interactivo premium -->
+                                    <div id="clientSearchContainer_jud" style="position: relative;">
+                                        <div class="input-group shadow-sm" style="border-radius: 8px; border: 1px solid #ced4da; overflow: hidden; background-color: #f8fafc;">
+                                            <span class="input-group-text bg-transparent border-0 text-muted pe-1"><i class="bi bi-search" style="font-size: 0.85rem;"></i></span>
+                                            <input type="text" class="form-control bg-transparent border-0 py-2 ps-1" id="searchClienteInput_jud" placeholder="Escriba nombre o cédula..." autocomplete="off" style="font-size: 0.9rem; box-shadow: none;">
+                                        </div>
+                                        <div class="dropdown-menu w-100 shadow border-0 mt-1 py-0" id="searchClienteDropdown_jud" style="max-height: 220px; overflow-y: auto; display: none; z-index: 1050; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;">
+                                            <!-- Clientes inyectados por JS -->
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Info de Cliente Seleccionado -->
+                                    <div id="selectedClienteInfo_jud" class="p-2 border rounded-3 bg-white d-flex align-items-center justify-content-between d-none shadow-sm" style="height: 42px; border-color: #ced4da !important;">
+                                        <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                            <i class="bi bi-person-check-fill text-success fs-5"></i>
+                                            <div class="text-truncate">
+                                                <div class="fw-bold text-dark text-truncate" id="selectedClienteName_jud" style="font-size:0.8rem; line-height: 1.2;"></div>
+                                                <div class="text-muted text-truncate" id="selectedClienteCedula_jud" style="font-size:0.65rem; line-height: 1.1;"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-link text-danger fw-bold text-decoration-none p-0 ms-2" onclick="clearSelectedCliente('jud')" style="font-size: 0.75rem;"><i class="bi bi-x-circle-fill"></i> Cambiar</button>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     {{ form_judicial.nombre_caso.label(class="form-label small fw-bold") }}
@@ -160,7 +187,34 @@
                             <div class="row g-3 mb-4">
                                 <div class="col-md-3">
                                     {{ form_admin.cliente_id.label(class="form-label small fw-bold") }}
-                                    {{ form_admin.cliente_id(class="form-select") }}
+                                    
+                                    <!-- Select oculto nativo de WTForms -->
+                                    <div class="d-none">
+                                        {{ form_admin.cliente_id(class="form-select", id="cliente_id_adm") }}
+                                    </div>
+                                    
+                                    <!-- Buscador interactivo premium -->
+                                    <div id="clientSearchContainer_adm" style="position: relative;">
+                                        <div class="input-group shadow-sm" style="border-radius: 8px; border: 1px solid #ced4da; overflow: hidden; background-color: #f8fafc;">
+                                            <span class="input-group-text bg-transparent border-0 text-muted pe-1"><i class="bi bi-search" style="font-size: 0.85rem;"></i></span>
+                                            <input type="text" class="form-control bg-transparent border-0 py-2 ps-1" id="searchClienteInput_adm" placeholder="Escriba nombre o cédula..." autocomplete="off" style="font-size: 0.9rem; box-shadow: none;">
+                                        </div>
+                                        <div class="dropdown-menu w-100 shadow border-0 mt-1 py-0" id="searchClienteDropdown_adm" style="max-height: 220px; overflow-y: auto; display: none; z-index: 1050; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;">
+                                            <!-- Clientes inyectados por JS -->
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Info de Cliente Seleccionado -->
+                                    <div id="selectedClienteInfo_adm" class="p-2 border rounded-3 bg-white d-flex align-items-center justify-content-between d-none shadow-sm" style="height: 42px; border-color: #ced4da !important;">
+                                        <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                            <i class="bi bi-person-check-fill text-success fs-5"></i>
+                                            <div class="text-truncate">
+                                                <div class="fw-bold text-dark text-truncate" id="selectedClienteName_adm" style="font-size:0.8rem; line-height: 1.2;"></div>
+                                                <div class="text-muted text-truncate" id="selectedClienteCedula_adm" style="font-size:0.65rem; line-height: 1.1;"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-link text-danger fw-bold text-decoration-none p-0 ms-2" onclick="clearSelectedCliente('adm')" style="font-size: 0.75rem;"><i class="bi bi-x-circle-fill"></i> Cambiar</button>
+                                    </div>
                                 </div>
                                 <div class="col-md-3">
                                     {{ form_admin.nombre_caso.label(class="form-label small fw-bold") }}
@@ -462,10 +516,115 @@
             }
         });
     }
+
+    function setupClientAutocomplete(prefix) {
+        const searchInput = document.getElementById(`searchClienteInput_${prefix}`);
+        const dropdownMenu = document.getElementById(`searchClienteDropdown_${prefix}`);
+        
+        if (!searchInput || !dropdownMenu) return;
+
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length === 0) {
+                dropdownMenu.style.display = 'none';
+                return;
+            }
+
+            fetch(`/clientes/buscar?q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    dropdownMenu.innerHTML = '';
+                    if (data.length > 0) {
+                        data.forEach(c => {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'dropdown-item d-flex flex-column py-2 px-3 border-bottom';
+                            btn.style.textAlign = 'left';
+                            btn.innerHTML = `
+                                <span class="fw-bold text-dark" style="font-size: 0.85rem;">${c.nombre}</span>
+                                <span class="text-muted" style="font-size: 0.7rem;">Cédula/RNC: ${c.rnc_cedula || 'N/D'}</span>
+                            `;
+                            btn.onclick = function() {
+                                selectCliente(prefix, c.id, c.nombre, c.rnc_cedula);
+                            };
+                            dropdownMenu.appendChild(btn);
+                        });
+                        dropdownMenu.style.display = 'block';
+                    } else {
+                        dropdownMenu.innerHTML = '<div class="p-3 text-muted text-center small">No se encontraron clientes</div>';
+                        dropdownMenu.style.display = 'block';
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    dropdownMenu.innerHTML = '<div class="p-3 text-danger text-center small">Error al buscar clientes</div>';
+                    dropdownMenu.style.display = 'block';
+                });
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.style.display = 'none';
+            }
+        });
+    }
+
+    function selectCliente(prefix, id, nombre, cedula) {
+        const selectEl = document.getElementById(`cliente_id_${prefix}`);
+        if (selectEl) {
+            selectEl.value = id;
+            selectEl.dispatchEvent(new Event('change'));
+        }
+
+        document.getElementById(`selectedClienteName_${prefix}`).innerText = nombre;
+        document.getElementById(`selectedClienteCedula_${prefix}`).innerText = (cedula && cedula !== 'Restaurado') ? `Cédula/RNC: ${cedula}` : '';
+        document.getElementById(`selectedClienteInfo_${prefix}`).classList.remove('d-none');
+        document.getElementById(`clientSearchContainer_${prefix}`).classList.add('d-none');
+        
+        const searchInput = document.getElementById(`searchClienteInput_${prefix}`);
+        if (searchInput) searchInput.value = '';
+        const dropdownMenu = document.getElementById(`searchClienteDropdown_${prefix}`);
+        if (dropdownMenu) dropdownMenu.style.display = 'none';
+    }
+
+    window.clearSelectedCliente = function(prefix) {
+        const selectEl = document.getElementById(`cliente_id_${prefix}`);
+        if (selectEl) {
+            selectEl.value = '0';
+            selectEl.dispatchEvent(new Event('change'));
+        }
+
+        document.getElementById(`selectedClienteInfo_${prefix}`).classList.add('d-none');
+        document.getElementById(`clientSearchContainer_${prefix}`).classList.remove('d-none');
+        
+        const searchInput = document.getElementById(`searchClienteInput_${prefix}`);
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+    };
+
+    function restoreSelectedClientes() {
+        ['jud', 'adm'].forEach(prefix => {
+            const selectEl = document.getElementById(`cliente_id_${prefix}`);
+            if (selectEl && selectEl.value && selectEl.value !== '0' && selectEl.value !== '') {
+                const selectedOption = selectEl.options[selectEl.selectedIndex];
+                if (selectedOption) {
+                    const id = selectEl.value;
+                    const nombre = selectedOption.text;
+                    selectCliente(prefix, id, nombre, 'Restaurado');
+                }
+            }
+        });
+    }
     
     document.addEventListener("DOMContentLoaded", function() {
         toggleCobroCampos('jud');
         toggleCobroCampos('adm');
+
+        setupClientAutocomplete('jud');
+        setupClientAutocomplete('adm');
+        restoreSelectedClientes();
 
         Promise.all([
             loadMaterias('jud', 'Judicial'),
