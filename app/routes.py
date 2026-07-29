@@ -1,5 +1,6 @@
 import os
 import uuid  # Para generar el código único de la firma
+from decimal import Decimal
 from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import urlparse
