@@ -31,6 +31,52 @@
         background-color: rgba(25, 135, 84, 0.08) !important;
         outline: 2px solid #198754;
     }
+
+    /* Estilos para los botones de estado */
+    .btn-status-pendiente {
+        font-size: 0.72rem;
+        transition: all 0.2s ease-in-out;
+        background-color: transparent;
+        color: #6b7280;
+        opacity: 0.7;
+    }
+    .btn-status-pendiente.active {
+        background-color: #6b7280;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(107, 114, 128, 0.25);
+        opacity: 1;
+    }
+
+    .btn-status-progreso {
+        font-size: 0.72rem;
+        transition: all 0.2s ease-in-out;
+        background-color: transparent;
+        color: #00409a;
+        opacity: 0.7;
+    }
+    .btn-status-progreso.active {
+        background-color: #00409a;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(0, 64, 154, 0.25);
+        opacity: 1;
+    }
+
+    .btn-status-completada {
+        font-size: 0.72rem;
+        transition: all 0.2s ease-in-out;
+        background-color: transparent;
+        color: #10b981;
+        opacity: 0.7;
+    }
+    .btn-status-completada.active {
+        background-color: #10b981;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+        opacity: 1;
+    }
 </style>
 <!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
 {% include 'components/sidebar.html' %}
@@ -53,20 +99,27 @@
         </div>
     </div>
 
-    <!-- Alertas Flash -->
+    <!-- Alertas Flash como Toasts -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert"
-        style="border-radius: 8px;">
-        <i
-            class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
-        {{ message|safe }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"
-            style="padding: 0.8rem;"></button>
-    </div>
-    {% endfor %}
-    {% endif %}
+        {% if messages %}
+            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const messagesEl = document.getElementById('flask-flash-messages');
+                    if (messagesEl && messagesEl.dataset.messages) {
+                        try {
+                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                            flashMessages.forEach(([category, message]) => {
+                                let type = category === "error" ? "danger" : category;
+                                showToast(message, type);
+                            });
+                        } catch (e) {
+                            console.error("Error parsing flash messages:", e);
+                        }
+                    }
+                });
+            </script>
+        {% endif %}
     {% endwith %}
 
     <!-- Tarjetas de Estadísticas -->
@@ -352,63 +405,39 @@
                             <div class="d-inline-flex bg-light p-1 rounded-pill border"
                                 style="box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
                                 <!-- Pendiente -->
-                                {% if t.estado == 'Pendiente' %}
-                                {% set style_pendiente = "font-size: 0.72rem; transition: all 0.2s ease-in-out;
-                                background-color: #6b7280; color: #ffffff; font-weight: 600; box-shadow: 0 2px 4px
-                                rgba(107, 114, 128, 0.25);" %}
-                                {% else %}
-                                {% set style_pendiente = "font-size: 0.72rem; transition: all 0.2s ease-in-out;
-                                background-color: transparent; color: #6b7280; opacity: 0.7;" %}
-                                {% endif %}
                                 <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}"
                                     class="m-0">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="nuevo_estado" value="Pendiente">
                                     <button type="submit"
-                                        class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1"
-                                        style="{{ style_pendiente }}" title="Marcar como Pendiente">
+                                        class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1 btn-status-pendiente {% if t.estado == 'Pendiente' %}active{% endif %}"
+                                        title="Marcar como Pendiente">
                                         <i class="bi bi-hourglass-split"></i>
                                         <span class="d-none d-xl-inline">Pendiente</span>
                                     </button>
                                 </form>
 
                                 <!-- En Progreso -->
-                                {% if t.estado == 'En Progreso' %}
-                                {% set style_progreso = "font-size: 0.72rem; transition: all 0.2s ease-in-out;
-                                background-color: #00409a; color: #ffffff; font-weight: 600; box-shadow: 0 2px 4px
-                                rgba(0, 64, 154, 0.25);" %}
-                                {% else %}
-                                {% set style_progreso = "font-size: 0.72rem; transition: all 0.2s ease-in-out;
-                                background-color: transparent; color: #00409a; opacity: 0.7;" %}
-                                {% endif %}
                                 <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}"
                                     class="m-0">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="nuevo_estado" value="En Progreso">
                                     <button type="submit"
-                                        class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1"
-                                        style="{{ style_progreso }}" title="Marcar como En Progreso">
+                                        class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1 btn-status-progreso {% if t.estado == 'En Progreso' %}active{% endif %}"
+                                        title="Marcar como En Progreso">
                                         <i class="bi bi-play-circle-fill"></i>
                                         <span class="d-none d-xl-inline">En Progreso</span>
                                     </button>
                                 </form>
 
                                 <!-- Completada -->
-                                {% if t.estado == 'Completada' %}
-                                {% set style_completada = "font-size: 0.72rem; transition: all 0.2s ease-in-out;
-                                background-color: #10b981; color: #ffffff; font-weight: 600; box-shadow: 0 2px 4px
-                                rgba(16, 185, 129, 0.25);" %}
-                                {% else %}
-                                {% set style_completada = "font-size: 0.72rem; transition: all 0.2s ease-in-out;
-                                background-color: transparent; color: #10b981; opacity: 0.7;" %}
-                                {% endif %}
                                 <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}"
                                     class="m-0">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="nuevo_estado" value="Completada">
                                     <button type="submit"
-                                        class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1"
-                                        style="{{ style_completada }}" title="Marcar como Completada">
+                                        class="btn btn-sm rounded-pill py-1 px-2 border-0 d-flex align-items-center gap-1 btn-status-completada {% if t.estado == 'Completada' %}active{% endif %}"
+                                        title="Marcar como Completada">
                                         <i class="bi bi-check-circle-fill"></i>
                                         <span class="d-none d-xl-inline">Completada</span>
                                     </button>

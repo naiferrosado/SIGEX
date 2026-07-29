@@ -17,16 +17,26 @@
         </button>
     </div>
 
-    <!-- Alertas Flash -->
+    <!-- Alertas Flash como Toasts -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
-                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const messagesEl = document.getElementById('flask-flash-messages');
+                    if (messagesEl && messagesEl.dataset.messages) {
+                        try {
+                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                            flashMessages.forEach(([category, message]) => {
+                                let type = category === "error" ? "danger" : category;
+                                showToast(message, type);
+                            });
+                        } catch (e) {
+                            console.error("Error parsing flash messages:", e);
+                        }
+                    }
+                });
+            </script>
         {% endif %}
     {% endwith %}
 
@@ -399,7 +409,7 @@
                 <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Desactivar Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="" id="formDesactivarClienteAction">
+            <form method="POST" action="" id="formDesactivarClienteAction" data-confirm="¿Está seguro de desactivar este cliente con la justificación especificada?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body p-4">
                     <p class="text-muted small">Por favor, especifique la razón por la cual está desactivando a este cliente. Esta acción quedará registrada en la bitácora de auditoría.</p>
@@ -682,10 +692,22 @@
                     btnDesactivar.className = 'btn btn-white btn-sm border border-success text-success w-100 fw-semibold';
                     
                     btnDesactivar.onclick = () => {
-                        if (confirm('¿Está seguro de que desea reactivar este cliente?')) {
-                            formDesactivar.action = `/clientes/${c.id}/desactivar`;
-                            formDesactivar.submit();
-                        }
+                        Swal.fire({
+                            title: '¿Reactivar cliente?',
+                            text: '¿Está seguro de que desea reactivar este cliente?',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#198754',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: 'Sí, reactivar',
+                            cancelButtonText: 'Cancelar',
+                            customClass: { popup: 'rounded-4 border-0 shadow' }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                formDesactivar.action = `/clientes/${c.id}/desactivar`;
+                                formDesactivar.submit();
+                            }
+                        });
                     };
                 } else {
                     btnDesactivar.innerHTML = '<i class="bi bi-toggle-off me-1"></i> Desactivar';
@@ -806,36 +828,84 @@
     function ejecutarAccionPortal(accion, clienteId, email = '', rnc = '') {
         if (accion === 'habilitar') {
             if (!email) {
-                alert("Error: El cliente no tiene configurado un correo electrónico de contacto.");
+                showToast("Error: El cliente no tiene configurado un correo electrónico de contacto.", "danger");
                 return;
             }
             if (!rnc) {
-                alert("Error: El cliente debe tener una cédula o RNC para usar de contraseña inicial.");
+                showToast("Error: El cliente debe tener una cédula o RNC para usar de contraseña inicial.", "danger");
                 return;
             }
-            if (confirm(`¿Desea habilitar el acceso al portal para este cliente?\n\nUsuario: ${email}\nContraseña inicial: ${rnc}`)) {
-                const form = document.getElementById('formHabilitarAcceso');
-                form.action = `/clientes/${clienteId}/habilitar_acceso`;
-                form.submit();
-            }
+            Swal.fire({
+                title: '¿Habilitar acceso?',
+                html: `¿Desea habilitar el acceso al portal para este cliente?<br><br><strong>Usuario:</strong> ${email}<br><strong>Contraseña inicial:</strong> ${rnc}`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00409A',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, habilitar',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'rounded-4 border-0 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.getElementById('formHabilitarAcceso');
+                    form.action = `/clientes/${clienteId}/habilitar_acceso`;
+                    form.submit();
+                }
+            });
         } else if (accion === 'desactivar') {
-            if (confirm("¿Está seguro de suspender temporalmente el acceso del cliente al portal?")) {
-                const form = document.getElementById('formDesactivarAcceso');
-                form.action = `/clientes/${clienteId}/desactivar_acceso`;
-                form.submit();
-            }
+            Swal.fire({
+                title: '¿Suspender acceso?',
+                text: '¿Está seguro de suspender temporalmente el acceso del cliente al portal?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, suspender',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'rounded-4 border-0 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.getElementById('formDesactivarAcceso');
+                    form.action = `/clientes/${clienteId}/desactivar_acceso`;
+                    form.submit();
+                }
+            });
         } else if (accion === 'reactivar') {
-            if (confirm("¿Desea reactivar el acceso al portal para este cliente?")) {
-                const form = document.getElementById('formReactivarAcceso');
-                form.action = `/clientes/${clienteId}/reactivar_acceso`;
-                form.submit();
-            }
+            Swal.fire({
+                title: '¿Reactivar acceso?',
+                text: '¿Desea reactivar el acceso al portal para este cliente?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00409A',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, reactivar',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'rounded-4 border-0 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.getElementById('formReactivarAcceso');
+                    form.action = `/clientes/${clienteId}/reactivar_acceso`;
+                    form.submit();
+                }
+            });
         } else if (accion === 'restablecer') {
-            if (confirm("¿Está seguro de restablecer la contraseña del cliente a su cédula/RNC inicial?")) {
-                const form = document.getElementById('formRestablecerClave');
-                form.action = `/clientes/${clienteId}/restablecer_clave_acceso`;
-                form.submit();
-            }
+            Swal.fire({
+                title: '¿Restablecer contraseña?',
+                text: '¿Está seguro de restablecer la contraseña del cliente a su cédula/RNC inicial?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#00409A',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, restablecer',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'rounded-4 border-0 shadow' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.getElementById('formRestablecerClave');
+                    form.action = `/clientes/${clienteId}/restablecer_clave_acceso`;
+                    form.submit();
+                }
+            });
         }
     }
 

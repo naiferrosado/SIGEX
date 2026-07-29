@@ -22,16 +22,26 @@
         </div>
     </div>
 
-    <!-- Alertas Flash -->
+    <!-- Alertas Flash como Toasts -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
-                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const messagesEl = document.getElementById('flask-flash-messages');
+                    if (messagesEl && messagesEl.dataset.messages) {
+                        try {
+                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                            flashMessages.forEach(([category, message]) => {
+                                let type = category === "error" ? "danger" : category;
+                                showToast(message, type);
+                            });
+                        } catch (e) {
+                            console.error("Error parsing flash messages:", e);
+                        }
+                    }
+                });
+            </script>
         {% endif %}
     {% endwith %}
 
@@ -487,7 +497,7 @@
                 <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-info-circle-fill text-primary me-2"></i>Justificar Cambio de Estado</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="" id="formCambiarEstadoAction">
+            <form method="POST" action="" id="formCambiarEstadoAction" data-confirm="¿Está seguro de cambiar el estado de este expediente con la justificación ingresada?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body p-4">
                     <p class="text-muted small">Por favor, especifique la razón de este cambio de estado. Esta justificación quedará registrada en la bitácora de auditoría.</p>
@@ -513,7 +523,7 @@
                 <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-check-circle-fill text-success me-2"></i>Finalizar Expediente / Caso</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="" id="formFinalizarAction">
+            <form method="POST" action="" id="formFinalizarAction" data-confirm="¿Está seguro de finalizar este caso con los detalles y motivo indicados?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body p-4">
                     <p class="text-muted small">Al finalizar este caso, se registrará la conclusión definitiva del trámite o litigio.</p>
@@ -553,7 +563,7 @@
                 <h5 class="modal-title fw-bold" style="color: #071c4d;"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Eliminar Expediente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="" id="formEliminarExpedienteAction">
+            <form method="POST" action="" id="formEliminarExpedienteAction" data-confirm="¿Está seguro de eliminar permanentemente este expediente? Esta acción es irreversible.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body p-4">
                     <p class="text-danger small fw-semibold">ATENCIÓN: Esta acción es irreversible y eliminará el expediente permanentemente del sistema.</p>

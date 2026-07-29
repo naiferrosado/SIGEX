@@ -14,16 +14,26 @@
         </div>
     </div>
 
-    <!-- Alertas Flash -->
+    <!-- Alertas Flash como Toasts -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small" role="alert">
-                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% else %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% endif %}
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const messagesEl = document.getElementById('flask-flash-messages');
+                    if (messagesEl && messagesEl.dataset.messages) {
+                        try {
+                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                            flashMessages.forEach(([category, message]) => {
+                                let type = category === "error" ? "danger" : category;
+                                showToast(message, type);
+                            });
+                        } catch (e) {
+                            console.error("Error parsing flash messages:", e);
+                        }
+                    }
+                });
+            </script>
         {% endif %}
     {% endwith %}
 

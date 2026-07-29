@@ -67,20 +67,27 @@
         </div>
     </div>
 
-    <!-- Alertas Flash -->
+    <!-- Alertas Flash como Toasts -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mt-3 mb-1" role="alert"
-        style="border-radius: 8px;">
-        <i
-            class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"
-            style="padding: 0.8rem;"></button>
-    </div>
-    {% endfor %}
-    {% endif %}
+        {% if messages %}
+            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const messagesEl = document.getElementById('flask-flash-messages');
+                    if (messagesEl && messagesEl.dataset.messages) {
+                        try {
+                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                            flashMessages.forEach(([category, message]) => {
+                                let type = category === "error" ? "danger" : category;
+                                showToast(message, type);
+                            });
+                        } catch (e) {
+                            console.error("Error parsing flash messages:", e);
+                        }
+                    }
+                });
+            </script>
+        {% endif %}
     {% endwith %}
 
     <!-- Tarjeta de Contexto del Expediente (Light Blue Card - Siempre visible) -->
@@ -560,7 +567,7 @@
                     <i class="bi bi-lock-fill"></i> Modo solo lectura (Inmutable)
                 </span>
                 <button class="btn btn-white btn-sm d-flex align-items-center gap-1 border shadow-sm" {% if not
-                    expediente_preseleccionado %}disabled{% endif %} onclick="alert('Exportando registros a CSV...')">
+                    expediente_preseleccionado %}disabled{% endif %} onclick="showToast('Exportando registros a CSV...', 'success')">
                     <i class="bi bi-download"></i> Exportar
                 </button>
             </div>

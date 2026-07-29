@@ -118,16 +118,26 @@
         </div>
     </div>
 
-    <!-- Alertas Flash -->
+    <!-- Alertas Flash como Toasts -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm small py-2 px-3 mb-4" role="alert" style="border-radius: 8px;">
-                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-triangle-fill{% endif %} me-2"></i>
-                    {{ message|safe }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
-                </div>
-            {% endfor %}
+            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const messagesEl = document.getElementById('flask-flash-messages');
+                    if (messagesEl && messagesEl.dataset.messages) {
+                        try {
+                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                            flashMessages.forEach(([category, message]) => {
+                                let type = category === "error" ? "danger" : category;
+                                showToast(message, type);
+                            });
+                        } catch (e) {
+                            console.error("Error parsing flash messages:", e);
+                        }
+                    }
+                });
+            </script>
         {% endif %}
     {% endwith %}
 
@@ -139,8 +149,16 @@
                 <span class="fw-bold text-sigex-blue fs-5">{{ "{:.1f}%".format(factura.porcentaje_pagado) }}</span>
             </div>
             <div class="progress progress-custom mb-3">
-                <div class="progress-bar bg-success" role="progressbar" style="width: {{ factura.porcentaje_pagado }}%;" aria-valuenow="{{ factura.porcentaje_pagado }}" aria-valuemin="0" aria-valuemax="100"></div>
+                <div id="recaudacion-progress-bar" class="progress-bar bg-success" role="progressbar" aria-valuenow="{{ factura.porcentaje_pagado }}" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const progressBar = document.getElementById('recaudacion-progress-bar');
+                    if (progressBar) {
+                        progressBar.style.width = "{{ factura.porcentaje_pagado }}%";
+                    }
+                });
+            </script>
             <div class="row text-center text-md-start">
                 <div class="col-md-4 mb-2 mb-md-0 border-end">
                     <span class="text-muted small d-block mb-1">Monto Total Factura:</span>
@@ -307,9 +325,9 @@
 
                         <!-- Botón de Registro de Cobro -->
                         {% if c.partida.estado_pago == 'Pendiente' and current_user.rol in ['Socio', 'Administrador', 'Asociado'] %}
-                        <form method="POST" action="{{ url_for('pagar_cuota_factura', factura_id=factura.id, cuota_id=c.partida.id) }}" class="d-grid mt-2">
+                        <form method="POST" action="{{ url_for('pagar_cuota_factura', factura_id=factura.id, cuota_id=c.partida.id) }}" class="d-grid mt-2" data-confirm="¿Está seguro de registrar el cobro para esta cuota?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-outline-success btn-sm fw-semibold" onclick="return confirm('¿Está seguro de registrar el cobro para esta cuota?');">
+                            <button type="submit" class="btn btn-outline-success btn-sm fw-semibold">
                                 <i class="bi bi-check-lg"></i> Registrar Cobro
                             </button>
                         </form>

@@ -34,14 +34,26 @@
                     <h1 class="h4 fw-bold text-center mb-2" style="color: #0046a6; font-family: 'Segoe UI', Arial, sans-serif;">Actualización de Seguridad</h1>
                     <p class="text-muted small text-center mb-4">Es necesario que configure una contraseña personal y segura antes de continuar.</p>
                     
+                    <!-- Alertas Flash como Toasts -->
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ category }} alert-dismissible fade show small py-2 mb-3" role="alert">
-                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem 1rem;"></button>
-                                </div>
-                            {% endfor %}
+                            <div id="flask-flash-messages" data-messages="{{ messages|tojson|forceescape }}" style="display: none;"></div>
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    const messagesEl = document.getElementById('flask-flash-messages');
+                                    if (messagesEl && messagesEl.dataset.messages) {
+                                        try {
+                                            const flashMessages = JSON.parse(messagesEl.dataset.messages);
+                                            flashMessages.forEach(([category, message]) => {
+                                                let type = category === "error" ? "danger" : category;
+                                                showToast(message, type);
+                                            });
+                                        } catch (e) {
+                                            console.error("Error parsing flash messages:", e);
+                                        }
+                                    }
+                                });
+                            </script>
                         {% endif %}
                     {% endwith %}
                     

@@ -171,43 +171,56 @@
     });
 
     function aprobarTiempo(id, buttonEl) {
-        if (!confirm("¿Está seguro de aprobar este registro de tiempo?")) return;
-        buttonEl.disabled = true;
-        fetch(`/tiempos/${id}/aprobar`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token() }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast("Registro de tiempo aprobado con éxito.", "success");
-                // Remove row with effect
-                const row = buttonEl.closest('tr');
-                row.style.transition = 'all 0.5s ease';
-                row.style.opacity = '0';
-                setTimeout(() => {
-                    row.remove();
-                    // Update badge task counter
-                    const badge = document.querySelector('.badge.bg-danger');
-                    if (badge) {
-                        let val = parseInt(badge.innerText) || 0;
-                        if (val > 0) {
-                            badge.innerText = (val - 1) + ' tareas';
-                        }
+        Swal.fire({
+            title: '¿Aprobar tiempo?',
+            text: '¿Está seguro de aprobar este registro de tiempo?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, aprobar',
+            cancelButtonText: 'Cancelar',
+            customClass: { popup: 'rounded-4 border-0 shadow' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                buttonEl.disabled = true;
+                fetch(`/tiempos/${id}/aprobar`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
                     }
-                }, 500);
-            } else {
-                showToast(data.error || "Ocurrió un error al aprobar.", "danger");
-                buttonEl.disabled = false;
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast("Registro de tiempo aprobado con éxito.", "success");
+                        // Remove row with effect
+                        const row = buttonEl.closest('tr');
+                        row.style.transition = 'all 0.5s ease';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            // Update badge task counter
+                            const badge = document.querySelector('.badge.bg-danger');
+                            if (badge) {
+                                let val = parseInt(badge.innerText) || 0;
+                                if (val > 0) {
+                                    badge.innerText = (val - 1) + ' tareas';
+                                }
+                            }
+                        }, 500);
+                    } else {
+                        showToast(data.error || "Ocurrió un error al aprobar.", "danger");
+                        buttonEl.disabled = false;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast("Error de conexión al servidor.", "danger");
+                    buttonEl.disabled = false;
+                });
             }
-        })
-        .catch(err => {
-            console.error(err);
-            showToast("Error de conexión al servidor.", "danger");
-            buttonEl.disabled = false;
         });
     }
 </script>
