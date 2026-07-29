@@ -1710,21 +1710,27 @@ def register_routes(app):
         q = request.args.get("q", "").strip()
         status = request.args.get("status", "Todos").strip()
         tipo = request.args.get("tipo", "Todos").strip()
+        cliente_id = request.args.get("cliente_id", type=int)
 
-        # Si no hay término de búsqueda, no se muestra nada (según requerimiento)
-        if not q:
+        # Si no hay término de búsqueda ni cliente, no se muestra nada
+        if not q and not cliente_id:
             return jsonify([])
 
-        search_pattern = f"%{q}%"
-        query = Expediente.query.join(Cliente).filter(
-            db.or_(
-                Expediente.codigo_firma.ilike(search_pattern),
-                Expediente.nombre_caso.ilike(search_pattern),
-                Cliente.rnc_cedula.ilike(search_pattern),
-                Cliente.nombres.ilike(search_pattern),
-                Cliente.apellidos.ilike(search_pattern),
+        query = Expediente.query
+        if q:
+            search_pattern = f"%{q}%"
+            query = query.join(Cliente).filter(
+                db.or_(
+                    Expediente.codigo_firma.ilike(search_pattern),
+                    Expediente.nombre_caso.ilike(search_pattern),
+                    Cliente.rnc_cedula.ilike(search_pattern),
+                    Cliente.nombres.ilike(search_pattern),
+                    Cliente.apellidos.ilike(search_pattern),
+                )
             )
-        )
+
+        if cliente_id:
+            query = query.filter(Expediente.cliente_id == cliente_id)
 
         if current_user.rol == "Cliente":
             cliente_db = Cliente.query.filter_by(usuario_id=current_user.id).first()
@@ -6559,8 +6565,38 @@ def register_routes(app):
     @app.route("/contratos")
     @login_required
     def contratos_index():
-        contratos = ContratoHonorarios.query.order_by(ContratoHonorarios.fecha_firma.desc()).all()
-        return render_template("contratos/index.html", contratos=contratos)
+        q = request.args.get("q", "").strip()
+        period = request.args.get("period", "Todos").strip()
+        
+        query = ContratoHonorarios.query
+        
+        if q:
+            search_pattern = f"%{q}%"
+            query = query.join(Cliente, ContratoHonorarios.cliente_id == Cliente.id).outerjoin(
+                Expediente, ContratoHonorarios.expediente_id == Expediente.id
+            ).filter(
+                db.or_(
+                    Cliente.nombres.ilike(search_pattern),
+                    Cliente.apellidos.ilike(search_pattern),
+                    db.func.concat(Cliente.nombres, ' ', Cliente.apellidos).ilike(search_pattern),
+                    Expediente.nombre_caso.ilike(search_pattern),
+                    Expediente.codigo_firma.ilike(search_pattern),
+                    db.func.cast(ContratoHonorarios.id, db.String).ilike(search_pattern)
+                )
+            )
+            
+        if period == "semana":
+            start_date = rd_today() - timedelta(days=rd_today().weekday())
+            query = query.filter(ContratoHonorarios.fecha_firma >= start_date)
+        elif period == "mes":
+            start_date = rd_today().replace(day=1)
+            query = query.filter(ContratoHonorarios.fecha_firma >= start_date)
+        elif period == "anio":
+            start_date = rd_today().replace(month=1, day=1)
+            query = query.filter(ContratoHonorarios.fecha_firma >= start_date)
+            
+        contratos = query.order_by(ContratoHonorarios.fecha_firma.desc(), ContratoHonorarios.id.desc()).all()
+        return render_template("contratos/index.html", contratos=contratos, query_q=q, selected_period=period)
 
     @app.route("/contratos/nuevo", methods=["GET", "POST"])
     @login_required
