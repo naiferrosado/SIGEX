@@ -5,9 +5,20 @@
 
 <main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
     <div class="mx-auto" style="max-width: 1000px;">
-        <div class="mb-4">
-            <h2 class="fw-bold text-primary">Registrar Nuevo Expediente</h2>
-            <p class="text-muted">Complete la información para iniciar el proceso legal o administrativo.</p>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-primary mb-1">Registrar Nuevo Expediente</h2>
+                <p class="text-muted small mb-0">Complete la información para iniciar el proceso legal o administrativo.</p>
+            </div>
+            {% if request.args.get('contrato_id') %}
+            <a href="{{ url_for('presupuestos_index') }}" class="btn btn-outline-secondary btn-sm rounded-3 fw-semibold px-3 py-2 shadow-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Presupuestos
+            </a>
+            {% else %}
+            <a href="{{ url_for('expedientes') }}" class="btn btn-outline-secondary btn-sm rounded-3 fw-semibold px-3 py-2 shadow-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
+            </a>
+            {% endif %}
         </div>
 
         <ul class="nav nav-tabs border-0 mb-4" id="expTabs" role="tablist">
