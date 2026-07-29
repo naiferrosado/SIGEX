@@ -2261,6 +2261,39 @@ def register_routes(app):
         else:
             form_admin.procedimiento_id.choices = [(0, "Seleccione procedimiento...")]
 
+        # Si es un GET y se reciben parámetros para pre-llenar (ej: desde aceptar presupuesto)
+        if request.method == "GET":
+            cliente_pre = request.args.get("cliente_id", type=int)
+            if cliente_pre:
+                form_judicial.cliente_id.data = cliente_pre
+                form_admin.cliente_id.data = cliente_pre
+            
+            nombre_caso_pre = request.args.get("nombre_caso")
+            if nombre_caso_pre:
+                form_judicial.nombre_caso.data = nombre_caso_pre
+                form_admin.nombre_caso.data = nombre_caso_pre
+                
+            materia_pre = request.args.get("materia")
+            if materia_pre:
+                materia_obj = MateriaLegal.query.filter(MateriaLegal.nombre.ilike(materia_pre)).first()
+                if materia_obj:
+                    form_judicial.materia_id.data = materia_obj.id
+                    form_admin.materia_id.data = materia_obj.id
+                    
+                    # Cargar procedimientos para esa materia de forma preventiva
+                    procs_jud = ProcedimientoLegal.query.filter_by(materia_id=materia_obj.id, activo=True).order_by(ProcedimientoLegal.nombre.asc()).all()
+                    form_judicial.procedimiento_id.choices = [(0, "Seleccione procedimiento...")] + [(p.id, p.nombre) for p in procs_jud]
+                    
+                    procs_adm = ProcedimientoLegal.query.filter_by(materia_id=materia_obj.id, activo=True).order_by(ProcedimientoLegal.nombre.asc()).all()
+                    form_admin.procedimiento_id.choices = [(0, "Seleccione procedimiento...")] + [(p.id, p.nombre) for p in procs_adm]
+                    
+            monto_pre = request.args.get("monto", type=float)
+            if monto_pre:
+                form_judicial.valor_estimado_caso.data = monto_pre
+                form_admin.valor_estimado_caso.data = monto_pre
+                form_judicial.tarifa_monto.data = monto_pre
+                form_admin.tarifa_monto.data = monto_pre
+
         # PROCESAR EL FORMULARIO ENVIADO (POST)
         if request.method == "POST":
             codigo_generado = f"EXP-{uuid.uuid4().hex[:6].upper()}"
@@ -2364,6 +2397,15 @@ def register_routes(app):
                 try:
                     db.session.add(nuevo_caso)
                     db.session.commit()
+                    
+                    # Vincular contrato si viene de un presupuesto aceptado
+                    contrato_id = request.args.get("contrato_id", type=int)
+                    if contrato_id:
+                        contrato = ContratoHonorarios.query.get(contrato_id)
+                        if contrato:
+                            contrato.expediente_id = nuevo_caso.id
+                            db.session.commit()
+                            
                     # Registrar en auditoría
                     registrar_auditoria(
                         usuario_id=current_user.id,
@@ -2467,6 +2509,15 @@ def register_routes(app):
                 try:
                     db.session.add(nuevo_tramite)
                     db.session.commit()
+                    
+                    # Vincular contrato si viene de un presupuesto aceptado
+                    contrato_id = request.args.get("contrato_id", type=int)
+                    if contrato_id:
+                        contrato = ContratoHonorarios.query.get(contrato_id)
+                        if contrato:
+                            contrato.expediente_id = nuevo_tramite.id
+                            db.session.commit()
+                            
                     # Registrar en auditoría
                     registrar_auditoria(
                         usuario_id=current_user.id,
@@ -6375,8 +6426,20 @@ def register_routes(app):
     @app.route("/presupuestos")
     @login_required
     def presupuestos_index():
-        presupuestos = Presupuesto.query.order_by(Presupuesto.fecha_emision.desc()).all()
-        return render_template("presupuestos/index.html", presupuestos=presupuestos)
+        q = request.args.get("q", "").strip()
+        query = Presupuesto.query
+        if q:
+            search_pattern = f"%{q}%"
+            query = query.join(Cliente, Presupuesto.cliente_id == Cliente.id).filter(
+                db.or_(
+                    Presupuesto.titulo.ilike(search_pattern),
+                    Cliente.nombres.ilike(search_pattern),
+                    Cliente.apellidos.ilike(search_pattern),
+                    db.func.concat(Cliente.nombres, ' ', Cliente.apellidos).ilike(search_pattern)
+                )
+            )
+        presupuestos = query.order_by(Presupuesto.fecha_emision.desc()).all()
+        return render_template("presupuestos/index.html", presupuestos=presupuestos, query_q=q)
 
     @app.route("/presupuestos/nuevo", methods=["GET", "POST"])
     @login_required
@@ -6472,35 +6535,25 @@ def register_routes(app):
         # Generar cronograma del contrato
         BillingService.generar_cronograma(contrato)
         
-        # 2. Generar expediente automáticamente
-        codigo_firma = f"EXP-{uuid.uuid4().hex[:6].upper()}"
-        expediente = ExpedienteJudicial(
-            codigo_firma=codigo_firma,
-            cliente_id=pres.cliente_id,
-            nombre_caso=pres.titulo,
-            rol_firma='Demandante',
-            rama_derecho=pres.materia,
-            sub_categoria=pres.tipo_asunto,
-            tipo_accion=pres.tipo_asunto,
-            jurisdiccion_actual='No especificada',
-            tipo_tramite='Judicial',
-            estado='Activo',
-            prioridad='Media',
-            nivel_riesgo='Medio',
-            probabilidad_exito='Media',
-            origen_cliente='Cliente Nuevo',
-            fecha_contratacion=rd_today(),
-            materia_id=None,
-            procedimiento_id=None
-        )
-        db.session.add(expediente)
-        db.session.flush()
-        
-        # Vincular contrato al expediente
-        contrato.expediente_id = expediente.id
-        
+        # 2. Redireccionar a la pantalla de crear expediente pre-llenado
         db.session.commit()
-        flash(f"Presupuesto aceptado. Se ha generado el Contrato #{contrato.id} y el Expediente '{expediente.nombre_caso}' con código {codigo_firma}", "success")
+        flash(f"Presupuesto #{pres.id} aceptado. Por favor complete los detalles para registrar el nuevo expediente.", "success")
+        return redirect(url_for("nuevo_expediente",
+                                cliente_id=pres.cliente_id,
+                                nombre_caso=pres.titulo,
+                                materia=pres.materia,
+                                monto=pres.monto_total,
+                                contrato_id=contrato.id,
+                                presupuesto_id=pres.id))
+
+    @app.route("/presupuestos/<int:presupuesto_id>/rechazar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def presupuestos_rechazar(presupuesto_id):
+        pres = Presupuesto.query.get_or_404(presupuesto_id)
+        pres.estado = 'Rechazado'
+        db.session.commit()
+        flash(f"El presupuesto #{pres.id} ha sido marcado como Rechazado.", "warning")
         return redirect(url_for("presupuestos_index"))
 
     @app.route("/contratos")

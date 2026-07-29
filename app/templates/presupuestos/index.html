@@ -73,6 +73,26 @@
         </div>
     </div>
 
+    <!-- Search/Filter Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <form method="GET" action="{{ url_for('presupuestos_index') }}" class="d-flex gap-2">
+                <div class="input-group shadow-sm" style="border-radius: 8px; border: 1px solid #ced4da; overflow: hidden; background-color: #ffffff;">
+                    <span class="input-group-text bg-transparent border-0 text-muted pe-1"><i class="bi bi-search" style="font-size: 0.85rem;"></i></span>
+                    <input type="text" class="form-control bg-transparent border-0 py-2 ps-1" name="q" placeholder="Buscar por título o cliente..." value="{{ query_q or '' }}" style="font-size: 0.9rem; box-shadow: none;">
+                </div>
+                <button type="submit" class="btn btn-primary px-3 rounded-3 fw-semibold shadow-sm" style="background-color: #00409A; border-color: #00409A;">
+                    Buscar
+                </button>
+                {% if query_q %}
+                <a href="{{ url_for('presupuestos_index') }}" class="btn btn-outline-secondary px-3 rounded-3 fw-semibold">
+                    Limpiar
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
     <!-- Table Card -->
     <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
         <div class="table-responsive">
@@ -89,10 +109,10 @@
                         <th class="text-center pe-4">Acciones</th>
                     </tr>
                 </thead>
-                <tbody style="font-size: 0.88rem;">
+                <tbody id="presupuestosTableBody" style="font-size: 0.88rem;">
                     {% if presupuestos %}
                         {% for p in presupuestos %}
-                        <tr>
+                        <tr class="presupuesto-row {% if loop.index > 1 %}d-none{% endif %}">
                             <td class="ps-4">
                                 <div class="fw-bold text-dark">#COT-{{ p.id }}</div>
                                 <div class="text-muted small">{{ p.titulo }}</div>
@@ -116,11 +136,20 @@
                             </td>
                             <td class="text-center pe-4">
                                 {% if p.estado == 'Pendiente Aceptación' %}
-                                <form action="{{ url_for('presupuestos_aceptar', presupuesto_id=p.id) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-success fw-semibold rounded-3 px-3">
-                                        <i class="bi bi-check-circle me-1"></i> Aceptar y Crear Expediente
-                                    </button>
-                                </form>
+                                <div class="d-flex gap-2 justify-content-center">
+                                    <form action="{{ url_for('presupuestos_aceptar', presupuesto_id=p.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-success fw-semibold rounded-3 px-3">
+                                            <i class="bi bi-check-circle me-1"></i> Aceptar y Crear Expediente
+                                        </button>
+                                    </form>
+                                    <form action="{{ url_for('presupuestos_rechazar', presupuesto_id=p.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-danger fw-semibold rounded-3 px-3">
+                                            <i class="bi bi-x-circle me-1"></i> Rechazar
+                                        </button>
+                                    </form>
+                                </div>
                                 {% else %}
                                 <span class="text-muted small"><i class="bi bi-lock-fill me-1"></i> Procesado</span>
                                 {% endif %}
@@ -139,7 +168,43 @@
             </table>
         </div>
     </div>
+    {% if presupuestos|length > 1 %}
+    <div class="text-center mt-3" id="showMoreContainer">
+        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-4 py-2 fw-bold" id="togglePresupuestosBtn" onclick="togglePresupuestos()" style="border-color: #00409A; color: #00409A;">
+            <i class="bi bi-chevron-down me-1" id="togglePresupuestosIcon"></i> <span id="togglePresupuestosText">Mostrar más ({{ presupuestos|length - 1 }} adicionales)</span>
+        </button>
+    </div>
+    {% endif %}
 </div>
+
+<script>
+    let presupuestosExpanded = false;
+    function togglePresupuestos() {
+        const rows = document.querySelectorAll('.presupuesto-row');
+        const btnText = document.getElementById('togglePresupuestosText');
+        const btnIcon = document.getElementById('togglePresupuestosIcon');
+        
+        if (presupuestosExpanded) {
+            // Colapsar: ocultar las filas mayores al primer elemento
+            rows.forEach((row, idx) => {
+                if (idx > 0) {
+                    row.classList.add('d-none');
+                }
+            });
+            btnText.innerText = 'Mostrar más ({{ presupuestos|length - 1 }} adicionales)';
+            btnIcon.className = 'bi bi-chevron-down me-1';
+            presupuestosExpanded = false;
+        } else {
+            // Expandir: mostrar todas las filas
+            rows.forEach(row => {
+                row.classList.remove('d-none');
+            });
+            btnText.innerText = 'Mostrar menos';
+            btnIcon.className = 'bi bi-chevron-up me-1';
+            presupuestosExpanded = true;
+        }
+    }
+</script>
 
 <style>
     .bg-primary-light { background-color: rgba(0, 64, 154, 0.1); }
