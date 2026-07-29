@@ -6163,7 +6163,7 @@ def register_routes(app):
         if ncf_filter:
             query = query.filter(FacturaHonorario.ncf.ilike(f"%{ncf_filter.strip()}%"))
 
-        all_invoices = query.order_by(FacturaHonorario.fecha_emision.desc()).all()
+        all_invoices = query.order_by(FacturaHonorario.fecha_emision.desc(), FacturaHonorario.id.desc()).all()
 
         total_facturado = sum(f.monto_total for f in all_invoices if f.estado_pago != 'Anulado')
         total_cobrado = sum(f.total_pagado for f in all_invoices if f.estado_pago != 'Anulado')

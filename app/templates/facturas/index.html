@@ -237,7 +237,7 @@
                     </thead>
                     <tbody>
                         {% for f, est in facturas_con_estado %}
-                        <tr>
+                        <tr class="{% if not loop.first %}collapsible-factura-row d-none{% endif %}">
                             <td class="px-4">
                                 <span class="fw-bold text-dark">{{ f.id }}</span>
                                 {% if f.ncf %}
@@ -291,6 +291,14 @@
                     </tbody>
                 </table>
             </div>
+            {% if facturas_con_estado|length > 1 %}
+            <div class="text-center py-3 border-top bg-light" style="border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-4 fw-bold" id="toggleFacturaRowsBtn" onclick="toggleFacturaRows()">
+                    <i class="bi bi-chevron-down me-1" id="toggleFacturaIcon"></i>
+                    <span id="toggleFacturaText">Mostrar más ({{ facturas_con_estado|length - 1 }} adicionales)</span>
+                </button>
+            </div>
+            {% endif %}
         </div>
     </div>
 </main>
@@ -374,5 +382,30 @@
             });
         }
     });
+
+    let facturaRowsCollapsed = true;
+    window.toggleFacturaRows = function() {
+        const rows = document.querySelectorAll('.collapsible-factura-row');
+        const icon = document.getElementById('toggleFacturaIcon');
+        const text = document.getElementById('toggleFacturaText');
+        
+        facturaRowsCollapsed = !facturaRowsCollapsed;
+        
+        rows.forEach(r => {
+            if (facturaRowsCollapsed) {
+                r.classList.add('d-none');
+            } else {
+                r.classList.remove('d-none');
+            }
+        });
+        
+        if (facturaRowsCollapsed) {
+            icon.className = 'bi bi-chevron-down me-1';
+            text.innerText = `Mostrar más (${rows.length} adicionales)`;
+        } else {
+            icon.className = 'bi bi-chevron-up me-1';
+            text.innerText = 'Mostrar menos';
+        }
+    };
 </script>
 {% endblock %}
