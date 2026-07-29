@@ -4792,7 +4792,7 @@ def register_routes(app):
         expedientes_select = Expediente.query.filter(
             Expediente.estado == "Abierto"
         ).all()
-        usuarios_select = Usuario.query.filter(Usuario.activo).all()
+        usuarios_select = Usuario.query.filter(Usuario.activo, Usuario.rol != "Cliente").order_by(Usuario.nombre.asc()).all()
         return render_template(
             "agenda/index.html",
             expedientes_select=expedientes_select,

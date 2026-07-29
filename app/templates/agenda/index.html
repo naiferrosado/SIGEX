@@ -180,15 +180,8 @@
                         </select>
                     </div>
 
-                    <!-- Select oculto nativo de Expediente para FullCalendar / Agenda -->
-                    <div class="d-none">
-                        <select id="eventoExpedienteId" required>
-                            <option value="" disabled selected></option>
-                            {% for exp in expedientes_select %}
-                            <option value="{{ exp.id }}">{{ exp.nombre_caso }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <!-- Input oculto de Expediente para FullCalendar / Agenda -->
+                    <input type="hidden" id="eventoExpedienteId" name="expediente_id" required>
 
                     <!-- Cliente -->
                     <div class="mb-3">
