@@ -73,11 +73,30 @@
                                     {{ form_judicial.rol_firma.label(class="form-label small fw-bold") }}
                                     {{ form_judicial.rol_firma(class="form-select") }}
                                 </div>
-                                 <div class="col-md-3">
-                                     {{ form_judicial.abogados_ids.label(class="form-label small fw-bold") }}
-                                     {{ form_judicial.abogados_ids(class="form-select", multiple="multiple") }}
-                                     <div class="form-text mt-1 text-muted" style="font-size: 0.7rem;">Usa Ctrl/Cmd para seleccionar varios.</div>
-                                 </div>
+                                <div class="col-md-3">
+                                    {{ form_judicial.abogados_ids.label(class="form-label small fw-bold") }}
+                                    
+                                    <!-- Select oculto nativo de WTForms -->
+                                    <div class="d-none">
+                                        {{ form_judicial.abogados_ids(class="form-select", id="abogados_ids_jud", multiple="multiple") }}
+                                    </div>
+                                    
+                                    <!-- Buscador interactivo premium -->
+                                    <div id="abogadoSearchContainer_jud" style="position: relative;">
+                                        <div class="input-group shadow-sm" style="border-radius: 8px; border: 1px solid #ced4da; overflow: hidden; background-color: #f8fafc;">
+                                            <span class="input-group-text bg-transparent border-0 text-muted pe-1"><i class="bi bi-search" style="font-size: 0.85rem;"></i></span>
+                                            <input type="text" class="form-control bg-transparent border-0 py-2 ps-1" id="searchAbogadoInput_jud" placeholder="Escribe para buscar..." autocomplete="off" style="font-size: 0.9rem; box-shadow: none;">
+                                        </div>
+                                        <div class="dropdown-menu w-100 shadow border-0 mt-1 py-0" id="searchAbogadoDropdown_jud" style="max-height: 200px; overflow-y: auto; display: none; z-index: 1050; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;">
+                                            <!-- Opciones de abogados inyectadas dinámicamente por JS -->
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Chips / Badges de seleccionados -->
+                                    <div class="d-flex flex-wrap gap-1 mt-2" id="selectedAbogadosContainer_jud">
+                                        <!-- Chips inyectados por JS -->
+                                    </div>
+                                </div>
                             </div>
                             
                             <hr>
@@ -224,11 +243,30 @@
                                     {{ form_admin.rol_firma.label(class="form-label small fw-bold") }}
                                     {{ form_admin.rol_firma(class="form-select") }}
                                 </div>
-                                 <div class="col-md-3">
-                                     {{ form_admin.abogados_ids.label(class="form-label small fw-bold") }}
-                                     {{ form_admin.abogados_ids(class="form-select", multiple="multiple") }}
-                                     <div class="form-text mt-1 text-muted" style="font-size: 0.7rem;">Usa Ctrl/Cmd para seleccionar varios.</div>
-                                 </div>
+                                <div class="col-md-3">
+                                      {{ form_admin.abogados_ids.label(class="form-label small fw-bold") }}
+                                      
+                                      <!-- Select oculto nativo de WTForms -->
+                                      <div class="d-none">
+                                          {{ form_admin.abogados_ids(class="form-select", id="abogados_ids_adm", multiple="multiple") }}
+                                      </div>
+                                      
+                                      <!-- Buscador interactivo premium -->
+                                      <div id="abogadoSearchContainer_adm" style="position: relative;">
+                                          <div class="input-group shadow-sm" style="border-radius: 8px; border: 1px solid #ced4da; overflow: hidden; background-color: #f8fafc;">
+                                              <span class="input-group-text bg-transparent border-0 text-muted pe-1"><i class="bi bi-search" style="font-size: 0.85rem;"></i></span>
+                                              <input type="text" class="form-control bg-transparent border-0 py-2 ps-1" id="searchAbogadoInput_adm" placeholder="Escribe para buscar..." autocomplete="off" style="font-size: 0.9rem; box-shadow: none;">
+                                          </div>
+                                          <div class="dropdown-menu w-100 shadow border-0 mt-1 py-0" id="searchAbogadoDropdown_adm" style="max-height: 200px; overflow-y: auto; display: none; z-index: 1050; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;">
+                                              <!-- Opciones de abogados inyectadas dinámicamente por JS -->
+                                          </div>
+                                      </div>
+                                      
+                                      <!-- Chips / Badges de seleccionados -->
+                                      <div class="d-flex flex-wrap gap-1 mt-2" id="selectedAbogadosContainer_adm">
+                                          <!-- Chips inyectados por JS -->
+                                      </div>
+                                  </div>
                             </div>
                             
                             <hr>
@@ -617,6 +655,177 @@
             }
         });
     }
+    let masterAbogadosOptions = {
+        jud: [],
+        adm: []
+    };
+
+    function setupAbogadosSelector(prefix) {
+        const selectNative = document.getElementById(`abogados_ids_${prefix}`);
+        const searchInput = document.getElementById(`searchAbogadoInput_${prefix}`);
+        const dropdownMenu = document.getElementById(`searchAbogadoDropdown_${prefix}`);
+        
+        if (!selectNative || !searchInput || !dropdownMenu) return;
+
+        masterAbogadosOptions[prefix] = Array.from(selectNative.options).map(opt => ({
+            id: parseInt(opt.value),
+            nombre: opt.text
+        }));
+
+        searchInput.addEventListener('input', function() {
+            renderAbogadoDropdownResults(prefix, this.value);
+        });
+
+        searchInput.addEventListener('focus', function() {
+            renderAbogadoDropdownResults(prefix, this.value);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.style.display = 'none';
+            }
+        });
+
+        renderSelectedAbogados(prefix);
+    }
+
+    function renderAbogadoDropdownResults(prefix, query) {
+        const dropdownMenu = document.getElementById(`searchAbogadoDropdown_${prefix}`);
+        const selectNative = document.getElementById(`abogados_ids_${prefix}`);
+        if (!dropdownMenu || !selectNative) return;
+
+        const normalizedQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const selectedIds = Array.from(selectNative.options)
+            .filter(opt => opt.selected)
+            .map(opt => parseInt(opt.value));
+        
+        dropdownMenu.innerHTML = '';
+        
+        const filtered = masterAbogadosOptions[prefix].filter(opt => {
+            const matchesQuery = opt.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalizedQuery);
+            const isNotSelected = !selectedIds.includes(opt.id);
+            return matchesQuery && isNotSelected;
+        });
+
+        if (filtered.length > 0) {
+            const btnAll = document.createElement('button');
+            btnAll.type = 'button';
+            btnAll.className = 'dropdown-item d-flex align-items-center py-2 px-3 small border-bottom text-primary fw-semibold';
+            btnAll.style.textAlign = 'left';
+            btnAll.innerHTML = `<i class="bi bi-people-fill me-2"></i> Seleccionar todos`;
+            btnAll.onclick = function() {
+                selectAllAbogados(prefix);
+            };
+            dropdownMenu.appendChild(btnAll);
+
+            filtered.forEach(u => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'dropdown-item d-flex align-items-center py-2 px-3 small border-bottom';
+                btn.style.textAlign = 'left';
+                btn.innerHTML = `<i class="bi bi-person-plus text-primary me-2"></i> ${u.nombre}`;
+                btn.onclick = function() {
+                    selectAbogado(prefix, u.id);
+                };
+                dropdownMenu.appendChild(btn);
+            });
+            dropdownMenu.style.display = 'block';
+        } else {
+            dropdownMenu.innerHTML = '<div class="p-3 text-muted text-center small">No se encontraron abogados</div>';
+            dropdownMenu.style.display = 'block';
+        }
+    }
+
+    window.selectAbogado = function(prefix, id) {
+        const selectNative = document.getElementById(`abogados_ids_${prefix}`);
+        if (!selectNative) return;
+        
+        Array.from(selectNative.options).forEach(opt => {
+            if (parseInt(opt.value) === id) {
+                opt.selected = true;
+            }
+        });
+        
+        renderSelectedAbogados(prefix);
+        
+        const searchInput = document.getElementById(`searchAbogadoInput_${prefix}`);
+        if (searchInput) {
+            searchInput.value = '';
+            renderAbogadoDropdownResults(prefix, '');
+        }
+        
+        const dropdownMenu = document.getElementById(`searchAbogadoDropdown_${prefix}`);
+        if (dropdownMenu) {
+            dropdownMenu.style.display = 'none';
+        }
+    };
+
+    window.removeAbogado = function(prefix, id) {
+        const selectNative = document.getElementById(`abogados_ids_${prefix}`);
+        if (!selectNative) return;
+        
+        Array.from(selectNative.options).forEach(opt => {
+            if (parseInt(opt.value) === id) {
+                opt.selected = false;
+            }
+        });
+        
+        renderSelectedAbogados(prefix);
+        
+        const searchInput = document.getElementById(`searchAbogadoInput_${prefix}`);
+        if (searchInput) {
+            renderAbogadoDropdownResults(prefix, searchInput.value);
+        }
+    };
+
+    window.selectAllAbogados = function(prefix) {
+        const selectNative = document.getElementById(`abogados_ids_${prefix}`);
+        if (!selectNative) return;
+        
+        Array.from(selectNative.options).forEach(opt => {
+            opt.selected = true;
+        });
+        
+        renderSelectedAbogados(prefix);
+        
+        const searchInput = document.getElementById(`searchAbogadoInput_${prefix}`);
+        if (searchInput) {
+            searchInput.value = '';
+            renderAbogadoDropdownResults(prefix, '');
+        }
+        
+        const dropdownMenu = document.getElementById(`searchAbogadoDropdown_${prefix}`);
+        if (dropdownMenu) {
+            dropdownMenu.style.display = 'none';
+        }
+    };
+
+    function renderSelectedAbogados(prefix) {
+        const selectNative = document.getElementById(`abogados_ids_${prefix}`);
+        const container = document.getElementById(`selectedAbogadosContainer_${prefix}`);
+        if (!selectNative || !container) return;
+
+        container.innerHTML = '';
+        
+        const selectedIds = Array.from(selectNative.options)
+            .filter(opt => opt.selected)
+            .map(opt => parseInt(opt.value));
+        
+        masterAbogadosOptions[prefix].forEach(opt => {
+            if (selectedIds.includes(opt.id)) {
+                const chip = document.createElement('span');
+                chip.className = 'badge bg-light text-dark border d-flex align-items-center gap-1 py-1.5 px-2 rounded-3 small';
+                chip.style.fontSize = '0.75rem';
+                chip.style.fontWeight = '500';
+                chip.innerHTML = `
+                    <i class="bi bi-person text-secondary"></i>
+                    ${opt.nombre}
+                    <button type="button" class="btn-close ms-1" style="font-size: 0.55rem; width: 0.25rem; height: 0.25rem;" onclick="removeAbogado('${prefix}', ${opt.id})"></button>
+                `;
+                container.appendChild(chip);
+            }
+        });
+    }
     
     document.addEventListener("DOMContentLoaded", function() {
         toggleCobroCampos('jud');
@@ -625,6 +834,9 @@
         setupClientAutocomplete('jud');
         setupClientAutocomplete('adm');
         restoreSelectedClientes();
+
+        setupAbogadosSelector('jud');
+        setupAbogadosSelector('adm');
 
         Promise.all([
             loadMaterias('jud', 'Judicial'),
