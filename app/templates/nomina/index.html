@@ -85,9 +85,66 @@
             </div>
         </div>
 
+        <!-- Panel de Filtros Profesionales -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+            <div class="card-body p-3">
+                <div class="row g-3 align-items-center">
+                    <!-- Búsqueda por Nombre -->
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-search me-1"></i>Buscar Personal</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-0 text-muted" style="border-radius: 8px 0 0 8px;"><i class="bi bi-search"></i></span>
+                            <input type="text" id="filtro-nombre" class="form-control bg-light border-0" placeholder="Nombre del personal..." style="border-radius: 0 8px 8px 0; height: 36px;">
+                        </div>
+                    </div>
+                    
+                    <!-- Puesto / Rol -->
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-briefcase me-1"></i>Puesto / Rol</label>
+                        <select id="filtro-rol" class="form-select form-select-sm bg-light border-0" style="border-radius: 8px; height: 36px;">
+                            <option value="">Todos los puestos</option>
+                            <option value="Socio">Socio</option>
+                            <option value="Asociado">Asociado</option>
+                            <option value="Paralegal">Paralegal</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Rango de Salario Base -->
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-cash-stack me-1"></i>Rango Salario Base</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="number" id="filtro-salario-min" class="form-control form-control-sm bg-light border-0 text-center" placeholder="Min RD$" style="border-radius: 8px; height: 36px;" min="0">
+                            <span class="text-muted small">a</span>
+                            <input type="number" id="filtro-salario-max" class="form-control form-control-sm bg-light border-0 text-center" placeholder="Max RD$" style="border-radius: 8px; height: 36px;" min="0">
+                        </div>
+                    </div>
+                    
+                    <!-- Ordenar -->
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-sort-down me-1"></i>Ordenar por</label>
+                        <select id="ordenar-nomina" class="form-select form-select-sm bg-light border-0" style="border-radius: 8px; height: 36px;">
+                            <option value="nombre-asc">Nombre: A - Z</option>
+                            <option value="nombre-desc">Nombre: Z - A</option>
+                            <option value="salario-asc">Salario: Menor a Mayor</option>
+                            <option value="salario-desc">Salario: Mayor a Menor</option>
+                            <option value="pagar-asc">Total a Pagar: Menor a Mayor</option>
+                            <option value="pagar-desc">Total a Pagar: Mayor a Menor</option>
+                        </select>
+                    </div>
+
+                    <!-- Botón Limpiar -->
+                    <div class="col-md-2 align-self-end">
+                        <button id="btn-limpiar-filtros" class="btn btn-sm btn-light border fw-semibold rounded-3 w-100" style="height: 36px;">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Nómina de Abogados / Paralegales -->
         <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-people me-2 text-warning"></i>Liquidación Detallada del Personal</h5>
-        <div class="d-flex flex-column gap-3">
+        <div id="lista-nomina" class="d-flex flex-column gap-3">
             {% set total_salarios_base = namespace(value=0.0) %}
             {% set total_comisiones = namespace(value=0.0) %}
             {% set total_liquidar = namespace(value=0.0) %}
@@ -97,7 +154,12 @@
                 {% set total_comisiones.value = total_comisiones.value + p.total_comisiones %}
                 {% set total_liquidar.value = total_liquidar.value + p.total_liquidar %}
 
-                <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden abogado-card" 
+                     data-nombre="{{ p.nombre|lower }}" 
+                     data-rol="{{ p.rol }}" 
+                     data-salario="{{ p.salario_base }}" 
+                     data-comisiones="{{ p.total_comisiones }}" 
+                     data-liquidar="{{ p.total_liquidar }}">
                     <div class="card-body p-4">
                         <div class="row align-items-center g-3">
                             <div class="col-md-4">
@@ -188,14 +250,127 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Formatear sumas globales de la plantilla en el cliente
-        const tSalarios = parseFloat("{{ total_salarios_base.value }}");
-        const tComisiones = parseFloat("{{ total_comisiones.value }}");
-        const tLiquidar = parseFloat("{{ total_liquidar.value }}");
+        const filterNombre = document.getElementById("filtro-nombre");
+        const filterRol = document.getElementById("filtro-rol");
+        const filterSalarioMin = document.getElementById("filtro-salario-min");
+        const filterSalarioMax = document.getElementById("filtro-salario-max");
+        const sortSelect = document.getElementById("ordenar-nomina");
+        const btnLimpiar = document.getElementById("btn-limpiar-filtros");
+        const listaNomina = document.getElementById("lista-nomina");
+        const cards = Array.from(document.querySelectorAll(".abogado-card"));
+        
+        // Elements for totals
+        const sumSalariosEl = document.getElementById("sum-salarios");
+        const sumComisionesEl = document.getElementById("sum-comisiones");
+        const sumLiquidarEl = document.getElementById("sum-liquidar");
 
-        document.getElementById('sum-salarios').innerText = 'RD$ ' + tSalarios.toLocaleString('es-DO', {minimumFractionDigits: 2});
-        document.getElementById('sum-comisiones').innerText = 'RD$ ' + tComisiones.toLocaleString('es-DO', {minimumFractionDigits: 2});
-        document.getElementById('sum-liquidar').innerText = 'RD$ ' + tLiquidar.toLocaleString('es-DO', {minimumFractionDigits: 2});
+        function formatRD(val) {
+            return 'RD$ ' + val.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function applyFiltersAndSort() {
+            const queryName = filterNombre.value.trim().toLowerCase();
+            const queryRol = filterRol.value;
+            const minSal = parseFloat(filterSalarioMin.value) || 0;
+            const maxSal = parseFloat(filterSalarioMax.value) || Infinity;
+            
+            let visibleCount = 0;
+            let runningSalario = 0;
+            let runningComision = 0;
+            let runningLiquidar = 0;
+
+            cards.forEach(card => {
+                const name = card.dataset.nombre;
+                const rol = card.dataset.rol;
+                const salario = parseFloat(card.dataset.salario) || 0;
+                const comisiones = parseFloat(card.dataset.comisiones) || 0;
+                const liquidar = parseFloat(card.dataset.liquidar) || 0;
+
+                const matchesName = !queryName || name.includes(queryName);
+                const matchesRol = !queryRol || rol === queryRol;
+                const matchesSalario = salario >= minSal && salario <= maxSal;
+
+                if (matchesName && matchesRol && matchesSalario) {
+                    card.style.display = "";
+                    visibleCount++;
+                    runningSalario += salario;
+                    runningComision += comisiones;
+                    runningLiquidar += liquidar;
+                } else {
+                    card.style.display = "none";
+                }
+            });
+
+            // If no cards are visible, show a placeholder
+            let placeholder = document.getElementById("no-results-placeholder");
+            if (visibleCount === 0 && cards.length > 0) {
+                if (!placeholder) {
+                    placeholder = document.createElement("div");
+                    placeholder.id = "no-results-placeholder";
+                    placeholder.className = "card border-0 shadow-sm rounded-4 p-5 text-center bg-white text-muted";
+                    placeholder.innerHTML = `
+                        <i class="bi bi-search fs-1 d-block mb-3 text-secondary"></i>
+                        No se encontraron resultados para los filtros seleccionados.
+                    `;
+                    listaNomina.appendChild(placeholder);
+                } else {
+                    placeholder.style.display = "";
+                }
+            } else if (placeholder) {
+                placeholder.style.display = "none";
+            }
+
+            // Update summaries dynamically!
+            sumSalariosEl.innerText = formatRD(runningSalario);
+            sumComisionesEl.innerText = formatRD(runningComision);
+            sumLiquidarEl.innerText = formatRD(runningLiquidar);
+
+            // Sorting
+            const sortType = sortSelect.value;
+            const sortedCards = cards.slice().sort((a, b) => {
+                if (sortType === "nombre-asc") {
+                    return a.dataset.nombre.localeCompare(b.dataset.nombre);
+                } else if (sortType === "nombre-desc") {
+                    return b.dataset.nombre.localeCompare(a.dataset.nombre);
+                } else if (sortType === "salario-asc") {
+                    return (parseFloat(a.dataset.salario) || 0) - (parseFloat(b.dataset.salario) || 0);
+                } else if (sortType === "salario-desc") {
+                    return (parseFloat(b.dataset.salario) || 0) - (parseFloat(a.dataset.salario) || 0);
+                } else if (sortType === "pagar-asc") {
+                    return (parseFloat(a.dataset.liquidar) || 0) - (parseFloat(b.dataset.liquidar) || 0);
+                } else if (sortType === "pagar-desc") {
+                    return (parseFloat(b.dataset.liquidar) || 0) - (parseFloat(a.dataset.liquidar) || 0);
+                }
+                return 0;
+            });
+
+            // Re-append sorted cards to DOM
+            sortedCards.forEach(card => {
+                listaNomina.appendChild(card);
+            });
+            if (placeholder) {
+                listaNomina.appendChild(placeholder);
+            }
+        }
+
+        // Event listeners
+        filterNombre.addEventListener("input", applyFiltersAndSort);
+        filterRol.addEventListener("change", applyFiltersAndSort);
+        filterSalarioMin.addEventListener("input", applyFiltersAndSort);
+        filterSalarioMax.addEventListener("input", applyFiltersAndSort);
+        sortSelect.addEventListener("change", applyFiltersAndSort);
+
+        btnLimpiar.addEventListener("click", function() {
+            filterNombre.value = "";
+            filterRol.value = "";
+            filterSalarioMin.value = "";
+            filterSalarioMax.value = "";
+            sortSelect.value = "nombre-asc";
+            applyFiltersAndSort();
+        });
+
+        // Run initial filter/sort/total calculation
+        applyFiltersAndSort();
     });
 </script>
 
