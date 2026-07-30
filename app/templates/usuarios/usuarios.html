@@ -105,6 +105,10 @@
                         <div class="text-uppercase text-primary fw-bold tracking-wider mb-2" style="font-size: 0.65rem;">Información del Sistema</div>
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Correo (Login):</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detCorreo">—</span></div>
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Rol asignado:</span><span class="fw-semibold text-dark" id="detRol">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Cédula:</span><span class="fw-semibold text-dark" id="detCedula">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Fecha de Nacimiento:</span><span class="fw-semibold text-dark" id="detFechaNacimiento">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Teléfono:</span><span class="fw-semibold text-dark" id="detTelefono">—</span></div>
+                        <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Dirección:</span><span class="fw-semibold text-dark text-truncate" style="max-width: 180px;" id="detDireccion" title="">—</span></div>
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Salario Base:</span><span class="fw-semibold text-dark" id="detSalario">—</span></div>
                         <div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted">Comisión:</span><span class="fw-semibold text-dark" id="detComision">—</span></div>
                         <div class="d-flex justify-content-between py-2"><span class="text-muted">Clave temporal:</span><span class="fw-semibold" id="detClave">—</span></div>
@@ -137,11 +141,38 @@
             <form method="POST" action="{{ url_for('agregar_usuario') }}">
                 {{ form.hidden_tag() }}
                 <div class="modal-body p-4 row g-3">
+                    <!-- Sección 1: Información Personal -->
+                    <div class="col-12">
+                        <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Información Personal</div>
+                        <hr class="my-1 text-muted opacity-25">
+                    </div>
                     <div class="col-12">
                         <label class="form-label small fw-semibold">{{ form.nombre.label.text }} <span class="text-danger">*</span></label>
                         {{ form.nombre(class="form-control form-control-sm", placeholder="Ej. Carlos Mendoza") }}
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Cédula</label>
+                        {{ form.cedula(class="form-control form-control-sm", placeholder="Ej. 001-0000000-0") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Fecha de Nacimiento</label>
+                        {{ form.fecha_nacimiento(class="form-control form-control-sm", type="date") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Teléfono</label>
+                        {{ form.telefono(class="form-control form-control-sm", placeholder="Ej. 809-555-5555") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Dirección</label>
+                        {{ form.direccion(class="form-control form-control-sm", rows="1", placeholder="Ej. Calle Duarte #10") }}
+                    </div>
+
+                    <!-- Sección 2: Acceso y Credenciales -->
+                    <div class="col-12 mt-3">
+                        <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Acceso y Credenciales</div>
+                        <hr class="my-1 text-muted opacity-25">
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label small fw-semibold">{{ form.email.label.text }} <span class="text-danger">*</span></label>
                         {{ form.email(class="form-control form-control-sm", placeholder="carlos@rosadomendez.com") }}
                     </div>
@@ -149,9 +180,15 @@
                         <label class="form-label small fw-semibold">{{ form.rol.label.text }}</label>
                         {{ form.rol(class="form-select form-select-sm") }}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-12">
                         <label class="form-label small fw-semibold">Contraseña Inicial <span class="text-danger">*</span></label>
                         {{ form.password(class="form-control form-control-sm", placeholder="Mínimo 6 caracteres") }}
+                    </div>
+
+                    <!-- Sección 3: Información Financiera -->
+                    <div class="col-12 mt-3">
+                        <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Información Financiera</div>
+                        <hr class="my-1 text-muted opacity-25">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Salario Base Mensual (RD$)</label>
@@ -181,11 +218,38 @@
             <form method="POST" action="" id="formEditarAction">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body p-4 row g-3">
+                    <!-- Sección 1: Información Personal -->
+                    <div class="col-12">
+                        <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Información Personal</div>
+                        <hr class="my-1 text-muted opacity-25">
+                    </div>
                     <div class="col-12">
                         <label class="form-label small fw-semibold">Nombre Completo</label>
                         <input type="text" class="form-control form-control-sm" name="nombre" id="editNombre" required>
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Cédula</label>
+                        <input type="text" class="form-control form-control-sm" name="cedula" id="editCedula" placeholder="Ej. 001-0000000-0">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control form-control-sm" name="fecha_nacimiento" id="editFechaNacimiento">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Teléfono</label>
+                        <input type="text" class="form-control form-control-sm" name="telefono" id="editTelefono" placeholder="Ej. 809-555-5555">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Dirección</label>
+                        <textarea class="form-control form-control-sm" name="direccion" id="editDireccion" rows="1" placeholder="Ej. Calle Duarte #10"></textarea>
+                    </div>
+
+                    <!-- Sección 2: Acceso y Credenciales -->
+                    <div class="col-12 mt-3">
+                        <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Acceso y Credenciales</div>
+                        <hr class="my-1 text-muted opacity-25">
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label small fw-semibold">Correo Electrónico (Login)</label>
                         <input type="email" class="form-control form-control-sm" name="email" id="editCorreo" required>
                     </div>
@@ -198,9 +262,15 @@
                             <option value="Paralegal">Paralegal</option>
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-12">
                         <label class="form-label small fw-semibold">Nueva Contraseña</label>
                         <input type="password" class="form-control form-control-sm" name="password" placeholder="Opcional. Deje en blanco para no cambiar.">
+                    </div>
+
+                    <!-- Sección 3: Información Financiera -->
+                    <div class="col-12 mt-3">
+                        <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Información Financiera</div>
+                        <hr class="my-1 text-muted opacity-25">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Salario Base Mensual (RD$)</label>
@@ -290,6 +360,11 @@
                 
                 document.getElementById('detCorreo').innerText = r.email;
                 document.getElementById('detRol').innerText = r.rol;
+                document.getElementById('detCedula').innerText = r.cedula || '—';
+                document.getElementById('detFechaNacimiento').innerText = r.fecha_nacimiento || '—';
+                document.getElementById('detTelefono').innerText = r.telefono || '—';
+                document.getElementById('detDireccion').innerText = r.direccion || '—';
+                document.getElementById('detDireccion').title = r.direccion || '';
                 
                 document.getElementById('detSalario').innerText = 'RD$ ' + parseFloat(r.salario_base || 0).toLocaleString('es-DO', {minimumFractionDigits: 2});
                 document.getElementById('detComision').innerText = parseFloat(r.porcentaje_comision || 0) + '%';
@@ -312,6 +387,10 @@
                     document.getElementById('editRol').value = r.rol;
                     document.getElementById('editSalario').value = r.salario_base;
                     document.getElementById('editComision').value = r.porcentaje_comision;
+                    document.getElementById('editCedula').value = r.cedula || '';
+                    document.getElementById('editFechaNacimiento').value = r.fecha_nacimiento || '';
+                    document.getElementById('editTelefono').value = r.telefono || '';
+                    document.getElementById('editDireccion').value = r.direccion || '';
                     document.getElementById('formEditarAction').action = `/usuarios/${r.id}/editar`;
                     new bootstrap.Modal(document.getElementById('modalEditarUsuario')).show();
                 };

@@ -30,6 +30,11 @@ class Usuario(UserMixin, db.Model):
     bloqueado_hasta = db.Column(db.DateTime, nullable=True)
     salario_base = db.Column(db.Numeric(18, 2), nullable=True, default=0.00)
     porcentaje_comision = db.Column(db.Numeric(5, 2), nullable=True, default=0.00)
+    
+    cedula = db.Column(db.String(20), nullable=True)
+    fecha_nacimiento = db.Column(db.Date, nullable=True)
+    telefono = db.Column(db.String(20), nullable=True)
+    direccion = db.Column(db.Text, nullable=True)
 
     # Propiedades helper
     @property

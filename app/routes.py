@@ -1513,6 +1513,10 @@ def register_routes(app):
                 "requiere_cambio": bool(u.requiere_cambio_password),
                 "salario_base": float(u.salario_base or 0.00),
                 "porcentaje_comision": float(u.porcentaje_comision or 0.00),
+                "cedula": u.cedula or "",
+                "fecha_nacimiento": u.fecha_nacimiento.strftime('%Y-%m-%d') if u.fecha_nacimiento else "",
+                "telefono": u.telefono or "",
+                "direccion": u.direccion or "",
             }
             for u in usuarios
         ]
@@ -1559,6 +1563,10 @@ def register_routes(app):
                 requiere_cambio_password=True,  # Fuerza al usuario a cambiarla al entrar
                 salario_base=form.salario_base.data,
                 porcentaje_comision=form.porcentaje_comision.data,
+                cedula=form.cedula.data.strip() if form.cedula.data else None,
+                fecha_nacimiento=form.fecha_nacimiento.data,
+                telefono=form.telefono.data.strip() if form.telefono.data else None,
+                direccion=form.direccion.data.strip() if form.direccion.data else None,
             )
             try:
                 db.session.add(nuevo_usuario)
@@ -1594,6 +1602,10 @@ def register_routes(app):
             usuario.rol = form.rol.data
             usuario.salario_base = form.salario_base.data
             usuario.porcentaje_comision = form.porcentaje_comision.data
+            usuario.cedula = form.cedula.data.strip() if form.cedula.data else None
+            usuario.fecha_nacimiento = form.fecha_nacimiento.data
+            usuario.telefono = form.telefono.data.strip() if form.telefono.data else None
+            usuario.direccion = form.direccion.data.strip() if form.direccion.data else None
 
             # Solo actualizamos la contraseña si el admin escribió una nueva
             if form.password.data:

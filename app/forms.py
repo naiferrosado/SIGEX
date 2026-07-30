@@ -64,6 +64,11 @@ class UsuarioForm(FlaskForm):
     salario_base = DecimalField('Salario Base Mensual (RD$)', places=2, default=0.00, validators=[Optional()])
     porcentaje_comision = DecimalField('Porcentaje de Comisión (%)', places=2, default=0.00, validators=[Optional()])
     
+    cedula = StringField('Cédula', validators=[Optional(), Length(max=20)])
+    fecha_nacimiento = DateField('Fecha de Nacimiento', format='%Y-%m-%d', validators=[Optional()])
+    telefono = StringField('Teléfono', validators=[Optional(), Length(max=20)])
+    direccion = TextAreaField('Dirección', validators=[Optional(), Length(max=500)])
+    
     submit = SubmitField('Guardar Usuario')
 
 
