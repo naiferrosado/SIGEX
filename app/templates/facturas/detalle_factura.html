@@ -88,6 +88,9 @@
 </style>
 
 <main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
     <!-- Encabezado y Acciones -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -270,7 +273,12 @@
                         <strong class="text-dark">RD$ {{ "{:,.2f}".format(factura.monto_subtotal) }}</strong>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted fw-semibold small">ITBIS (18%):</span>
+                        {% if factura.monto_subtotal > 0 and factura.monto_itbis > 0 %}
+                            {% set tax_rate = (factura.monto_itbis / factura.monto_subtotal * 100) | round | int %}
+                        {% else %}
+                            {% set tax_rate = 18 %}
+                        {% endif %}
+                        <span class="text-muted fw-semibold small">ITBIS ({{ tax_rate }}%):</span>
                         <strong class="text-dark">RD$ {{ "{:,.2f}".format(factura.monto_itbis) }}</strong>
                     </div>
                     <hr class="my-2">
@@ -281,24 +289,25 @@
                 </div>
             </div>
 
-            <!-- Listado y Cobro de Cuotas (Hitos) -->
+            <!-- Estructura y Términos de Pago (Factura Única) -->
             <div class="card border-0 shadow-sm" style="border-radius: 16px;">
                 <div class="billing-card-header">
-                    <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-calendar-check me-2"></i>Estructura e Hitos de Pago</h5>
+                    <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-calendar-check me-2"></i>Términos y Vencimiento de Pago</h5>
                 </div>
                 <div class="card-body p-3">
-                    {% for c in cuotas %}
                     <div class="p-3 mb-3 border rounded" style="background-color: #fcfcfc;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
-                                <strong class="text-dark d-block">{{ c.partida.descripcion_partida }}</strong>
-                                <span class="text-muted small">Vencimiento: {{ c.partida.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+                                <strong class="text-dark d-block">Pago Único al Vencimiento</strong>
+                                <span class="text-muted small">Plazo pactado: {{ factura.plazo_pago_dias }} días</span>
                             </div>
                             <div>
-                                {% if c.partida.estado_pago == 'Pagado' %}
+                                {% if factura.estado_pago == 'Cobrado' %}
                                     <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Pagada</span>
+                                {% elif factura.estado_pago == 'Cobrado Parcial' %}
+                                    <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-3 py-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Pagada Parcial</span>
                                 {% else %}
-                                    {% if c.dias_retraso > 0 %}
+                                    {% if dias_retraso > 0 %}
                                         <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-1 text-uppercase fw-bold" style="font-size: 0.7rem;">En Mora</span>
                                     {% else %}
                                         <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Pendiente</span>
@@ -308,32 +317,29 @@
                         </div>
 
                         <div class="row g-2 mb-3 border-top pt-2 mt-2">
+                            <div class="col-6 mb-2">
+                                <span class="text-muted small d-block">Fecha de Emisión:</span>
+                                <strong class="text-dark">{{ factura.fecha_emision.strftime('%d/%m/%Y') }}</strong>
+                            </div>
+                            <div class="col-6 mb-2 text-end">
+                                <span class="text-muted small d-block">Fecha de Vencimiento:</span>
+                                <strong class="text-dark">{{ factura.fecha_vencimiento.strftime('%d/%m/%Y') if factura.fecha_vencimiento else 'Sin fecha' }}</strong>
+                            </div>
                             <div class="col-6">
-                                <span class="text-muted small d-block">Monto Cuota:</span>
-                                <strong class="text-dark">RD$ {{ "{:,.2f}".format(c.partida.monto) }}</strong>
+                                <span class="text-muted small d-block">Monto Pendiente:</span>
+                                <strong class="text-dark">RD$ {{ "{:,.2f}".format(factura.total_pendiente) }}</strong>
                             </div>
                             <div class="col-6 text-end">
-                                {% if c.dias_retraso > 0 %}
-                                    <span class="text-muted small d-block">Recargo Mora ({{ c.dias_retraso }} días):</span>
-                                    <strong class="text-danger">RD$ {{ "{:,.2f}".format(c.mora) }}</strong>
+                                {% if dias_retraso > 0 %}
+                                    <span class="text-muted small d-block">Recargo Mora ({{ dias_retraso }} días):</span>
+                                    <strong class="text-danger">RD$ {{ "{:,.2f}".format(mora_calculada) }}</strong>
                                 {% else %}
                                     <span class="text-muted small d-block">Mora Acumulada:</span>
                                     <span class="text-muted font-italic">RD$ 0.00</span>
                                 {% endif %}
                             </div>
                         </div>
-
-                        <!-- Botón de Registro de Cobro -->
-                        {% if c.partida.estado_pago == 'Pendiente' and current_user.rol in ['Socio', 'Administrador', 'Asociado'] %}
-                        <form method="POST" action="{{ url_for('pagar_cuota_factura', factura_id=factura.id, cuota_id=c.partida.id) }}" class="d-grid mt-2" data-confirm="¿Está seguro de registrar el cobro para esta cuota?">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-outline-success btn-sm fw-semibold">
-                                <i class="bi bi-check-lg"></i> Registrar Cobro
-                            </button>
-                        </form>
-                        {% endif %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
 

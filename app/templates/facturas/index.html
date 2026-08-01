@@ -69,6 +69,9 @@
 </style>
 
 <main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -76,19 +79,7 @@
             <p class="text-muted small mb-0">Control administrativo de cobros, igualadas de honorarios y plazos vencidos.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ url_for('presupuestos_index') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
-                <i class="bi bi-file-earmark-spreadsheet"></i> Presupuestos
-            </a>
-            <a href="{{ url_for('contratos_index') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
-                <i class="bi bi-file-earmark-lock"></i> Contratos
-            </a>
-            <a href="{{ url_for('recibos_index') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
-                <i class="bi bi-receipt-cutoff"></i> Recibos Caja
-            </a>
             {% if current_user.rol in ['Socio', 'Administrador'] %}
-            <a href="{{ url_for('reportes_financieros') }}" class="btn btn-outline-info btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2" style="border-radius: 8px;">
-                <i class="bi bi-pie-chart"></i> Reportes
-            </a>
             <a href="{{ url_for('facturacion_lotes') }}" class="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-semibold px-3 py-2 border-2" style="color: #00409A; border-color: #00409A; border-radius: 8px;">
                 <i class="bi bi-layers-half"></i> Lotes
             </a>
@@ -133,7 +124,7 @@
                         <span class="text-muted small fw-semibold d-block mb-1">Total Facturado</span>
                         <h4 class="fw-bold text-dark mb-0">RD$ {{ "{:,.2f}".format(total_facturado) }}</h4>
                     </div>
-                    <div class="p-2 bg-primary bg-opacity-10 text-primary rounded-circle">
+                    <div class="p-2 rounded-circle" style="background-color: rgba(0, 64, 154, 0.1) !important; color: #00409A !important;">
                         <i class="bi bi-wallet2 fs-4"></i>
                     </div>
                 </div>

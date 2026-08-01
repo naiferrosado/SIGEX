@@ -388,7 +388,12 @@
                 <td class="summary-value">RD$ {{ "{:,.2f}".format(factura.monto_subtotal) }}</td>
             </tr>
             <tr>
-                <td class="summary-label">ITBIS (18%):</td>
+                {% if factura.monto_subtotal > 0 and factura.monto_itbis > 0 %}
+                    {% set tax_rate = (factura.monto_itbis / factura.monto_subtotal * 100) | round | int %}
+                {% else %}
+                    {% set tax_rate = 18 %}
+                {% endif %}
+                <td class="summary-label">ITBIS ({{ tax_rate }}%):</td>
                 <td class="summary-value">RD$ {{ "{:,.2f}".format(factura.monto_itbis) }}</td>
             </tr>
             <tr class="total-row">
@@ -399,47 +404,42 @@
         <div class="clear"></div>
     </div>
 
-    <!-- Payment Installments / Cuotas (Partidas de Pago) -->
+    <!-- Estructura y Términos de Pago -->
     <div class="installments-section">
-        <div class="installments-title">Estructura y Plan de Pagos Acordado</div>
+        <div class="installments-title">Términos y Vencimiento de Pago</div>
         <div class="installments-desc">
-            Esta factura/igualada ha sido estructurada en pagos fraccionados o cuotas por plazos. 
             <strong>Condición General:</strong> Pago a {{ factura.plazo_pago_dias or 30 }} días.
             {% if factura.tasa_mora_mensual and factura.tasa_mora_mensual > 0 %}
-            Se aplicará un cargo mensual por concepto de mora del <strong>{{ "{:,.2f}".format(factura.tasa_mora_mensual) }}%</strong> sobre el saldo vencido de cualquier cuota impagada posterior a su fecha límite indicada.
+            Se aplicará un cargo mensual por concepto de mora del <strong>{{ "{:,.2f}".format(factura.tasa_mora_mensual) }}%</strong> sobre el saldo vencido posterior a su fecha límite indicada.
             {% else %}
-            Sin recargo de mora mensual configurado por defecto.
+            Sin recargo de mora mensual configurado.
             {% endif %}
         </div>
 
         <table class="installments-table">
             <thead>
                 <tr>
-                    <th style="width: 45%;">Hito / Concepto de Partida</th>
-                    <th style="width: 25%; text-align: right;">Monto Cuota</th>
+                    <th style="width: 45%;">Término / Concepto de Pago</th>
+                    <th style="width: 25%; text-align: right;">Monto Total</th>
                     <th style="width: 20%; text-align: center;">Vencimiento</th>
                     <th style="width: 10%; text-align: center;">Estado</th>
                 </tr>
             </thead>
             <tbody>
-                {% for partida in factura.partidas %}
                 <tr>
-                    <td>{{ partida.descripcion_partida }}</td>
-                    <td class="text-right" style="font-weight: bold;">RD$ {{ "{:,.2f}".format(partida.monto) }}</td>
-                    <td class="text-center">{{ partida.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                    <td>Pago Único al Vencimiento</td>
+                    <td class="text-right" style="font-weight: bold;">RD$ {{ "{:,.2f}".format(factura.monto_total) }}</td>
+                    <td class="text-center">{{ factura.fecha_vencimiento.strftime('%d/%m/%Y') if factura.fecha_vencimiento else 'Al Vencimiento' }}</td>
                     <td class="text-center">
-                        {% if partida.estado_pago == 'Pagado' %}
-                        <span class="status-badge status-paid">Pagado</span>
+                        {% if factura.estado_pago == 'Cobrado' %}
+                        <span class="status-badge status-paid">Pagada</span>
+                        {% elif factura.estado_pago == 'Cobrado Parcial' %}
+                        <span class="status-badge status-pending">Parcial</span>
                         {% else %}
                         <span class="status-badge status-pending">Pendiente</span>
                         {% endif %}
                     </td>
                 </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" class="text-center" style="color: #718096; font-style: italic;">No se definieron cuotas o partidas de pago específicas.</td>
-                </tr>
-                {% endfor %}
             </tbody>
         </table>
     </div>

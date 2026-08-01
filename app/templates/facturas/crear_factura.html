@@ -133,6 +133,9 @@
 </style>
 
 <main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -157,10 +160,6 @@
                 <div class="wizard-step" id="step-indicator-2">
                     <div class="wizard-step-circle">2</div>
                     <div class="wizard-step-label">Honorarios</div>
-                </div>
-                <div class="wizard-step" id="step-indicator-3">
-                    <div class="wizard-step-circle">3</div>
-                    <div class="wizard-step-label">Plan de Pagos</div>
                 </div>
             </div>
         </div>
@@ -323,7 +322,7 @@
                                         <span class="fw-bold" id="lbl-subtotal">RD$ 0.00</span>
                                     </div>
                                     <div class="d-flex justify-content-between mb-2">
-                                        <span class="text-muted fw-semibold small">ITBIS (18%):</span>
+                                        <span class="text-muted fw-semibold small">ITBIS ({{ itbis_porcentaje | default(18) | int }}%):</span>
                                         <span class="fw-bold" id="lbl-itbis">RD$ 0.00</span>
                                     </div>
                                     <hr class="my-2">
@@ -335,87 +334,9 @@
                             </div>
                         </div>
                     </div>
+                    </div>
                     <div class="card-footer bg-white border-0 d-flex justify-content-between p-3">
                         <button type="button" class="btn btn-outline-secondary px-4 btn-prev" data-prev="1"><i class="bi bi-arrow-left-short"></i> Atrás</button>
-                        <button type="button" class="btn btn-primary px-4 btn-next" data-next="3">Siguiente <i class="bi bi-arrow-right-short"></i></button>
-                    </div>
-                </div>
-
-                <!-- SECCIÓN 3: PLAN DE PAGOS POR PARTIDAS -->
-                <div class="card billing-card shadow-sm wizard-section d-none" id="section-3">
-                    <div class="billing-card-header d-flex justify-content-between align-items-center">
-                        <h5 class="fw-bold text-sigex-blue mb-0"><i class="bi bi-calendar-check-fill me-2"></i>Paso 3: Plan de Cuotas e Hitos de Pago</h5>
-                        <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" id="btn-add-partida">
-                            <i class="bi bi-plus-lg"></i> Agregar Hito
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <!-- Asistente de cuotas en cabecera -->
-                        <div class="mb-4 p-3 rounded bg-light border">
-                            <label for="asistente_cuotas" class="form-label small fw-bold text-sigex-blue d-flex align-items-center gap-1 mb-2">
-                                <i class="bi bi-magic"></i> ¿Cómo deseas estructurar este plan de cobros?
-                            </label>
-                            <select id="asistente_cuotas" class="form-select form-select-sm" style="border-radius: 8px;">
-                                <option value="1" selected>Pago Único (100% al vencimiento del plazo)</option>
-                                <option value="2">2 Cuotas Quincenales (50% / 50%)</option>
-                                <option value="3">3 Cuotas Mensuales (33.3% / 33.3% / 33.4%)</option>
-                                <option value="4">4 Cuotas Trimestrales (25% cada una)</option>
-                                <option value="custom">Personalizado (Crear hitos manualmente)</option>
-                            </select>
-                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
-                                El asistente dividirá el monto de forma exacta, cuadrando los centavos decimales en la última cuota para evitar descuadres fiscales.
-                            </small>
-                        </div>
-
-                        <!-- Tabla de Partidas -->
-                        <div class="table-responsive mb-4">
-                            <table class="table table-sm align-middle" id="partidas-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 45%;">Hito / Concepto de Cuota</th>
-                                        <th style="width: 25%; text-align: right;">Monto (RD$)</th>
-                                        <th style="width: 25%; text-align: center;">Fecha Vencimiento</th>
-                                        <th style="width: 5%; text-align: center;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="partidas-tbody">
-                                    <!-- Generado dinámicamente -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Validación de Sumatoria -->
-                        <div class="floating-summary mb-3">
-                            <h6 class="fw-bold mb-3 small text-muted text-uppercase">Estado del Cuadre de Pagos</h6>
-                            
-                            <div class="row">
-                                <div class="col-6 mb-2">
-                                    <span class="text-muted small d-block">Total de la Factura:</span>
-                                    <span class="fw-bold text-dark" id="lbl-total-validar">RD$ 0.00</span>
-                                </div>
-                                <div class="col-6 mb-2 text-end">
-                                    <span class="text-muted small d-block">Total Distribuido:</span>
-                                    <span class="fw-bold text-dark" id="lbl-distribuido">RD$ 0.00</span>
-                                </div>
-                                <div class="col-12 mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small" id="lbl-diferencia-desc">Diferencia:</span>
-                                        <span class="fw-bold text-danger small" id="lbl-diferencia">RD$ 0.00</span>
-                                    </div>
-                                    <div class="progress progress-custom">
-                                        <div id="progress-val" class="progress-bar bg-danger" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="validation-alert" class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-0" role="alert" style="border-radius: 8px;">
-                                <i class="bi bi-exclamation-circle-fill"></i>
-                                <span id="validation-alert-text">Debe definir los servicios primero en el Paso 2.</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-white border-0 d-flex justify-content-between p-3">
-                        <button type="button" class="btn btn-outline-secondary px-4 btn-prev" data-prev="2"><i class="bi bi-arrow-left-short"></i> Atrás</button>
                         <button type="submit" id="btn-save-factura" class="btn btn-success px-4" disabled><i class="bi bi-check-circle me-1"></i> Emitir Factura</button>
                     </div>
                 </div>
@@ -427,6 +348,8 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+    const ITBIS_PORCENTAJE = {{ itbis_porcentaje | default(18) | float }} / 100.0;
+
     $(document).ready(function() {
         let totalFactura = 0;
         let controlManualPartidas = false;
@@ -641,131 +564,6 @@
             }
         });
 
-        // 4. Agregar / Eliminar Partidas
-        $('#btn-add-partida').click(function() {
-            controlManualPartidas = true;
-            $('#asistente_cuotas').val('custom');
-            agregarFilaPartida('', 0, '');
-            calcularDistribucionPartidas();
-        });
-
-        $(document).on('click', '.btn-remove-partida', function() {
-            if ($('#partidas-tbody tr').length > 1) {
-                controlManualPartidas = true;
-                $('#asistente_cuotas').val('custom');
-                $(this).closest('tr').remove();
-                calcularDistribucionPartidas();
-            } else {
-                showToast("Debe definir al menos una cuota o hito de pago.");
-            }
-        });
-
-        function agregarFilaPartida(desc, monto, fecha) {
-            const today = new Date().toISOString().split('T')[0];
-            const valMonto = monto > 0 ? monto.toFixed(2) : '';
-            const valFecha = fecha ? fecha : today;
-            
-            const newRow = `
-                <tr>
-                    <td>
-                        <input type="text" name="partida_descripcion[]" class="form-control form-control-sm" value="${desc}" placeholder="Ej: Pago Inicial" required style="border-radius: 6px;">
-                    </td>
-                    <td>
-                        <input type="number" name="partida_monto[]" class="form-control form-control-sm input-partida-monto text-end" min="0.01" step="0.01" value="${valMonto}" placeholder="0.00" required style="border-radius: 6px;">
-                    </td>
-                    <td>
-                        <input type="date" name="partida_fecha[]" class="form-control form-control-sm" value="${valFecha}" required style="border-radius: 6px;">
-                    </td>
-                    <td class="text-center align-middle">
-                        <i class="bi bi-trash3 remove-row-btn btn-remove-partida" style="font-size: 1rem;"></i>
-                    </td>
-                </tr>
-            `;
-            $('#partidas-tbody').append(newRow);
-        }
-
-        // 5. Asistente de cuotas
-        $('#asistente_cuotas, #plazo_pago_dias, #fecha_emision').on('change', function() {
-            if ($(this).attr('id') === 'asistente_cuotas' && $(this).val() === 'custom') {
-                controlManualPartidas = true;
-                return;
-            }
-            if ($('#asistente_cuotas').val() !== 'custom') {
-                controlManualPartidas = false;
-                generarCuotasDesdeAsistente();
-            }
-        });
-
-        // Actualizar etiqueta informativa de mora
-        $('#tasa_mora_mensual').on('input', function() {
-            let val = parseFloat($(this).val()) || 0;
-            $('#lbl-mora-info').text(val.toFixed(2) + '%');
-        });
-
-        function generarCuotasDesdeAsistente() {
-            if (controlManualPartidas || totalFactura <= 0) return;
-
-            const asistente = $('#asistente_cuotas').val();
-            const fechaEmisionVal = $('#fecha_emision').val();
-            const plazoGeneral = parseInt($('#plazo_pago_dias').val()) || 0;
-            
-            if (!fechaEmisionVal) return;
-
-            $('#partidas-tbody').empty();
-
-            let numCuotas = 1;
-            let diasIntervalo = plazoGeneral;
-
-            if (asistente === '1') {
-                numCuotas = 1;
-                diasIntervalo = plazoGeneral;
-            } else if (asistente === '2') {
-                numCuotas = 2;
-                diasIntervalo = 15;
-            } else if (asistente === '3') {
-                numCuotas = 3;
-                diasIntervalo = 30;
-            } else if (asistente === '4') {
-                numCuotas = 4;
-                diasIntervalo = 90;
-            }
-
-            const montoBase = Math.floor((totalFactura / numCuotas) * 100) / 100;
-            const diferenciaDecimal = totalFactura - (montoBase * numCuotas);
-
-            const parts = fechaEmisionVal.split('-');
-            let fechaBase = new Date(parts[0], parts[1] - 1, parts[2]);
-
-            for (let i = 0; i < numCuotas; i++) {
-                let montoCuota = montoBase;
-                if (i === numCuotas - 1) {
-                    montoCuota += diferenciaDecimal;
-                }
-
-                let fechaVenc = new Date(fechaBase.getTime());
-                fechaVenc.setDate(fechaBase.getDate() + (diasIntervalo * (i + 1)));
-                
-                const year = fechaVenc.getFullYear();
-                const month = String(fechaVenc.getMonth() + 1).padStart(2, '0');
-                const day = String(fechaVenc.getDate()).padStart(2, '0');
-                const fechaStr = `${year}-${month}-${day}`;
-                const concepto = numCuotas === 1 ? 'Pago Único' : `Cuota ${i + 1} de ${numCuotas}`;
-
-                agregarFilaPartida(concepto, montoCuota, fechaStr);
-            }
-
-            calcularDistribucionPartidas();
-        }
-
-        // 6. Cálculos
-        $(document).on('input', '.input-cantidad, .input-precio', function() {
-            calcularTotalesFactura();
-        });
-
-        $(document).on('input', '.input-partida-monto', function() {
-            calcularDistribucionPartidas();
-        });
-
         function calcularTotalesFactura() {
             let subtotal = 0;
             
@@ -775,64 +573,18 @@
                 subtotal += (cant * precio);
             });
 
-            const itbis = subtotal * 0.18;
+            const itbis = subtotal * ITBIS_PORCENTAJE;
             totalFactura = subtotal + itbis;
 
             $('#lbl-subtotal').text(formatearMoneda(subtotal));
             $('#lbl-itbis').text(formatearMoneda(itbis));
             $('#lbl-total').text(formatearMoneda(totalFactura));
-            $('#lbl-total-validar').text(formatearMoneda(totalFactura));
 
-            if (!controlManualPartidas) {
-                generarCuotasDesdeAsistente();
-            } else {
-                calcularDistribucionPartidas();
-            }
-        }
-
-        function calcularDistribucionPartidas() {
-            let totalDistribuido = 0;
-
-            $('#partidas-tbody tr').each(function() {
-                const monto = parseFloat($(this).find('.input-partida-monto').val()) || 0;
-                totalDistribuido += monto;
-            });
-
-            const diferencia = totalFactura - totalDistribuido;
-            $('#lbl-distribuido').text(formatearMoneda(totalDistribuido));
-            
-            const absDiferencia = Math.abs(diferencia);
-            if (absDiferencia <= 0.05) {
-                $('#lbl-diferencia').text("RD$ 0.00").removeClass('text-danger').addClass('text-success');
-                $('#lbl-diferencia-desc').text("Diferencia:");
-            } else {
-                $('#lbl-diferencia').text(formatearMoneda(absDiferencia)).removeClass('text-success').addClass('text-danger');
-                $('#lbl-diferencia-desc').text(diferencia > 0 ? "Faltan:" : "Sobran:");
-            }
-
-            const percent = totalFactura > 0 ? Math.min(100, (totalDistribuido / totalFactura) * 100) : 0;
-            const $progressBar = $('#progress-val');
-            $progressBar.css('width', `${percent}%`).attr('aria-valuenow', percent);
-
-            const $alert = $('#validation-alert');
-            const $alertText = $('#validation-alert-text');
             const $saveButton = $('#btn-save-factura');
-
             if (totalFactura <= 0) {
-                $progressBar.removeClass('bg-success bg-warning').addClass('bg-danger');
-                $alert.removeClass('alert-success alert-warning').addClass('alert-danger');
-                $alertText.html('Debe definir los servicios primero en el Paso 2.');
                 $saveButton.prop('disabled', true);
-            } else if (absDiferencia <= 0.05) {
-                $progressBar.removeClass('bg-danger bg-warning').addClass('bg-success');
-                $alert.removeClass('alert-danger alert-warning').addClass('alert-success');
-                $alertText.html('<i class="bi bi-check-circle-fill me-1"></i>¡Plan de pagos cuadrado perfectamente!');
-                $saveButton.prop('disabled', false);
             } else {
-                $progressBar.removeClass('bg-success bg-danger').addClass('bg-warning');
-                $alert.removeClass('alert-success alert-warning').addClass('alert-danger');
-                $alertText.html(`<i class="bi bi-exclamation-circle-fill me-1"></i>La suma de las partidas no coincide con el total de la factura.`);
-                $saveButton.prop('disabled', true);
+                $saveButton.prop('disabled', false);
             }
         }
 
@@ -892,32 +644,6 @@
                 $(`#step-indicator-1`).addClass('completed');
                 $(`#step-indicator-2`).addClass('active');
                 return false;
-            }
-            
-            // 3. Validar Paso 3: Hitos de pago y cuadre
-            let partidasValidas = true;
-            let totalDistribuido = 0;
-            $('#partidas-tbody tr').each(function() {
-                const desc = $(this).find('input[name="partida_descripcion[]"]').val().trim();
-                const monto = parseFloat($(this).find('.input-partida-monto').val()) || 0;
-                const fecha = $(this).find('input[name="partida_fecha[]"]').val();
-                if (!desc || monto <= 0 || !fecha) {
-                    partidasValidas = false;
-                    return false;
-                }
-                totalDistribuido += monto;
-            });
-            
-            if (!partidasValidas) {
-                showToast("Por favor complete los datos de descripción, monto y fecha de todas las cuotas en el Paso 3.");
-                isValid = false;
-                return false;
-            }
-            
-            const absDiferencia = Math.abs(totalFactura - totalDistribuido);
-            if (absDiferencia > 0.05) {
-                showToast(`La suma de las partidas (RD$ ${totalDistribuido.toFixed(2)}) no coincide con el total de la factura (RD$ ${totalFactura.toFixed(2)}).`);
-                isValid = false;
             }
             
             if (!isValid) {

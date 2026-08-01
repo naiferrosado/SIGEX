@@ -366,6 +366,7 @@ class FacturaHonorario(db.Model):
     monto_itbis = db.Column(db.Numeric(18, 2), nullable=False) # Cálculo exacto fiscal
     monto_total = db.Column(db.Numeric(18, 2), nullable=False)
     fecha_emision = db.Column(db.DateTime(timezone=True), nullable=False, default=rd_now)
+    fecha_vencimiento = db.Column(db.Date, nullable=True)
     estado_pago = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'Cobrado', 'Anulado'
     plazo_pago_dias = db.Column(db.Integer, nullable=True, default=30)
     tasa_mora_mensual = db.Column(db.Numeric(5, 2), nullable=True, default=0.00)
@@ -382,7 +383,7 @@ class FacturaHonorario(db.Model):
         from decimal import Decimal
         if self.pagos_asoc:
             return sum(p.monto for p in self.pagos_asoc)
-        return sum(p.monto for p in self.partidas if p.estado_pago == 'Pagado')
+        return Decimal('0.00')
 
     @property
     def total_pendiente(self):
@@ -419,19 +420,6 @@ class DetalleFactura(db.Model):
     subtotal = db.Column(db.Numeric(18, 2), nullable=False)
 
     factura = db.relationship('FacturaHonorario', backref=db.backref('detalles', lazy=True, cascade="all, delete-orphan"))
-
-
-class PartidaPagoFactura(db.Model):
-    __tablename__ = 'partidas_pagos_facturas'
-
-    id = db.Column(db.Integer, primary_key=True)
-    factura_id = db.Column(db.Integer, db.ForeignKey('facturas_honorarios.id', ondelete='CASCADE'), nullable=False)
-    descripcion_partida = db.Column(db.String(255), nullable=False)
-    monto = db.Column(db.Numeric(18, 2), nullable=False)
-    fecha_vencimiento = db.Column(db.Date, nullable=False)
-    estado_pago = db.Column(db.String(20), nullable=False, default='Pendiente') # 'Pendiente', 'Pagado'
-
-    factura = db.relationship('FacturaHonorario', backref=db.backref('partidas', lazy=True, cascade="all, delete-orphan"))
 
 # 5. AUDITORÍA FORENSE
 
@@ -507,11 +495,11 @@ class RegistroEnvioAlerta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     alerta_id = db.Column(db.Integer, db.ForeignKey('alertas_plazos_audiencias.id', ondelete='CASCADE'), nullable=True)
     tarea_id = db.Column(db.Integer, db.ForeignKey('tareas.id', ondelete='CASCADE'), nullable=True)
-    partida_factura_id = db.Column(db.Integer, db.ForeignKey('partidas_pagos_facturas.id', ondelete='CASCADE'), nullable=True)
+    factura_id = db.Column(db.Integer, db.ForeignKey('facturas_honorarios.id', ondelete='CASCADE'), nullable=True)
     dias_anticipacion = db.Column(db.Integer, nullable=False) # 30, 15, o 3
     fecha_envio = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
 
-    partida_factura = db.relationship('PartidaPagoFactura', backref=db.backref('alertas_envios', lazy=True, cascade="all, delete-orphan"))
+    factura = db.relationship('FacturaHonorario', backref=db.backref('alertas_envios', lazy=True, cascade="all, delete-orphan"))
 
 
 class Presupuesto(db.Model):

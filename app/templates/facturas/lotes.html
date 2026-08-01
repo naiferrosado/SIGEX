@@ -47,6 +47,9 @@
 </style>
 
 <main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -89,32 +92,41 @@
                 <div class="d-flex flex-column gap-4">
                     {% for lote in lotes %}
                     <div class="card lotes-card">
-                        <div class="card-header bg-white border-0 py-3 px-4 collapse-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#lote-collapse-{{ lote.cliente.id }}" aria-expanded="false">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="rounded-circle bg-light text-primary d-flex align-items-center justify-content-center fw-bold border" style="width: 48px; height: 48px; font-size: 1.2rem;">
-                                    {{ lote.cliente.nombres[:1] }}{{ lote.cliente.apellidos[:1] }}
+                        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                            <!-- Left Clickable Toggle Area -->
+                            <div class="d-flex align-items-center justify-content-between flex-grow-1 collapse-header" data-bs-toggle="collapse" data-bs-target="#lote-collapse-{{ lote.cliente.id }}" aria-expanded="false" style="cursor: pointer;">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle bg-light text-primary d-flex align-items-center justify-content-center fw-bold border" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                                        {{ lote.cliente.nombres[:1] }}{{ lote.cliente.apellidos[:1] }}
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-0 text-dark">{{ lote.cliente.nombre_completo }}</h5>
+                                        <span class="text-muted small">Cédula/RNC: {{ lote.cliente.rnc_cedula }}</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h5 class="fw-bold mb-0 text-dark">{{ lote.cliente.nombre_completo }}</h5>
-                                    <span class="text-muted small">Cédula/RNC: {{ lote.cliente.rnc_cedula }}</span>
+                                <div class="d-flex align-items-center gap-4 me-4">
+                                    <div class="text-end">
+                                        <span class="text-muted d-block small fw-semibold">Horas Pendientes</span>
+                                        <span class="fs-5 fw-bold text-dark">{{ lote.horas_totales }} horas</span>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="text-muted d-block small fw-semibold">Honorarios Proyectados</span>
+                                        <span class="fs-5 fw-bold text-success">RD$ {{ "{:,.2f}".format(lote.honorarios_proyectados) }}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="d-flex align-items-center gap-4">
-                                <div class="text-end">
-                                    <span class="text-muted d-block small fw-semibold">Horas Pendientes</span>
-                                    <span class="fs-5 fw-bold text-dark">{{ lote.horas_totales }} horas</span>
-                                </div>
-                                <div class="text-end">
-                                    <span class="text-muted d-block small fw-semibold">Honorarios Proyectados</span>
-                                    <span class="fs-5 fw-bold text-success">RD$ {{ "{:,.2f}".format(lote.horas_totales * 5000) }}</span>
-                                </div>
+                            
+                            <!-- Action Area (NOT COLLAPSIBLE) -->
+                            <div class="d-flex align-items-center gap-2">
                                 <div>
                                     {% set time_ids = lote.registros | map(attribute='id') | list | join(',') %}
                                     <a href="{{ url_for('crear_factura', lote_cliente_id=lote.cliente.id, t_ids=time_ids) }}" class="btn btn-sigex-blue px-3 py-2 fw-semibold">
                                         <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> Generar Factura
                                     </a>
                                 </div>
-                                <i class="bi bi-chevron-down text-muted fs-5 ms-2"></i>
+                                <div class="collapse-header" data-bs-toggle="collapse" data-bs-target="#lote-collapse-{{ lote.cliente.id }}" aria-expanded="false" style="cursor: pointer;">
+                                    <i class="bi bi-chevron-down text-muted fs-5 ms-2"></i>
+                                </div>
                             </div>
                         </div>
                         
