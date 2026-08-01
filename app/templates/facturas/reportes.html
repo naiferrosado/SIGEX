@@ -1,15 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container-fluid py-4">
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
     <!-- Header Page -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="fw-bold text-dark mb-1"><i class="bi bi-pie-chart-fill text-primary me-2"></i>Reportes y Control Financiero</h4>
             <p class="text-muted small mb-0">Consolidado de ingresos, facturas emitidas, recaudación y gastos de la firma.</p>
         </div>
-        <a href="{{ url_for('listar_facturas') }}" class="btn btn-outline-secondary btn-sm rounded-3">
-            <i class="bi bi-receipt me-1"></i> Ir a Facturas
-        </a>
     </div>
 
     <!-- Metrics row -->
@@ -115,4 +118,5 @@
     .bg-danger-light { background-color: rgba(220, 53, 69, 0.1); }
     .bg-warning-light { background-color: rgba(255, 193, 7, 0.15); }
 </style>
+</main>
 {% endblock %}
