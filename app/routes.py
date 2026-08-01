@@ -48,7 +48,6 @@ from app.models import (
     ExpedienteJudicial,
     FacturaHonorario,
     NotificacionInterna,
-    PartidaPagoFactura,
     RegistroEnvioAlerta,
     Tarea,
     TipoDocumento,
@@ -5643,10 +5642,6 @@ def register_routes(app):
             servicios_cant = request.form.getlist("servicio_cantidad[]")
             servicios_precio = request.form.getlist("servicio_precio[]")
 
-            partidas_desc = request.form.getlist("partida_descripcion[]")
-            partidas_monto = request.form.getlist("partida_monto[]")
-            partidas_fecha = request.form.getlist("partida_fecha[]")
-
             if not cliente_id or not tipo_comprobante or not fecha_emision_str:
                 flash("Por favor complete los campos obligatorios.", "danger")
                 return redirect(url_for("crear_factura"))
@@ -5741,38 +5736,9 @@ def register_routes(app):
                     "subtotal": sub_item
                 })
 
-            itbis_calculado = subtotal_calculado * 0.18
+            itbis_porcentaje = BillingService.get_itbis_percentage()
+            itbis_calculado = round(subtotal_calculado * float(itbis_porcentaje / Decimal('100.00')), 2)
             total_calculado = subtotal_calculado + itbis_calculado
-
-            partidas_to_save = []
-            suma_partidas = 0
-            for i in range(len(partidas_desc)):
-                p_desc = partidas_desc[i].strip()
-                if not p_desc:
-                    continue
-                try:
-                    p_monto = float(partidas_monto[i])
-                    p_fecha = datetime.strptime(partidas_fecha[i], "%Y-%m-%d").date()
-                    # RF-INT-001: Validación de Datos Monetarios
-                    if p_monto <= 0:
-                        flash("El monto de cada cuota debe ser mayor a cero.", "danger")
-                        return redirect(url_for("crear_factura"))
-                    if round(p_monto, 2) != p_monto:
-                        flash("El monto de la cuota no puede tener más de dos decimales.", "danger")
-                        return redirect(url_for("crear_factura"))
-                except (ValueError, TypeError):
-                    continue
-
-                suma_partidas += p_monto
-                partidas_to_save.append({
-                    "descripcion_partida": p_desc,
-                    "monto": p_monto,
-                    "fecha_vencimiento": p_fecha
-                })
-
-            if abs(suma_partidas - total_calculado) > 0.05:
-                flash(f"La suma de las partidas (RD$ {suma_partidas:,.2f}) debe ser exactamente igual al total de la factura (RD$ {total_calculado:,.2f}).", "danger")
-                return redirect(url_for("crear_factura"))
 
             try:
                 factura = FacturaHonorario(
@@ -5784,6 +5750,7 @@ def register_routes(app):
                     monto_itbis=itbis_calculado,
                     monto_total=total_calculado,
                     fecha_emision=fecha_emision,
+                    fecha_vencimiento=fecha_emision.date() + timedelta(days=plazo_pago_dias),
                     estado_pago="Pendiente",
                     plazo_pago_dias=plazo_pago_dias,
                     tasa_mora_mensual=tasa_mora_mensual
@@ -5801,16 +5768,6 @@ def register_routes(app):
                     )
                     db.session.add(detalle)
 
-                for p in partidas_to_save:
-                    partida = PartidaPagoFactura(
-                        factura_id=factura.id,
-                        descripcion_partida=p["descripcion_partida"],
-                        monto=p["monto"],
-                        fecha_vencimiento=p["fecha_vencimiento"],
-                        estado_pago="Pendiente"
-                    )
-                    db.session.add(partida)
-
                 # Si viene de facturación por lotes, marcar tiempos como Facturado
                 time_ids_str = request.form.get("prefilled_time_ids", "")
                 if time_ids_str:
@@ -5824,7 +5781,7 @@ def register_routes(app):
                 registrar_auditoria(
                     usuario_id=current_user.id,
                     accion="CREACION_FACTURA",
-                    detalles=f"Se creó la factura NCF {ncf or 'N/A'} por un total de RD$ {total_calculado:,.2f} con {len(partidas_to_save)} cuotas.",
+                    detalles=f"Se creó la factura NCF {ncf or 'N/A'} por un total de RD$ {total_calculado:,.2f}.",
                     cliente_id=int(cliente_id),
                     expediente_id=int(expediente_id) if expediente_id else None
                 )
@@ -5833,7 +5790,7 @@ def register_routes(app):
                 
                 from markupsafe import Markup
                 pdf_url = url_for("descargar_factura_pdf", factura_id=factura.id)
-                flash(Markup(f"Factura e Hitos de Pago guardados correctamente. <a href='{pdf_url}' target='_blank' class='alert-link fw-bold'><i class='bi bi-file-pdf'></i> Descargar PDF Factura</a>"), "success")
+                flash(Markup(f"Factura guardada correctamente. <a href='{pdf_url}' target='_blank' class='alert-link fw-bold'><i class='bi bi-file-pdf'></i> Descargar PDF Factura</a>"), "success")
                 return redirect(url_for("listar_facturas"))
             except Exception as e:
                 db.session.rollback()
@@ -5906,6 +5863,7 @@ def register_routes(app):
                     })
                 prefilled_time_ids = ",".join(str(t.id) for t in tiempos)
                 
+        itbis_porcentaje = BillingService.get_itbis_percentage()
         return render_template(
             "facturas/crear_factura.html",
             clientes=clientes,
@@ -5913,7 +5871,8 @@ def register_routes(app):
             lote_cliente_id=lote_cliente_id,
             prefilled_services=prefilled_services,
             prefilled_time_ids=prefilled_time_ids,
-            prefilled_expediente_id=prefilled_expediente_id
+            prefilled_expediente_id=prefilled_expediente_id,
+            itbis_porcentaje=itbis_porcentaje
         )
 
     @app.route("/tiempos/<int:tiempo_id>/aprobar", methods=["POST"])
@@ -5956,9 +5915,15 @@ def register_routes(app):
                 grouped_data[cliente.id] = {
                     "cliente": cliente,
                     "horas_totales": 0,
+                    "honorarios_proyectados": 0.0,
                     "registros": []
                 }
+            
+            rate = float(t.expediente.tarifa_monto) if t.expediente.esquema_cobro == 'Por Hora' and t.expediente.tarifa_monto else 5000.00
+            monto_t = float(t.horas_trabajadas) * rate
+            
             grouped_data[cliente.id]["horas_totales"] += float(t.horas_trabajadas)
+            grouped_data[cliente.id]["honorarios_proyectados"] += monto_t
             grouped_data[cliente.id]["registros"].append(t)
             
         return render_template("facturas/lotes.html", lotes=grouped_data.values())
@@ -5980,10 +5945,6 @@ def register_routes(app):
             servicios_desc = request.form.getlist("servicio_descripcion[]")
             servicios_cant = request.form.getlist("servicio_cantidad[]")
             servicios_precio = request.form.getlist("servicio_precio[]")
-
-            partidas_desc = request.form.getlist("partida_descripcion[]")
-            partidas_monto = request.form.getlist("partida_monto[]")
-            partidas_fecha = request.form.getlist("partida_fecha[]")
 
             if not justificacion or not justificacion.strip():
                 flash("Debe proporcionar una justificación válida para la edición.", "danger")
@@ -6053,38 +6014,9 @@ def register_routes(app):
                     "subtotal": sub_item
                 })
 
-            itbis_calculado = subtotal_calculado * 0.18
+            itbis_porcentaje = BillingService.get_itbis_percentage()
+            itbis_calculado = round(subtotal_calculado * float(itbis_porcentaje / Decimal('100.00')), 2)
             total_calculado = subtotal_calculado + itbis_calculado
-
-            partidas_to_save = []
-            suma_partidas = 0
-            for i in range(len(partidas_desc)):
-                p_desc = partidas_desc[i].strip()
-                if not p_desc:
-                    continue
-                try:
-                    p_monto = float(partidas_monto[i])
-                    p_fecha = datetime.strptime(partidas_fecha[i], "%Y-%m-%d").date()
-                    # RF-INT-001: Validación de Datos Monetarios
-                    if p_monto <= 0:
-                        flash("El monto de cada cuota debe ser mayor a cero.", "danger")
-                        return redirect(url_for("editar_factura", factura_id=factura.id))
-                    if round(p_monto, 2) != p_monto:
-                        flash("El monto de la cuota no puede tener más de dos decimales.", "danger")
-                        return redirect(url_for("editar_factura", factura_id=factura.id))
-                except (ValueError, TypeError):
-                    continue
-
-                suma_partidas += p_monto
-                partidas_to_save.append({
-                    "descripcion_partida": p_desc,
-                    "monto": p_monto,
-                    "fecha_vencimiento": p_fecha
-                })
-
-            if abs(suma_partidas - total_calculado) > 0.05:
-                flash(f"La suma de las partidas (RD$ {suma_partidas:,.2f}) debe ser exactamente igual al total de la factura (RD$ {total_calculado:,.2f}).", "danger")
-                return redirect(url_for("editar_factura", factura_id=factura.id))
 
             try:
                 factura.cliente_id = int(cliente_id)
@@ -6094,15 +6026,13 @@ def register_routes(app):
                 factura.monto_itbis = itbis_calculado
                 factura.monto_total = total_calculado
                 factura.fecha_emision = fecha_emision
+                factura.fecha_vencimiento = fecha_emision.date() + timedelta(days=plazo_pago_dias)
                 factura.plazo_pago_dias = plazo_pago_dias
                 factura.tasa_mora_mensual = tasa_mora_mensual
 
                 for d in factura.detalles:
                     db.session.delete(d)
                 
-                for p in factura.partidas:
-                    db.session.delete(p)
-
                 db.session.flush()
 
                 for d in detalles_to_save:
@@ -6114,16 +6044,6 @@ def register_routes(app):
                         subtotal=d["subtotal"]
                     )
                     db.session.add(detalle)
-
-                for p in partidas_to_save:
-                    partida = PartidaPagoFactura(
-                        factura_id=factura.id,
-                        descripcion_partida=p["descripcion_partida"],
-                        monto=p["monto"],
-                        fecha_vencimiento=p["fecha_vencimiento"],
-                        estado_pago="Pendiente"
-                    )
-                    db.session.add(partida)
 
                 registrar_auditoria(
                     usuario_id=current_user.id,
@@ -6143,7 +6063,8 @@ def register_routes(app):
 
         clientes = Cliente.query.all()
         expedientes = Expediente.query.filter_by(cliente_id=factura.cliente_id).all()
-        return render_template("facturas/editar_factura.html", factura=factura, clientes=clientes, expedientes=expedientes)
+        itbis_porcentaje = BillingService.get_itbis_percentage()
+        return render_template("facturas/editar_factura.html", factura=factura, clientes=clientes, expedientes=expedientes, itbis_porcentaje=itbis_porcentaje)
 
     @app.route("/facturas", methods=["GET"])
     @login_required
@@ -6184,26 +6105,24 @@ def register_routes(app):
         total_mora = 0
         now_date = rd_now().date()
         for f in all_invoices:
-            if f.estado_pago != 'Anulado':
-                for p in f.partidas:
-                    if p.estado_pago == 'Pendiente' and p.fecha_vencimiento < now_date:
-                        total_mora += p.monto
+            if f.estado_pago not in ['Anulado', 'Cobrado']:
+                if f.fecha_vencimiento and f.fecha_vencimiento < now_date:
+                    total_mora += f.total_pendiente
 
         filtered_invoices = []
         for f in all_invoices:
             dynamic_state = f.estado_pago
             if f.estado_pago != 'Anulado':
-                pagadas = sum(1 for p in f.partidas if p.estado_pago == 'Pagado')
-                if pagadas == len(f.partidas) and len(f.partidas) > 0:
-                    dynamic_state = 'Pagada'
-                elif pagadas > 0:
-                    dynamic_state = 'Pagada Parcial'
+                if f.estado_pago == 'Cobrado':
+                    dynamic_state = 'Cobrado'
+                elif f.estado_pago == 'Cobrado Parcial':
+                    dynamic_state = 'Cobrado Parcial'
                 else:
                     dynamic_state = 'Pendiente'
 
             if status_filter:
                 if status_filter == 'Mora':
-                    has_mora = any(p.estado_pago == 'Pendiente' and p.fecha_vencimiento < now_date for p in f.partidas)
+                    has_mora = f.estado_pago not in ['Anulado', 'Cobrado'] and f.fecha_vencimiento and f.fecha_vencimiento < now_date
                     if not has_mora:
                         continue
                 elif status_filter != dynamic_state:
@@ -6235,74 +6154,27 @@ def register_routes(app):
                 return redirect(url_for("dashboard"))
 
         now_date = rd_now().date()
-        cuotas_con_mora = []
-        for p in factura.partidas:
-            mora_calculada = 0
-            dias_retraso = 0
-            if p.estado_pago == 'Pendiente' and p.fecha_vencimiento < now_date:
-                dias_retraso = (now_date - p.fecha_vencimiento).days
-                tasa_mensual = float(factura.tasa_mora_mensual or 0)
-                mora_calculada = float(p.monto) * (tasa_mensual / 100) * (dias_retraso / 30)
-
-            cuotas_con_mora.append({
-                "partida": p,
-                "dias_retraso": dias_retraso,
-                "mora": mora_calculada
-            })
+        dias_retraso = 0
+        mora_calculada = 0
+        if factura.estado_pago in ['Pendiente', 'Cobrado Parcial'] and factura.fecha_vencimiento and factura.fecha_vencimiento < now_date:
+            dias_retraso = (now_date - factura.fecha_vencimiento).days
+            tasa_mensual = float(factura.tasa_mora_mensual or 0)
+            mora_calculada = float(factura.total_pendiente) * (tasa_mensual / 100) * (dias_retraso / 30)
 
         dynamic_state = factura.estado_pago
-        if factura.estado_pago != 'Anulado':
-            pagadas = sum(1 for p in factura.partidas if p.estado_pago == 'Pagado')
-            if pagadas == len(factura.partidas) and len(factura.partidas) > 0:
-                dynamic_state = 'Pagada'
-            elif pagadas > 0:
-                dynamic_state = 'Pagada Parcial'
-            else:
-                dynamic_state = 'Pendiente'
+        if dynamic_state == 'Cobrado':
+            dynamic_state = 'Pagada'
+        elif dynamic_state == 'Cobrado Parcial':
+            dynamic_state = 'Pagada Parcial'
 
         return render_template(
             "facturas/detalle_factura.html",
             factura=factura,
-            cuotas=cuotas_con_mora,
+            dias_retraso=dias_retraso,
+            mora_calculada=mora_calculada,
             dynamic_state=dynamic_state,
             current_date=now_date
         )
-
-    @app.route("/facturas/<int:factura_id>/pagar-cuota/<int:cuota_id>", methods=["POST"])
-    @login_required
-    @roles_permitidos("Socio", "Administrador")
-    def pagar_cuota_factura(factura_id, cuota_id):
-        factura = FacturaHonorario.query.get_or_404(factura_id)
-        cuota = PartidaPagoFactura.query.filter_by(id=cuota_id, factura_id=factura_id).first_or_404()
-
-        if cuota.estado_pago == 'Pagado':
-            flash("Esta cuota ya ha sido cobrada anteriormente.", "warning")
-            return redirect(url_for("ver_detalle_factura", factura_id=factura.id))
-
-        try:
-            cuota.estado_pago = 'Pagado'
-            
-            pagadas = sum(1 for p in factura.partidas if p.estado_pago == 'Pagado')
-            if pagadas == len(factura.partidas):
-                factura.estado_pago = 'Cobrado'
-            else:
-                factura.estado_pago = 'Cobrado Parcial'
-
-            registrar_auditoria(
-                usuario_id=current_user.id,
-                accion="COBRO_CUOTA_FACTURA",
-                detalles=f"Se registró el cobro de la cuota '{cuota.descripcion_partida}' por un monto de RD$ {cuota.monto:,.2f} de la factura ID {factura.id} (NCF: {factura.ncf or 'N/A'}).",
-                cliente_id=factura.cliente_id,
-                expediente_id=factura.expediente_id
-            )
-
-            db.session.commit()
-            flash(f"Cobro de cuota '{cuota.descripcion_partida}' registrado exitosamente.", "success")
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Error al registrar el cobro: {str(e)}", "danger")
-
-        return redirect(url_for("ver_detalle_factura", factura_id=factura.id))
 
     @app.route("/facturas/<int:factura_id>/pdf", methods=["GET"])
     @login_required
@@ -6522,7 +6394,9 @@ def register_routes(app):
             flash("Presupuesto creado exitosamente.", "success")
             return redirect(url_for("presupuestos_index"))
              
-        return render_template("presupuestos/nuevo.html", clientes=clientes)
+        materias = MateriaLegal.query.filter_by(activo=True).order_by(MateriaLegal.nombre.asc()).all()
+        itbis_porcentaje = BillingService.get_itbis_percentage()
+        return render_template("presupuestos/nuevo.html", clientes=clientes, itbis_porcentaje=itbis_porcentaje, materias=materias)
 
     @app.route("/presupuestos/<int:presupuesto_id>/aceptar", methods=["POST"])
     @login_required
@@ -6666,7 +6540,8 @@ def register_routes(app):
             flash("Contrato creado exitosamente con su cronograma de cobro.", "success")
             return redirect(url_for("contratos_index"))
              
-        return render_template("contratos/nuevo.html", clientes=clientes, expedientes=expedientes)
+        itbis_porcentaje = BillingService.get_itbis_percentage()
+        return render_template("contratos/nuevo.html", clientes=clientes, expedientes=expedientes, itbis_porcentaje=itbis_porcentaje)
 
     @app.route("/contratos/<int:contrato_id>")
     @login_required
@@ -6745,6 +6620,12 @@ def register_routes(app):
         if err:
             flash(err, "danger")
         else:
+            registrar_auditoria(
+                usuario_id=current_user.id,
+                accion="REGISTRO_PAGO",
+                detalles=f"Registró pago por RD$ {float(monto):,.2f} con método '{metodo_pago}' (Ref: {referencia or 'N/A'}) para factura ID {factura_id}. Emitió Recibo {recibo.numero_recibo}.",
+                cliente_id=recibo.cliente_id
+            )
             flash(f"Pago registrado exitosamente. Se emitió el Recibo de Caja {recibo.numero_recibo}", "success")
              
         return redirect(url_for("ver_detalle_factura", factura_id=factura_id))
@@ -6788,13 +6669,18 @@ def register_routes(app):
     def reportes_financieros():
         # Métricas principales
         total_facturado = db.session.query(db.func.sum(FacturaHonorario.monto_total)).filter(FacturaHonorario.estado_pago != 'Anulado').scalar() or 0
-        total_cobrado = db.session.query(db.func.sum(TransaccionPago.monto)).scalar() or 0
+        total_cobrado = db.session.query(db.func.sum(TransaccionPago.monto))\
+            .join(FacturaHonorario, TransaccionPago.factura_id == FacturaHonorario.id)\
+            .filter(FacturaHonorario.estado_pago != 'Anulado')\
+            .scalar() or 0
         total_pendiente = total_facturado - total_cobrado
         
         # Cobros por método
         cobros_por_metodo = db.session.query(
             TransaccionPago.metodo_pago, db.func.sum(TransaccionPago.monto)
-        ).group_by(TransaccionPago.metodo_pago).all()
+        ).join(FacturaHonorario, TransaccionPago.factura_id == FacturaHonorario.id)\
+        .filter(FacturaHonorario.estado_pago != 'Anulado')\
+        .group_by(TransaccionPago.metodo_pago).all()
 
         # Gastos reembolsables por estado
         gastos_por_estado = db.session.query(
@@ -6818,7 +6704,7 @@ def procesar_alertas_preventivas():
     import pytz
 
     from app import db
-    from app.models import AlertaPlazoAudiencia, NotificacionInterna, Tarea, Usuario, PartidaPagoFactura
+    from app.models import AlertaPlazoAudiencia, NotificacionInterna, Tarea, Usuario, FacturaHonorario
 
     print("[PLANIFICADOR] Iniciando procesamiento de alertas preventivas...")
     tz_rd = pytz.timezone("America/Santo_Domingo")
@@ -6998,12 +6884,12 @@ def procesar_alertas_preventivas():
                 f"[PLANIFICADOR] Error al guardar registro de envío para tarea ID {tarea.id}: {e}"
             )
 
-    # === 3. PROCESAR CUOTAS/PARTIDAS DE PAGO PENDIENTES ===
-    partidas = PartidaPagoFactura.query.filter_by(estado_pago='Pendiente').all()
-    for partida in partidas:
-        if not partida.fecha_vencimiento:
+    # === 3. PROCESAR FACTURAS PENDIENTES ===
+    facturas_pendientes = FacturaHonorario.query.filter(FacturaHonorario.estado_pago.in_(['Pendiente', 'Cobrado Parcial'])).all()
+    for fact in facturas_pendientes:
+        if not fact.fecha_vencimiento:
             continue
-        venc_local = partida.fecha_vencimiento
+        venc_local = fact.fecha_vencimiento
         dias_restantes = (venc_local - now_local).days
 
         anticipacion = None
@@ -7018,29 +6904,28 @@ def procesar_alertas_preventivas():
             continue
 
         envio_previo = RegistroEnvioAlerta.query.filter_by(
-            partida_factura_id=partida.id, dias_anticipacion=anticipacion
+            factura_id=fact.id, dias_anticipacion=anticipacion
         ).first()
 
         if envio_previo:
             continue
 
         abogados = []
-        fact = partida.factura
-        exp = fact.expediente if fact else None
+        exp = fact.expediente
         if exp and exp.abogado_responsable:
             abogados.append(exp.abogado_responsable)
         else:
             abogados = Usuario.query.filter_by(rol='Socio', activo=True).all()
 
         if not abogados:
-            print(f"[PLANIFICADOR] Sin destinatarios válidos para la partida de pago ID {partida.id}")
+            print(f"[PLANIFICADOR] Sin destinatarios válidos para la factura ID {fact.id}")
             continue
 
         for abogado in abogados:
             try:
-                enviar_email_alerta_preventiva(abogado, partida, anticipacion)
+                enviar_email_alerta_preventiva(abogado, fact, anticipacion)
 
-                msj = f"[Alerta Pago {anticipacion} días] La cuota '{partida.descripcion_partida}' de la factura NCF {fact.ncf or 'N/A'} (monto RD$ {partida.monto:,.2f}) vence el {venc_local.strftime('%d/%m/%Y')}."
+                msj = f"[Alerta Pago {anticipacion} días] La factura NCF {fact.ncf or 'N/A'} (monto total RD$ {fact.monto_total:,.2f}) vence el {venc_local.strftime('%d/%m/%Y')}."
                 notif = NotificacionInterna(
                     usuario_id=abogado.id,
                     mensaje=msj,
@@ -7049,12 +6934,12 @@ def procesar_alertas_preventivas():
                 )
                 db.session.add(notif)
             except Exception as e:
-                print(f"[PLANIFICADOR] Error al despachar alerta de cuota al abogado {abogado.id}: {e}")
+                print(f"[PLANIFICADOR] Error al despachar alerta de factura al abogado {abogado.id}: {e}")
 
-        if fact and fact.cliente and fact.cliente.usuario_id:
+        if fact.cliente and fact.cliente.usuario_id:
             try:
-                enviar_email_alerta_preventiva(fact.cliente.usuario, partida, anticipacion)
-                msj_cliente = f"[Recordatorio Pago {anticipacion} días] Su cuota '{partida.descripcion_partida}' por RD$ {partida.monto:,.2f} vence el {venc_local.strftime('%d/%m/%Y')}."
+                enviar_email_alerta_preventiva(fact.cliente.usuario, fact, anticipacion)
+                msj_cliente = f"[Recordatorio Pago {anticipacion} días] Su factura NCF {fact.ncf or 'N/A'} por RD$ {fact.monto_total:,.2f} vence el {venc_local.strftime('%d/%m/%Y')}."
                 notif_cliente = NotificacionInterna(
                     usuario_id=fact.cliente.usuario_id,
                     mensaje=msj_cliente,
@@ -7064,17 +6949,17 @@ def procesar_alertas_preventivas():
                 )
                 db.session.add(notif_cliente)
             except Exception as e:
-                print(f"[PLANIFICADOR] Error al despachar alerta de cuota al cliente {fact.cliente.id}: {e}")
+                print(f"[PLANIFICADOR] Error al despachar alerta de factura al cliente {fact.cliente.id}: {e}")
 
         try:
             registro = RegistroEnvioAlerta(
-                partida_factura_id=partida.id, dias_anticipacion=anticipacion
+                factura_id=fact.id, dias_anticipacion=anticipacion
             )
             db.session.add(registro)
             db.session.commit()
-            print(f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para cuota ID {partida.id} ({partida.descripcion_partida})")
+            print(f"[PLANIFICADOR] Alerta de {anticipacion} días enviada para factura ID {fact.id} (NCF: {fact.ncf or 'N/A'})")
         except Exception as e:
             db.session.rollback()
-            print(f"[PLANIFICADOR] Error al guardar registro de envío para cuota ID {partida.id}: {e}")
+            print(f"[PLANIFICADOR] Error al guardar registro de envío para factura ID {fact.id}: {e}")
 
     print("[PLANIFICADOR] Fin del procesamiento de alertas preventivas.")

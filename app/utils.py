@@ -110,16 +110,15 @@ def enviar_email_alerta_preventiva(usuario, plazo, dias_anticipacion):
     inminente de un plazo legal, trámite administrativo, audiencia o tarea.
     Si no hay credenciales SMTP en .env, simula el envío por consola.
     """
-    # Detectar el tipo de plazo (AlertaPlazoAudiencia vs Tarea vs PartidaPagoFactura)
-    if hasattr(plazo, 'descripcion_partida'):
-        # Es PartidaPagoFactura (cuota de factura)
-        titulo_plazo = plazo.descripcion_partida
-        monto_formateado = f"RD$ {plazo.monto:,.2f}"
-        tipo_alerta = f"Cuota de Factura (Monto: {monto_formateado})"
+    # Detectar el tipo de plazo (AlertaPlazoAudiencia vs Tarea vs FacturaHonorario)
+    if hasattr(plazo, 'monto_total') and not hasattr(plazo, 'tipo_cobro'):
+        # Es FacturaHonorario
+        titulo_plazo = f"Factura NCF {plazo.ncf or 'N/A'}"
+        monto_formateado = f"RD$ {plazo.monto_total:,.2f}"
+        tipo_alerta = f"Factura de Honorarios (Monto: {monto_formateado})"
         fecha_venc = plazo.fecha_vencimiento
-        fact = plazo.factura
-        exp_codigo = fact.expediente.codigo_firma if (fact and fact.expediente) else "N/A"
-        exp_nombre = fact.expediente.nombre_caso if (fact and fact.expediente) else "N/A"
+        exp_codigo = plazo.expediente.codigo_firma if plazo.expediente else "N/A"
+        exp_nombre = plazo.expediente.nombre_caso if plazo.expediente else "N/A"
     elif hasattr(plazo, 'titulo_hito'):
         # Es AlertaPlazoAudiencia (plazo, trámite o audiencia)
         titulo_plazo = plazo.titulo_hito

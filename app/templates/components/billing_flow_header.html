@@ -1,0 +1,116 @@
+<div class="card border-0 shadow-sm rounded-4 bg-white p-3 mb-4">
+    <!-- Título e Introducción -->
+    <div class="d-flex align-items-center gap-2 mb-3 px-2 border-bottom pb-2">
+        <div class="rounded-3 p-2 d-flex align-items-center justify-content-center" style="background-color: rgba(0, 64, 154, 0.1) !important; color: #00409A !important;">
+            <i class="bi bi-diagram-3-fill fs-5"></i>
+        </div>
+        <div>
+            <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">Ciclo de Honorarios, Facturación y Cobros</h5>
+            <span class="text-muted small">Siga los pasos secuenciales recomendados para una gestión financiera óptima.</span>
+        </div>
+    </div>
+
+    <!-- Barra del Wizard -->
+    <div class="row g-2 align-items-center justify-content-between text-center flex-nowrap overflow-auto py-2 custom-scrollbar-horizontal px-1">
+        
+        <!-- PASO 1: Presupuestos -->
+        {% set step1_active = request.endpoint in ['presupuestos_index', 'presupuestos_nuevo'] %}
+        <div class="col d-flex align-items-center justify-content-center">
+            <a href="{{ url_for('presupuestos_index') }}" class="text-decoration-none d-flex align-items-center gap-2 px-3 py-2 rounded-4 w-100 justify-content-center {% if step1_active %}bg-primary text-white shadow-sm{% else %}text-muted hover-bg-light{% endif %}" style="transition: all 0.2s; font-size: 0.88rem; font-weight: 600; min-width: 170px;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold {% if step1_active %}bg-white text-primary{% else %}bg-secondary-light text-secondary{% endif %}" style="width: 26px; height: 26px; font-size: 0.8rem; min-width: 26px;">1</div>
+                <i class="bi bi-file-earmark-spreadsheet fs-5"></i>
+                <div class="text-start">
+                    <span class="d-block lh-1 fw-bold" style="font-size: 0.82rem;">Presupuestos</span>
+                    <span class="text-xs {% if step1_active %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.68rem; font-weight: normal;">Cotizaciones</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-auto text-muted px-1 d-flex align-items-center"><i class="bi bi-chevron-right fs-6"></i></div>
+
+        <!-- PASO 2: Contratos -->
+        {% set step2_active = request.endpoint in ['contratos_index', 'contratos_nuevo', 'contratos_detalle'] %}
+        <div class="col d-flex align-items-center justify-content-center">
+            <a href="{{ url_for('contratos_index') }}" class="text-decoration-none d-flex align-items-center gap-2 px-3 py-2 rounded-4 w-100 justify-content-center {% if step2_active %}bg-primary text-white shadow-sm{% else %}text-muted hover-bg-light{% endif %}" style="transition: all 0.2s; font-size: 0.88rem; font-weight: 600; min-width: 170px;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold {% if step2_active %}bg-white text-primary{% else %}bg-secondary-light text-secondary{% endif %}" style="width: 26px; height: 26px; font-size: 0.8rem; min-width: 26px;">2</div>
+                <i class="bi bi-file-earmark-lock fs-5"></i>
+                <div class="text-start">
+                    <span class="d-block lh-1 fw-bold" style="font-size: 0.82rem;">Contratos</span>
+                    <span class="text-xs {% if step2_active %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.68rem; font-weight: normal;">Acuerdos y Pagos</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-auto text-muted px-1 d-flex align-items-center"><i class="bi bi-chevron-right fs-6"></i></div>
+
+        <!-- PASO 3: Facturas Fiscales -->
+        {% set step3_active = request.endpoint in ['listar_facturas', 'crear_factura', 'ver_detalle_factura', 'factura_detalle', 'editar_factura', 'facturacion_lotes'] %}
+        <div class="col d-flex align-items-center justify-content-center">
+            <a href="{{ url_for('listar_facturas') }}" class="text-decoration-none d-flex align-items-center gap-2 px-3 py-2 rounded-4 w-100 justify-content-center {% if step3_active %}bg-primary text-white shadow-sm{% else %}text-muted hover-bg-light{% endif %}" style="transition: all 0.2s; font-size: 0.88rem; font-weight: 600; min-width: 170px;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold {% if step3_active %}bg-white text-primary{% else %}bg-secondary-light text-secondary{% endif %}" style="width: 26px; height: 26px; font-size: 0.8rem; min-width: 26px;">3</div>
+                <i class="bi bi-receipt fs-5"></i>
+                <div class="text-start">
+                    <span class="d-block lh-1 fw-bold" style="font-size: 0.82rem;">Facturas NCF</span>
+                    <span class="text-xs {% if step3_active %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.68rem; font-weight: normal;">Crédito Fiscal/DGII</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-auto text-muted px-1 d-flex align-items-center"><i class="bi bi-chevron-right fs-6"></i></div>
+
+        <!-- PASO 4: Recibos Caja -->
+        {% set step4_active = request.endpoint in ['recibos_index'] %}
+        <div class="col d-flex align-items-center justify-content-center">
+            <a href="{{ url_for('recibos_index') }}" class="text-decoration-none d-flex align-items-center gap-2 px-3 py-2 rounded-4 w-100 justify-content-center {% if step4_active %}bg-primary text-white shadow-sm{% else %}text-muted hover-bg-light{% endif %}" style="transition: all 0.2s; font-size: 0.88rem; font-weight: 600; min-width: 170px;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold {% if step4_active %}bg-white text-primary{% else %}bg-secondary-light text-secondary{% endif %}" style="width: 26px; height: 26px; font-size: 0.8rem; min-width: 26px;">4</div>
+                <i class="bi bi-receipt-cutoff fs-5"></i>
+                <div class="text-start">
+                    <span class="d-block lh-1 fw-bold" style="font-size: 0.82rem;">Recibos Caja</span>
+                    <span class="text-xs {% if step4_active %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.68rem; font-weight: normal;">Caja e Ingresos</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-auto text-muted px-1 d-flex align-items-center"><i class="bi bi-chevron-right fs-6"></i></div>
+
+        <!-- PASO 5: Reportes -->
+        {% set step5_active = request.endpoint in ['reportes_financieros'] %}
+        <div class="col d-flex align-items-center justify-content-center">
+            <a href="{{ url_for('reportes_financieros') }}" class="text-decoration-none d-flex align-items-center gap-2 px-3 py-2 rounded-4 w-100 justify-content-center {% if step5_active %}bg-primary text-white shadow-sm{% else %}text-muted hover-bg-light{% endif %}" style="transition: all 0.2s; font-size: 0.88rem; font-weight: 600; min-width: 170px;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold {% if step5_active %}bg-white text-primary{% else %}bg-secondary-light text-secondary{% endif %}" style="width: 26px; height: 26px; font-size: 0.8rem; min-width: 26px;">5</div>
+                <i class="bi bi-pie-chart fs-5"></i>
+                <div class="text-start">
+                    <span class="d-block lh-1 fw-bold" style="font-size: 0.82rem;">Reportes</span>
+                    <span class="text-xs {% if step5_active %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.68rem; font-weight: normal;">Auditoría e Ingresos</span>
+                </div>
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    .hover-bg-light:hover {
+        background-color: #f1f5f9;
+        color: #00409A !important;
+    }
+    .custom-scrollbar-horizontal::-webkit-scrollbar {
+        height: 5px;
+    }
+    .custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    .bg-primary {
+        background-color: #00409A !important;
+    }
+    .text-primary {
+        color: #00409A !important;
+    }
+    .bg-secondary-light {
+        background-color: #f1f5f9;
+    }
+    .text-secondary {
+        color: #64748b;
+    }
+</style>

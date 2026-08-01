@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container-fluid py-4">
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
     <!-- Header Page -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -8,10 +14,7 @@
             <p class="text-muted small mb-0">Gestione las propuestas económicas iniciales enviadas a sus clientes.</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('listar_facturas') }}" class="btn btn-outline-primary btn-sm rounded-3 px-3 py-2 fw-semibold">
-                <i class="bi bi-receipt me-1"></i> Volver a Facturación
-            </a>
-            <a href="{{ url_for('presupuestos_nuevo') }}" class="btn btn-primary fw-semibold btn-sm rounded-3 shadow-sm px-3 py-2">
+            <a href="{{ url_for('presupuestos_nuevo') }}" class="btn btn-primary fw-semibold btn-sm rounded-3 shadow-sm px-3 py-2" style="background-color: #00409A; border-color: #00409A;">
                 <i class="bi bi-plus-circle me-1"></i> Nueva Cotización
             </a>
         </div>
@@ -238,4 +241,5 @@
     .hover-up:hover { transform: translateY(-3px); }
     .transition { transition: all 0.2s ease-in-out; }
 </style>
+</main>
 {% endblock %}
