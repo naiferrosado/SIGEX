@@ -147,60 +147,33 @@
                                 </div>
                                 <div class="col-md-4">
                                     {{ form_judicial.monto_demanda.label(class="form-label small fw-bold") }}
-                                    {{ form_judicial.monto_demanda(class="form-control") }}
+                                    {{ form_judicial.monto_demanda(class="form-control", placeholder="Ej: 500000") }}
+                                    <div class="form-text text-muted" style="font-size: 0.73rem; line-height: 1.2;">Suma en disputa o reclamada en el litigio. No representa sus honorarios.</div>
                                 </div>
                             </div>
 
                             <hr>
                             <h6 class="text-primary mb-3"><i class="bi bi-shield-check me-2"></i>Detalles de Gestión del Caso</h6>
                             <div class="row g-3 mb-4">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_judicial.prioridad.label(class="form-label small fw-bold") }}
                                     {{ form_judicial.prioridad(class="form-select", id="prioridad_jud") }}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_judicial.nivel_riesgo.label(class="form-label small fw-bold") }}
                                     {{ form_judicial.nivel_riesgo(class="form-select", id="nivel_riesgo_jud") }}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_judicial.probabilidad_exito.label(class="form-label small fw-bold") }}
                                     {{ form_judicial.probabilidad_exito(class="form-select", id="probabilidad_exito_jud") }}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_judicial.origen_cliente.label(class="form-label small fw-bold") }}
                                     {{ form_judicial.origen_cliente(class="form-select", id="origen_cliente_jud") }}
                                 </div>
-                                <div class="col-md-4">
-                                    {{ form_judicial.fecha_contratacion.label(class="form-label small fw-bold") }}
-                                    {{ form_judicial.fecha_contratacion(class="form-control", type="date", id="fecha_contratacion_jud") }}
-                                </div>
-                                <div class="col-md-4">
-                                    {{ form_judicial.valor_estimado_caso.label(class="form-label small fw-bold") }}
-                                    {{ form_judicial.valor_estimado_caso(class="form-control", id="valor_estimado_jud") }}
-                                </div>
                             </div>
                             
-                            <hr>
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="text-primary mb-0"><i class="bi bi-wallet2 me-2"></i>Esquema de Facturación y Cobro</h6>
-                                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalGuiaTarifas">
-                                    <i class="bi bi-info-circle me-1"></i>Ver Guía de Tarifas RD
-                                </button>
-                            </div>
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold">Esquema de Cobro</label>
-                                    {{ form_judicial.esquema_cobro(class="form-select", id="esquema_cobro_jud", onchange="toggleCobroCampos('jud')") }}
-                                </div>
-                                <div class="col-md-4" id="tarifa_monto_container_jud">
-                                    <label class="form-label small fw-bold" id="tarifa_monto_label_jud">Tarifa / Monto Base (RD$)</label>
-                                    {{ form_judicial.tarifa_monto(class="form-control") }}
-                                </div>
-                                <div class="col-md-4" id="porcentaje_exito_container_jud" style="display: none;">
-                                    <label class="form-label small fw-bold">Porcentaje de Éxito / Litis (%)</label>
-                                    {{ form_judicial.porcentaje_exito(class="form-control") }}
-                                </div>
-                            </div>
+
 
                             <div class="mt-4 text-end">
                                 {{ form_judicial.submit_judicial(class="btn btn-primary px-5 py-2 shadow-sm") }}
@@ -320,53 +293,25 @@
                             <hr>
                             <h6 class="text-primary mb-3"><i class="bi bi-shield-check me-2"></i>Detalles de Gestión del Trámite</h6>
                             <div class="row g-3 mb-4">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_admin.prioridad.label(class="form-label small fw-bold") }}
                                     {{ form_admin.prioridad(class="form-select", id="prioridad_adm") }}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_admin.nivel_riesgo.label(class="form-label small fw-bold") }}
                                     {{ form_admin.nivel_riesgo(class="form-select", id="nivel_riesgo_adm") }}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_admin.probabilidad_exito.label(class="form-label small fw-bold") }}
                                     {{ form_admin.probabilidad_exito(class="form-select", id="probabilidad_exito_adm") }}
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     {{ form_admin.origen_cliente.label(class="form-label small fw-bold") }}
                                     {{ form_admin.origen_cliente(class="form-select", id="origen_cliente_adm") }}
                                 </div>
-                                <div class="col-md-4">
-                                    {{ form_admin.fecha_contratacion.label(class="form-label small fw-bold") }}
-                                    {{ form_admin.fecha_contratacion(class="form-control", type="date", id="fecha_contratacion_adm") }}
-                                </div>
-                                <div class="col-md-4">
-                                    {{ form_admin.valor_estimado_caso.label(class="form-label small fw-bold") }}
-                                    {{ form_admin.valor_estimado_caso(class="form-control", id="valor_estimado_adm") }}
-                                </div>
                             </div>
 
-                            <hr>
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="text-primary mb-0"><i class="bi bi-wallet2 me-2"></i>Esquema de Facturación y Cobro</h6>
-                                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalGuiaTarifas">
-                                    <i class="bi bi-info-circle me-1"></i>Ver Guía de Tarifas RD
-                                </button>
-                            </div>
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold">Esquema de Cobro</label>
-                                    {{ form_admin.esquema_cobro(class="form-select", id="esquema_cobro_adm", onchange="toggleCobroCampos('adm')") }}
-                                </div>
-                                <div class="col-md-4" id="tarifa_monto_container_adm">
-                                    <label class="form-label small fw-bold" id="tarifa_monto_label_adm">Tarifa / Monto Base (RD$)</label>
-                                    {{ form_admin.tarifa_monto(class="form-control") }}
-                                </div>
-                                <div class="col-md-4" id="porcentaje_exito_container_adm" style="display: none;">
-                                    <label class="form-label small fw-bold">Porcentaje de Éxito / Litis (%)</label>
-                                    {{ form_admin.porcentaje_exito(class="form-control") }}
-                                </div>
-                            </div>
+
 
                             <div class="mt-4 text-end">
                                 {{ form_admin.submit_admin(class="btn btn-primary px-5 py-2 shadow-sm") }}
@@ -424,33 +369,7 @@
         </div>
     </div>
 </div>
-
 <script>
-    function toggleCobroCampos(prefix) {
-        const esquema = document.getElementById(`esquema_cobro_${prefix}`).value;
-        const tarifaLabel = document.getElementById(`tarifa_monto_label_${prefix}`);
-        const tarifaContainer = document.getElementById(`tarifa_monto_container_${prefix}`);
-        const exitoContainer = document.getElementById(`porcentaje_exito_container_${prefix}`);
-        
-        if (esquema === 'Por Hora') {
-            tarifaLabel.innerText = "Costo por Hora (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "none";
-        } else if (esquema === 'Contingencia') {
-            tarifaLabel.innerText = "Monto de Éxito / Anticipo (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "block";
-        } else if (esquema === 'Iguala') {
-            tarifaLabel.innerText = "Iguala Mensual (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "none";
-        } else {
-            tarifaLabel.innerText = "Tarifa / Honorario Fijo (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "none";
-        }
-    }
-
     function renderDynamicFields(campos, containerId, savedValues = {}) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
@@ -839,9 +758,6 @@
     }
     
     document.addEventListener("DOMContentLoaded", function() {
-        toggleCobroCampos('jud');
-        toggleCobroCampos('adm');
-
         setupClientAutocomplete('jud');
         setupClientAutocomplete('adm');
         restoreSelectedClientes();

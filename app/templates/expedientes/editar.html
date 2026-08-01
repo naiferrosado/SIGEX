@@ -96,7 +96,8 @@
                         </div>
                         <div class="col-md-4">
                             {{ form.monto_demanda.label(class="form-label small fw-bold") }}
-                            {{ form.monto_demanda(class="form-control") }}
+                            {{ form.monto_demanda(class="form-control", placeholder="Ej: 500000") }}
+                            <div class="form-text text-muted" style="font-size: 0.73rem; line-height: 1.2;">Suma en disputa o reclamada en el litigio. No representa sus honorarios.</div>
                         </div>
                     </div>
                     {% else %}
@@ -124,53 +125,24 @@
                     <hr>
                     <h6 class="text-primary mb-3"><i class="bi bi-shield-check me-2"></i>Detalles de Gestión</h6>
                     <div class="row g-3 mb-4">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             {{ form.prioridad.label(class="form-label small fw-bold") }}
                             {{ form.prioridad(class="form-select") }}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             {{ form.nivel_riesgo.label(class="form-label small fw-bold") }}
                             {{ form.nivel_riesgo(class="form-select") }}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             {{ form.probabilidad_exito.label(class="form-label small fw-bold") }}
                             {{ form.probabilidad_exito(class="form-select") }}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             {{ form.origen_cliente.label(class="form-label small fw-bold") }}
                             {{ form.origen_cliente(class="form-select") }}
                         </div>
-                        <div class="col-md-4">
-                            {{ form.fecha_contratacion.label(class="form-label small fw-bold") }}
-                            {{ form.fecha_contratacion(class="form-control", type="date") }}
-                        </div>
-                        <div class="col-md-4">
-                            {{ form.valor_estimado_caso.label(class="form-label small fw-bold") }}
-                            {{ form.valor_estimado_caso(class="form-control") }}
-                        </div>
                     </div>
-                    
-                    <hr>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="text-primary mb-0"><i class="bi bi-wallet2 me-2"></i>Esquema de Facturación y Cobro</h6>
-                        <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalGuiaTarifas">
-                            <i class="bi bi-info-circle me-1"></i>Ver Guía de Tarifas RD
-                        </button>
-                    </div>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Esquema de Cobro</label>
-                            {{ form.esquema_cobro(class="form-select", id="esquema_cobro_field", onchange="toggleCobroCampos()") }}
-                        </div>
-                        <div class="col-md-4" id="tarifa_monto_container">
-                            <label class="form-label small fw-bold" id="tarifa_monto_label">Tarifa / Monto Base (RD$)</label>
-                            {{ form.tarifa_monto(class="form-control") }}
-                        </div>
-                        <div class="col-md-4" id="porcentaje_exito_container" style="display: none;">
-                            <label class="form-label small fw-bold">Porcentaje de Éxito / Litis (%)</label>
-                            {{ form.porcentaje_exito(class="form-control") }}
-                        </div>
-                    </div>
+
                     
                     <div class="mt-4 text-end">
                         <button type="submit" class="btn btn-primary px-5 py-2 shadow-sm">
@@ -231,31 +203,6 @@
 <script>
     const savedDynamicValues = {{ exp.datos_dinamicos | tojson | safe if exp.datos_dinamicos else '{}' }};
 
-    function toggleCobroCampos() {
-        const esquema = document.getElementById("esquema_cobro_field").value;
-        const tarifaLabel = document.getElementById("tarifa_monto_label");
-        const tarifaContainer = document.getElementById("tarifa_monto_container");
-        const exitoContainer = document.getElementById("porcentaje_exito_container");
-        
-        if (esquema === 'Por Hora') {
-            tarifaLabel.innerText = "Costo por Hora (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "none";
-        } else if (esquema === 'Contingencia') {
-            tarifaLabel.innerText = "Monto de Éxito / Anticipo (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "block";
-        } else if (esquema === 'Iguala') {
-            tarifaLabel.innerText = "Iguala Mensual (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "none";
-        } else {
-            tarifaLabel.innerText = "Tarifa / Honorario Fijo (RD$)";
-            tarifaContainer.style.display = "block";
-            exitoContainer.style.display = "none";
-        }
-    }
-
     function renderDynamicFields(campos, containerId, savedValues = {}) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
@@ -309,8 +256,6 @@
     }
 
     document.addEventListener("DOMContentLoaded", function() {
-        toggleCobroCampos();
-
         const materiaSelect = document.getElementById('materia_id_field');
         const procSelect = document.getElementById('procedimiento_id_field');
         const procContainer = procSelect.closest('.col-md-6');

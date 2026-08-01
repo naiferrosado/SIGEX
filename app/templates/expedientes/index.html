@@ -296,14 +296,7 @@
                                     <span class="text-muted d-block small">Origen del Cliente:</span>
                                     <span class="fw-semibold text-dark d-block text-wrap fs-6" id="detOrigenCliente">—</span>
                                 </div>
-                                <div class="col-md-6">
-                                    <span class="text-muted d-block small">Fecha Contratación:</span>
-                                    <span class="fw-semibold text-dark fs-6" id="detFechaContratacion">—</span>
-                                </div>
-                                <div class="col-md-6">
-                                    <span class="text-muted d-block small">Valor Estimado Caso:</span>
-                                    <span class="fw-semibold text-dark fs-6" id="detValorEstimadoCaso">—</span>
-                                </div>
+
                             </div>
 
                             <!-- CONTENEDOR PARA VALORES DINÁMICOS -->
@@ -751,8 +744,6 @@
                 document.getElementById('detNivelRiesgo').innerText = e.nivel_riesgo || 'No asignado';
                 document.getElementById('detProbabilidadExito').innerText = e.probabilidad_exito || 'No asignada';
                 document.getElementById('detOrigenCliente').innerText = e.origen_cliente || 'No especificado';
-                document.getElementById('detFechaContratacion').innerText = e.fecha_contratacion || '—';
-                document.getElementById('detValorEstimadoCaso').innerText = e.valor_estimado_caso !== null ? `RD$ ${e.valor_estimado_caso.toLocaleString('es-DO', {minimumFractionDigits: 2})}` : 'RD$ 0.00';
 
                 // Llenar campos dinámicos
                 const dynamicContainer = document.getElementById('detDynamicFieldsContainer');
