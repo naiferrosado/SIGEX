@@ -222,6 +222,10 @@
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             <span>Este cliente no tiene expedientes registrados. No se le puede emitir una factura.</span>
                         </div>
+                        <div id="no-contratos-warning" class="alert alert-warning py-2 px-3 small d-none align-items-center gap-2 mt-3 mb-0" style="border-radius: 8px;">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>Este cliente no tiene expedientes con contratos de honorarios registrados. Debe crear un contrato primero.</span>
+                        </div>
 
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
@@ -468,15 +472,26 @@
                 method: 'GET',
                 success: function(data) {
                     const $warning = $('#no-expedientes-warning');
+                    const $contratosWarning = $('#no-contratos-warning');
+                    $contratosWarning.addClass('d-none').removeClass('d-flex');
+                    
                     if (data && data.length > 0) {
                         $warning.addClass('d-none').removeClass('d-flex');
                         let options = '<option value="">Seleccione un expediente...</option>';
+                        let tieneAlgunContrato = false;
                         data.forEach(function(exp) {
-                            const disabledAttr = exp.facturado ? 'disabled' : '';
+                            if (exp.tiene_contrato) {
+                                tieneAlgunContrato = true;
+                            }
+                            const disabledAttr = (exp.facturado || !exp.tiene_contrato) ? 'disabled' : '';
                             options += `<option value="${exp.id}" ${disabledAttr}>${exp.nombre_caso}</option>`;
                         });
                         $expedienteSelect.html(options);
                         $expedienteSelect.prop('disabled', false);
+                        
+                        if (!tieneAlgunContrato) {
+                            $contratosWarning.removeClass('d-none').addClass('d-flex');
+                        }
                     } else {
                         $warning.removeClass('d-none').addClass('d-flex');
                         $expedienteSelect.html('<option value="">El cliente no tiene expedientes</option>');
@@ -511,8 +526,19 @@
                     return;
                 }
                 
+                if (!$('#no-contratos-warning').hasClass('d-none')) {
+                    showToast("No se puede facturar a este cliente porque no tiene expedientes con contratos de honorarios registrados.");
+                    return;
+                }
+                
                 if (!expedienteId) {
                     showToast("Debe seleccionar un expediente asociado para emitir la factura.");
+                    return;
+                }
+                
+                const selectedOption = $('#expediente_id option:selected');
+                if (selectedOption.length && selectedOption.prop('disabled')) {
+                    showToast("El expediente seleccionado no es válido o ya ha sido facturado.");
                     return;
                 }
             } else if (currentStep === 2) {

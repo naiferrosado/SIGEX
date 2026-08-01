@@ -5691,6 +5691,12 @@ def register_routes(app):
                 flash("El expediente seleccionado no es válido o no pertenece al cliente.", "danger")
                 return redirect(url_for("crear_factura"))
 
+            # Validar que el expediente tenga un contrato de honorarios registrado
+            contrato_existente = ContratoHonorarios.query.filter_by(expediente_id=int(expediente_id)).first()
+            if not contrato_existente:
+                flash("No se puede emitir una factura para este expediente porque no tiene un contrato de honorarios registrado.", "danger")
+                return redirect(url_for("crear_factura"))
+
             # Evitar facturar el mismo expediente más de una vez
             factura_existente = FacturaHonorario.query.filter_by(
                 expediente_id=int(expediente_id)
@@ -5774,6 +5780,7 @@ def register_routes(app):
                 factura = FacturaHonorario(
                     cliente_id=int(cliente_id),
                     expediente_id=int(expediente_id) if expediente_id else None,
+                    contrato_id=contrato_existente.id,
                     ncf=ncf,
                     tipo_comprobante=tipo_comprobante,
                     monto_subtotal=subtotal_calculado,
@@ -5838,6 +5845,10 @@ def register_routes(app):
         if expediente_id_arg:
             exp = Expediente.query.get(expediente_id_arg)
             if exp:
+                contrato_existente = ContratoHonorarios.query.filter_by(expediente_id=exp.id).first()
+                if not contrato_existente:
+                    flash("No se puede emitir una factura para este expediente porque no tiene un contrato de honorarios registrado.", "danger")
+                    return redirect(url_for("listar_facturas"))
                 prefilled_expediente_id = exp.id
                 lote_cliente_id = exp.cliente_id
                 
@@ -5990,6 +6001,12 @@ def register_routes(app):
                 flash("El expediente seleccionado no es válido o no pertenece al cliente.", "danger")
                 return redirect(url_for("editar_factura", factura_id=factura.id))
 
+            # Validar que el expediente tenga un contrato de honorarios registrado
+            contrato_existente = ContratoHonorarios.query.filter_by(expediente_id=int(expediente_id)).first()
+            if not contrato_existente:
+                flash("No se puede emitir una factura para este expediente porque no tiene un contrato de honorarios registrado.", "danger")
+                return redirect(url_for("editar_factura", factura_id=factura.id))
+
             # Evitar facturar el mismo expediente más de una vez
             factura_existente = FacturaHonorario.query.filter_by(
                 expediente_id=int(expediente_id)
@@ -6051,6 +6068,7 @@ def register_routes(app):
             try:
                 factura.cliente_id = int(cliente_id)
                 factura.expediente_id = int(expediente_id) if expediente_id else None
+                factura.contrato_id = contrato_existente.id
                 factura.tipo_comprobante = tipo_comprobante
                 factura.monto_subtotal = subtotal_calculado
                 factura.monto_itbis = itbis_calculado
@@ -6103,6 +6121,7 @@ def register_routes(app):
         status_filter = request.args.get("status")
         cliente_search = request.args.get("cliente_search", "").strip()
         ncf_filter = request.args.get("ncf")
+        orden = request.args.get("orden", "recientes")
 
         query = FacturaHonorario.query
 
@@ -6126,7 +6145,18 @@ def register_routes(app):
         if ncf_filter:
             query = query.filter(FacturaHonorario.ncf.ilike(f"%{ncf_filter.strip()}%"))
 
-        all_invoices = query.order_by(FacturaHonorario.fecha_emision.desc(), FacturaHonorario.id.desc()).all()
+        if orden == "antiguas":
+            query = query.order_by(FacturaHonorario.fecha_emision.asc(), FacturaHonorario.id.asc())
+        elif orden == "monto_desc":
+            query = query.order_by(FacturaHonorario.monto_total.desc(), FacturaHonorario.id.desc())
+        elif orden == "monto_asc":
+            query = query.order_by(FacturaHonorario.monto_total.asc(), FacturaHonorario.id.asc())
+        elif orden == "vencimiento":
+            query = query.order_by(FacturaHonorario.fecha_vencimiento.asc(), FacturaHonorario.id.desc())
+        else: # "recientes"
+            query = query.order_by(FacturaHonorario.fecha_emision.desc(), FacturaHonorario.id.desc())
+
+        all_invoices = query.all()
 
         total_facturado = sum(f.monto_total for f in all_invoices if f.estado_pago != 'Anulado')
         total_cobrado = sum(f.total_pagado for f in all_invoices if f.estado_pago != 'Anulado')
@@ -6169,7 +6199,8 @@ def register_routes(app):
             total_mora=total_mora,
             status_filter=status_filter,
             cliente_search=cliente_search,
-            ncf_filter=ncf_filter
+            ncf_filter=ncf_filter,
+            orden=orden
         )
 
     @app.route("/facturas/<int:factura_id>", methods=["GET"])
@@ -6312,12 +6343,14 @@ def register_routes(app):
                 query = query.filter(FacturaHonorario.id != exclude_factura_id)
             
             facturado = query.first() is not None
+            tiene_contrato = ContratoHonorarios.query.filter_by(expediente_id=e.id).first() is not None
             
             result.append({
                 "id": e.id,
-                "nombre_caso": f"{e.codigo_firma} - {e.nombre_caso} ({e.tipo_tramite})" + (" (YA FACTURADO)" if facturado else ""),
+                "nombre_caso": f"{e.codigo_firma} - {e.nombre_caso} ({e.tipo_tramite})" + (" (YA FACTURADO)" if facturado else "") + (" (SIN CONTRATO)" if not tiene_contrato else ""),
                 "facturado": facturado,
-                "tipo_tramite": e.tipo_tramite
+                "tipo_tramite": e.tipo_tramite,
+                "tiene_contrato": tiene_contrato
             })
             
         return jsonify(result)
