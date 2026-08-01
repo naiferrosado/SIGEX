@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Nómina - {{ mes_nombre }} {{ anio }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 18mm 15mm 18mm 15mm;
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 10mm;
+                left: 15mm;
+                width: 180mm;
+                height: 10mm;
+            }
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            font-size: 9.5pt;
+            line-height: 1.5;
+        }
+        
+        /* Branding & Header */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .header-logo {
+            font-size: 22pt;
+            font-weight: bold;
+            color: #00409A;
+            line-height: 1;
+        }
+        .header-subtitle {
+            font-size: 8.5pt;
+            color: #718096;
+            margin-top: 5px;
+        }
+        .doc-title-box {
+            text-align: right;
+        }
+        .doc-title {
+            font-size: 15pt;
+            font-weight: bold;
+            color: #00409A;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .doc-meta-table {
+            float: right;
+            border-collapse: collapse;
+            margin-top: 5px;
+            font-size: 8.5pt;
+        }
+        .doc-meta-table td {
+            padding: 2px 0 2px 10px;
+        }
+        .doc-meta-label {
+            font-weight: bold;
+            color: #718096;
+            text-align: right;
+        }
+        .doc-meta-value {
+            color: #2d3748;
+            text-align: left;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        /* Divider */
+        .divider {
+            border-top: 2px solid #00409A;
+            margin: 15px 0;
+        }
+
+        /* Summary boxes */
+        .summary-table-boxes {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .summary-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            vertical-align: top;
+            width: 31%;
+            text-align: center;
+        }
+        .summary-card-title {
+            font-size: 7.5pt;
+            font-weight: bold;
+            color: #718096;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .summary-card-value {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        /* Content Table */
+        .content-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .content-table th {
+            background-color: #00409A;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 8pt;
+            padding: 8px 10px;
+            text-align: left;
+            border: 1px solid #00409A;
+        }
+        .content-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 9pt;
+        }
+        .text-right {
+            text-align: right !important;
+        }
+        .text-center {
+            text-align: center !important;
+        }
+
+        /* Signatures */
+        .signatures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 50px;
+            page-break-inside: avoid;
+        }
+        .signature-box {
+            width: 45%;
+            text-align: center;
+            vertical-align: bottom;
+        }
+        .signature-line {
+            border-top: 1px solid #a0aec0;
+            margin-top: 40px;
+            margin-bottom: 5px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .signature-name {
+            font-weight: bold;
+            font-size: 9pt;
+        }
+        .signature-title {
+            font-size: 8pt;
+            color: #718096;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header & Logo -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 50%;">
+                <div class="header-logo">SIGEX</div>
+                <div class="header-subtitle">
+                    Servicios Legales y Consultoría Jurídica Profesionales<br>
+                    Santo Domingo, República Dominicana
+                </div>
+            </td>
+            <td style="width: 50%;" class="doc-title-box">
+                <div class="doc-title">Reporte de Nómina</div>
+                <table class="doc-meta-table">
+                    <tr>
+                        <td class="doc-meta-label">Período:</td>
+                        <td class="doc-meta-value" style="font-weight: bold; color: #00409A;">{{ mes_nombre }} {{ anio }}</td>
+                    </tr>
+                    <tr>
+                        <td class="doc-meta-label">Fecha Emisión:</td>
+                        <td class="doc-meta-value">{{ current_date.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- Summary boxes -->
+    <table class="summary-table-boxes">
+        <tr>
+            <td class="summary-card" style="margin-right: 3%;">
+                <div class="summary-card-title">Salarios Base</div>
+                <div class="summary-card-value">RD$ {{ "{:,.2f}".format(tot_base) }}</div>
+            </td>
+            <td class="summary-card" style="margin-right: 3%; border-left: 3px solid #198754;">
+                <div class="summary-card-title" style="color: #198754;">Comisiones Devengadas</div>
+                <div class="summary-card-value" style="color: #198754;">RD$ {{ "{:,.2f}".format(tot_comisiones) }}</div>
+            </td>
+            <td class="summary-card" style="background-color: #eef2ff; border: 1px solid #c7d2fe; border-left: 3px solid #00409A;">
+                <div class="summary-card-title" style="color: #00409A;">Total General Liquidado</div>
+                <div class="summary-card-value" style="color: #00409A;">RD$ {{ "{:,.2f}".format(tot_liquidar) }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Payroll Detail Table -->
+    <table class="content-table">
+        <thead>
+            <tr>
+                <th style="width: 35%;">Nombre del Colaborador</th>
+                <th style="width: 15%;">Puesto / Rol</th>
+                <th style="width: 15%; text-align: right;">Salario Base</th>
+                <th style="width: 10%; text-align: center;">Tasa Com.</th>
+                <th style="width: 13%; text-align: right;">Comisiones</th>
+                <th style="width: 17%; text-align: right;">Total Neto a Pagar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in pagos_abogados %}
+            <tr>
+                <td><strong>{{ p.nombre }}</strong></td>
+                <td>{{ p.rol }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(p.salario_base) }}</td>
+                <td class="text-center">{{ p.porcentaje_comision }}%</td>
+                <td class="text-right" style="color: #198754;">+ RD$ {{ "{:,.2f}".format(p.total_comisiones) }}</td>
+                <td class="text-right" style="font-weight: bold; color: #00409A;">RD$ {{ "{:,.2f}".format(p.total_liquidar) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center" style="color: #718096; font-style: italic;">No hay personal registrado en el sistema.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Signatures -->
+    <table class="signatures-table">
+        <tr>
+            <td class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">Preparado por</div>
+                <div class="signature-title">Encargado de Contabilidad y Nómina</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">Aprobado por</div>
+                <div class="signature-title">Dirección de Administración / Socio</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Page Numbering Footer -->
+    <div id="footerContent" style="text-align: right; font-size: 8pt; color: #718096; font-family: Arial, sans-serif;">
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+
+</body>
+</html>

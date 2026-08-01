@@ -37,6 +37,9 @@
                 <button type="submit" class="btn btn-sm btn-primary rounded-3 fw-semibold px-3">
                     <i class="bi bi-filter"></i> Filtrar
                 </button>
+                <a href="{{ url_for('descargar_nomina_pdf', mes=mes, anio=anio) }}" target="_blank" class="btn btn-sm btn-outline-danger rounded-3 fw-semibold px-3">
+                    <i class="bi bi-file-pdf"></i> Exportar PDF
+                </a>
             </form>
         </div>
 
@@ -189,7 +192,10 @@
                             </div>
                             <div class="col-md-2 text-md-end">
                                 <span class="text-muted d-block small mb-1">Total a Pagar</span>
-                                <span class="fw-bold text-primary fs-5">RD$ {{ p.total_liquidar|round(2)|string }}</span>
+                                <span class="fw-bold text-primary fs-5 d-block mb-1">RD$ {{ p.total_liquidar|round(2)|string }}</span>
+                                <a href="{{ url_for('descargar_volante_pdf', usuario_id=p.id, mes=mes, anio=anio) }}" target="_blank" class="btn btn-outline-danger py-1 px-2 rounded-3 fw-semibold text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.72rem; line-height: 1;">
+                                    <i class="bi bi-file-pdf"></i> Volante PDF
+                                </a>
                             </div>
                         </div>
 

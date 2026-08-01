@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Volante de Pago - {{ p.nombre }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 18mm 15mm 18mm 15mm;
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 10mm;
+                left: 15mm;
+                width: 180mm;
+                height: 10mm;
+            }
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            font-size: 9.5pt;
+            line-height: 1.5;
+        }
+        
+        /* Branding & Header */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .header-logo {
+            font-size: 22pt;
+            font-weight: bold;
+            color: #00409A;
+            line-height: 1;
+        }
+        .header-subtitle {
+            font-size: 8.5pt;
+            color: #718096;
+            margin-top: 5px;
+        }
+        .doc-title-box {
+            text-align: right;
+        }
+        .doc-title {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #00409A;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .doc-meta-table {
+            float: right;
+            border-collapse: collapse;
+            margin-top: 5px;
+            font-size: 8.5pt;
+        }
+        .doc-meta-table td {
+            padding: 2px 0 2px 10px;
+        }
+        .doc-meta-label {
+            font-weight: bold;
+            color: #718096;
+            text-align: right;
+        }
+        .doc-meta-value {
+            color: #2d3748;
+            text-align: left;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        /* Divider */
+        .divider {
+            border-top: 2px solid #00409A;
+            margin: 15px 0;
+        }
+
+        /* Employee card info */
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .details-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            vertical-align: top;
+            width: 100%;
+        }
+        .details-title {
+            font-size: 9pt;
+            font-weight: bold;
+            color: #00409A;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 4px;
+        }
+        .details-row {
+            margin-bottom: 4px;
+            font-size: 9pt;
+        }
+        .details-label {
+            color: #718096;
+            font-weight: bold;
+            display: inline-block;
+            width: 95px;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #00409A;
+            text-transform: uppercase;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1.5px solid #00409A;
+            padding-bottom: 3px;
+        }
+
+        /* Content Table */
+        .content-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .content-table th {
+            background-color: #00409A;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 8pt;
+            padding: 6px 10px;
+            text-align: left;
+            border: 1px solid #00409A;
+        }
+        .content-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 8.5pt;
+        }
+        .text-right {
+            text-align: right !important;
+        }
+        .text-center {
+            text-align: center !important;
+        }
+
+        /* Summary Calculations */
+        .summary-wrapper {
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 25px;
+        }
+        .summary-table {
+            width: 280px;
+            float: right;
+            border-collapse: collapse;
+        }
+        .summary-table td {
+            padding: 5px 10px;
+            font-size: 9.5pt;
+        }
+        .summary-label {
+            color: #718096;
+            font-weight: bold;
+            text-align: right;
+        }
+        .summary-value {
+            text-align: right;
+            font-weight: bold;
+        }
+        .total-row {
+            background-color: #edf2f7;
+            border-top: 1px solid #cbd5e0;
+            border-bottom: 1px solid #cbd5e0;
+        }
+        .total-label {
+            color: #00409A;
+            font-size: 11pt;
+        }
+        .total-value {
+            color: #00409A;
+            font-size: 11.5pt;
+        }
+
+        /* Conformity Clause */
+        .clause {
+            font-size: 8.5pt;
+            color: #718096;
+            text-align: justify;
+            margin-top: 30px;
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 6px;
+            page-break-inside: avoid;
+        }
+
+        /* Signature */
+        .signature-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 40px;
+            page-break-inside: avoid;
+        }
+        .signature-box {
+            width: 45%;
+            text-align: center;
+            vertical-align: bottom;
+        }
+        .signature-line {
+            border-top: 1px solid #a0aec0;
+            margin-top: 40px;
+            margin-bottom: 5px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .signature-name {
+            font-weight: bold;
+            font-size: 9pt;
+        }
+        .signature-title {
+            font-size: 8pt;
+            color: #718096;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header & Logo -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 50%;">
+                <div class="header-logo">SIGEX</div>
+                <div class="header-subtitle">
+                    Servicios Legales y Consultoría Jurídica Profesionales<br>
+                    Santo Domingo, República Dominicana
+                </div>
+            </td>
+            <td style="width: 50%;" class="doc-title-box">
+                <div class="doc-title">Comprobante de Pago</div>
+                <table class="doc-meta-table">
+                    <tr>
+                        <td class="doc-meta-label">Período:</td>
+                        <td class="doc-meta-value" style="font-weight: bold; color: #00409A;">{{ mes_nombre }} {{ anio }}</td>
+                    </tr>
+                    <tr>
+                        <td class="doc-meta-label">Fecha Liquidado:</td>
+                        <td class="doc-meta-value">{{ current_date.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- Employee Card Details -->
+    <table class="details-table">
+        <tr>
+            <td class="details-card">
+                <div class="details-title">Datos del Colaborador</div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 9pt;">
+                    <tr>
+                        <td style="width: 50%; padding: 2px 0;">
+                            <span class="details-label">Colaborador:</span>
+                            <strong>{{ p.nombre }}</strong>
+                        </td>
+                        <td style="width: 50%; padding: 2px 0;">
+                            <span class="details-label">Puesto / Rol:</span>
+                            {{ p.rol }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 2px 0;">
+                            <span class="details-label">Correo:</span>
+                            {{ p.email or '—' }}
+                        </td>
+                        <td style="padding: 2px 0;">
+                            <span class="details-label">Moneda Pago:</span>
+                            DOP (RD$)
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Commission Breakdown Table -->
+    <div class="section-title">Desglose de Comisiones Devengadas</div>
+    <table class="content-table">
+        <thead>
+            <tr>
+                <th style="width: 45%;">Caso / Expediente Referencia</th>
+                <th style="width: 17%; text-align: right;">Monto Cobrado</th>
+                <th style="width: 13%; text-align: center;">Tasa Com.</th>
+                <th style="width: 25%; text-align: right;">Comisión Neta</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in p.cobros_realizados %}
+            <tr>
+                <td>
+                    <strong>{{ c.caso }}</strong><br>
+                    <span class="text-muted" style="font-size: 7.5pt;">Ref: {{ c.codigo }} | Fecha: {{ c.fecha }}</span>
+                </td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(c.monto_cobrado) }}</td>
+                <td class="text-center">{{ p.porcentaje_comision }}%</td>
+                <td class="text-right" style="font-weight: bold; color: #198754;">RD$ {{ "{:,.2f}".format(c.comision) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center" style="color: #718096; font-style: italic; py-3">No se devengaron comisiones por cobros efectivos en este período.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Calculations Summary -->
+    <div class="summary-wrapper">
+        <table class="summary-table">
+            <tr>
+                <td class="summary-label">Salario Base Fijo:</td>
+                <td class="summary-value">RD$ {{ "{:,.2f}".format(p.salario_base) }}</td>
+            </tr>
+            <tr>
+                <td class="summary-label">Total Comisiones (+):</td>
+                <td class="summary-value" style="color: #198754;">RD$ {{ "{:,.2f}".format(p.total_comisiones) }}</td>
+            </tr>
+            <tr class="total-row">
+                <td class="summary-label total-label">Neto a Liquidar:</td>
+                <td class="summary-value total-value">RD$ {{ "{:,.2f}".format(p.total_liquidar) }}</td>
+            </tr>
+        </table>
+        <div class="clear"></div>
+    </div>
+
+    <!-- Conformity Clause -->
+    <div class="clause">
+        <strong>DECLARACIÓN DE CONFORMIDAD:</strong> Recibí a entera satisfacción de la firma jurídica prestadora de servicios, el monto total especificado en este comprobante de nómina, correspondiente al salario base fijo y las comisiones devengadas por mi gestión de cobro en los expedientes arriba indicados durante el período señalado, no teniendo nada que reclamar por dichos conceptos.
+    </div>
+
+    <!-- Signatures -->
+    <table class="signature-table">
+        <tr>
+            <td class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">Por la Firma</div>
+                <div class="signature-title">Representante Legal / Admin</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">{{ p.nombre }}</div>
+                <div class="signature-title">Firma del Colaborador (Recibido)</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Page Numbering Footer -->
+    <div id="footerContent" style="text-align: right; font-size: 8pt; color: #718096; font-family: Arial, sans-serif;">
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+
+</body>
+</html>
