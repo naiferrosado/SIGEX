@@ -19,6 +19,7 @@
 
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="presupuesto_id" value="{{ preset_presupuesto_id or '' }}">
         <div class="row g-4">
             <!-- General terms -->
             <div class="col-md-5">
@@ -83,7 +84,7 @@
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="form-label small fw-bold">Tipo de Cobro</label>
-                            <select class="form-select rounded-3" name="tipo_cobro" id="tipo_cobro" onchange="suggestCronograma()" required>
+                            <select class="form-select rounded-3" name="tipo_cobro" id="tipo_cobro" onchange="suggestCronograma(); updateLabels();" required>
                                 <option value="Fijo">Fijo</option>
                                 <option value="Etapas">Pago por Etapas</option>
                                 <option value="Cuotas">Cuotas Mensuales</option>
@@ -95,7 +96,7 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold">Moneda</label>
-                            <select class="form-select rounded-3" name="moneda">
+                            <select class="form-select rounded-3" name="moneda" onchange="updateLabels()">
                                 <option value="DOP">DOP (RD$)</option>
                                 <option value="USD">USD (US$)</option>
                             </select>
@@ -134,8 +135,8 @@
             <div class="col-md-7">
                 <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="text-primary fw-bold mb-0"><i class="bi bi-calendar-event me-2"></i>Cronograma de Cobro Planificado</h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary rounded-3" onclick="addCuotaRow()">
+                        <h6 class="text-primary fw-bold mb-0" id="cronogramaCardTitle"><i class="bi bi-calendar-event me-2"></i>Cronograma de Cobro Planificado</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-3" id="addCronogramaBtn" onclick="addCuotaRow()">
                             <i class="bi bi-plus-lg me-1"></i> Agregar Hito / Cuota
                         </button>
                     </div>
@@ -144,8 +145,8 @@
                         <table class="table align-middle" id="cronogramaTable">
                             <thead class="table-light small fw-bold">
                                 <tr>
-                                    <th>Descripción de la Cuota / Vencimiento</th>
-                                    <th style="width: 200px;">Monto de la Cuota (RD$)</th>
+                                    <th id="thDesc">Descripción de la Cuota / Vencimiento</th>
+                                    <th style="width: 200px;" id="thMonto">Monto de la Cuota (RD$)</th>
                                     <th style="width: 50px;"></th>
                                 </tr>
                             </thead>
@@ -201,9 +202,22 @@
         const tbody = document.querySelector("#cronogramaTable tbody");
         const tr = document.createElement("tr");
         const todayStr = new Date().toISOString().split('T')[0];
+        
+        const tipoCobro = document.getElementById("tipo_cobro").value;
+        let placeholderText = "Ej: Primera Cuota / Anticipo";
+        if (tipoCobro === 'Etapas') {
+            placeholderText = "Ej: Firma de contrato / Fase final";
+        } else if (tipoCobro === 'Iguala') {
+            placeholderText = "Ej: Iguala del mes de Enero";
+        } else if (tipoCobro === 'Éxito') {
+            placeholderText = "Ej: Comisión de éxito 20%";
+        } else if (tipoCobro === 'Por Hora') {
+            placeholderText = "Ej: Reporte de 10 horas estimadas";
+        }
+
         tr.innerHTML = `
             <td>
-                <input type="text" class="form-control form-control-sm rounded-2 mb-1 cuota-desc" name="cuota_desc[]" placeholder="Hito / Cuota..." value="${desc}" required>
+                <input type="text" class="form-control form-control-sm rounded-2 mb-1 cuota-desc" name="cuota_desc[]" placeholder="${placeholderText}" value="${desc}" required>
                 <input type="date" class="form-control form-control-sm rounded-2 cuota-venc" name="cuota_venc[]" value="${venc || todayStr}" required>
             </td>
             <td>
@@ -239,6 +253,49 @@
 
         suggestCronograma();
         validateCronogramaMonto();
+        updateLabels();
+    }
+
+    function updateLabels() {
+        const tipoCobro = document.getElementById("tipo_cobro").value;
+        const cardTitle = document.getElementById("cronogramaCardTitle");
+        const addBtn = document.getElementById("addCronogramaBtn");
+        const thDesc = document.getElementById("thDesc");
+        const thMonto = document.getElementById("thMonto");
+        
+        let titleText = "Cronograma de Cobro Planificado";
+        let btnText = '<i class="bi bi-plus-lg me-1"></i> Agregar Hito / Cuota';
+        let descText = "Descripción de la Cuota / Vencimiento";
+        let montoText = "Monto de la Cuota";
+        
+        if (tipoCobro === 'Etapas') {
+            titleText = "Planificación de Cobro por Etapas";
+            btnText = '<i class="bi bi-plus-lg me-1"></i> Agregar Etapa / Hito';
+            descText = "Descripción de la Etapa / Vencimiento";
+            montoText = "Monto de la Etapa / Fase";
+        } else if (tipoCobro === 'Iguala') {
+            titleText = "Planificación de Igualas Mensuales";
+            btnText = '<i class="bi bi-plus-lg me-1"></i> Agregar Mes de Iguala';
+            descText = "Mes / Período de Cobro";
+            montoText = "Monto de la Iguala";
+        } else if (tipoCobro === 'Éxito') {
+            titleText = "Planificación de Honorarios de Éxito / Litis";
+            btnText = '<i class="bi bi-plus-lg me-1"></i> Agregar Cobro de Éxito';
+            descText = "Hito de Éxito o Anticipo";
+            montoText = "Monto Estimado";
+        } else if (tipoCobro === 'Por Hora') {
+            titleText = "Cobro Estimado por Horas";
+            btnText = '<i class="bi bi-plus-lg me-1"></i> Agregar Estimación / Hora';
+            descText = "Hito de Cobro / Estimación";
+            montoText = "Monto Estimado";
+        }
+        
+        const moneda = document.querySelector('select[name="moneda"]').value;
+        
+        if (cardTitle) cardTitle.innerHTML = `<i class="bi bi-calendar-event me-2"></i>${titleText}`;
+        if (addBtn) addBtn.innerHTML = btnText;
+        if (thDesc) thDesc.innerText = descText;
+        if (thMonto) thMonto.innerText = `${montoText} (${moneda})`;
     }
 
     function suggestCronograma() {
@@ -450,6 +507,16 @@
     document.addEventListener('DOMContentLoaded', function() {
         setupAutocomplete();
         restoreSelections();
+        
+        {% if presupuesto %}
+        // Pre-llenar datos del presupuesto aceptado
+        setTimeout(function() {
+            selectCliente("{{ presupuesto.cliente.id }}", "{{ presupuesto.cliente.nombre_completo | replace('"', '\\"') }}", "{{ (presupuesto.cliente.rnc_cedula or '') | replace('"', '\\"') }}");
+            document.getElementById("subtotal").value = "{{ presupuesto.monto_subtotal }}";
+            document.getElementById("aplica_itbis").checked = {% if presupuesto.monto_itbis > 0 %}true{% else %}false{% endif %};
+            calculateTotals();
+        }, 100);
+        {% endif %}
     });
 </script>
 </main>

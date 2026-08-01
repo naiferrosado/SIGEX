@@ -138,7 +138,7 @@ class ExpedienteBaseForm(FlaskForm):
         ('Por Hora', 'Por Hora Trabajada'),
         ('Iguala', 'Iguala Mensual'),
         ('Contingencia', 'Contingencia / Éxito')
-    ], default='Fijo', validators=[DataRequired(message="Debe seleccionar el esquema de cobro.")])
+    ], default='Fijo', validators=[Optional()])
     tarifa_monto = DecimalField('Tarifa / Monto Base (RD$)', places=2, default=0.00, validators=[Optional()])
     porcentaje_exito = DecimalField('Porcentaje de Éxito / Litis (%)', places=2, default=0.00, validators=[Optional()])
 
@@ -182,7 +182,7 @@ class ExpedienteJudicialForm(ExpedienteBaseForm):
     abogado_contraparte = StringField('Abogado Contraparte', validators=[Optional(), Length(max=200)])
     contacto_abogado_contraparte = StringField('Contacto Abogado Contraparte', validators=[Optional(), Length(max=150)])
     
-    monto_demanda = DecimalField('Monto Involucrado (RD$)', places=2, validators=[Optional(), NumberRange(min=0, message="El monto de la demanda debe ser positivo o cero.")])
+    monto_demanda = DecimalField('Monto de la Demanda / Conflicto (RD$)', places=2, validators=[Optional(), NumberRange(min=0, message="El monto de la demanda debe ser positivo o cero.")])
     
     submit_judicial = SubmitField('Crear Expediente Judicial')
 

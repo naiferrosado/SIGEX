@@ -16,6 +16,14 @@
             <a href="{{ url_for('contratos_index') }}" class="btn btn-outline-secondary btn-sm rounded-3 me-2 px-3 py-2 fw-semibold">
                 <i class="bi bi-arrow-left me-1"></i> Lista de Contratos
             </a>
+            {% if contrato.estado in ['Vigente', 'Borrador'] %}
+            <a href="{{ url_for('editar_cronograma', contrato_id=contrato.id) }}" class="btn btn-outline-primary btn-sm rounded-3 me-2 px-3 py-2 fw-semibold">
+                <i class="bi bi-calendar-event me-1"></i> Editar Cronograma
+            </a>
+            {% endif %}
+            <a href="{{ url_for('descargar_contrato_pdf', contrato_id=contrato.id) }}" target="_blank" class="btn btn-outline-danger btn-sm rounded-3 me-2 px-3 py-2 fw-semibold">
+                <i class="bi bi-file-pdf me-1"></i> Descargar PDF
+            </a>
             {% if contrato.expediente %}
             <a href="{{ url_for('detalle_expediente', expediente_id=contrato.expediente_id) }}" class="btn btn-primary btn-sm rounded-3 fw-semibold">
                 <i class="bi bi-folder-fill me-1"></i> Ir al Expediente
@@ -90,14 +98,39 @@
         <!-- Cronograma de cuotas list -->
         <div class="col-md-8">
             <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
-                <h6 class="text-primary fw-bold mb-3"><i class="bi bi-calendar-check me-2"></i>Compromisos del Cronograma</h6>
+                <h6 class="text-primary fw-bold mb-3">
+                    <i class="bi bi-calendar-check me-2"></i>
+                    {% if contrato.tipo_cobro == 'Etapas' %}
+                        Cronograma de Etapas / Hitos
+                    {% elif contrato.tipo_cobro == 'Iguala' %}
+                        Cronograma de Igualas Mensuales
+                    {% elif contrato.tipo_cobro == 'Éxito' %}
+                        Cronograma de Honorarios de Éxito
+                    {% elif contrato.tipo_cobro == 'Por Hora' %}
+                        Plan de Cobro por Horas
+                    {% else %}
+                        Compromisos del Cronograma
+                    {% endif %}
+                </h6>
                 
                 <div class="table-responsive">
                     <table class="table align-middle">
                         <thead class="table-light small fw-bold">
                             <tr>
                                 <th>Orden</th>
-                                <th>Concepto / Cuota</th>
+                                <th>
+                                    {% if contrato.tipo_cobro == 'Etapas' %}
+                                        Concepto / Etapa
+                                    {% elif contrato.tipo_cobro == 'Iguala' %}
+                                        Período / Iguala
+                                    {% elif contrato.tipo_cobro == 'Éxito' %}
+                                        Hito de Éxito
+                                    {% elif contrato.tipo_cobro == 'Por Hora' %}
+                                        Concepto de Cobro
+                                    {% else %}
+                                        Concepto / Cuota
+                                    {% endif %}
+                                </th>
                                 <th>Vencimiento</th>
                                 <th class="text-end">Monto</th>
                                 <th class="text-center">Estado</th>

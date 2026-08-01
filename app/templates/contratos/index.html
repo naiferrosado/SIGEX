@@ -121,9 +121,14 @@
                                 {% endif %}
                             </td>
                             <td class="text-center pe-4">
-                                <a href="{{ url_for('contratos_detalle', contrato_id=c.id) }}" class="btn btn-sm btn-outline-primary rounded-3 px-3">
-                                    <i class="bi bi-eye-fill me-1"></i> Desglose / Cobros
-                                </a>
+                                <div class="d-flex gap-2 justify-content-center">
+                                    <a href="{{ url_for('contratos_detalle', contrato_id=c.id) }}" class="btn btn-sm btn-outline-primary rounded-3 px-3">
+                                        <i class="bi bi-eye-fill me-1"></i> Desglose / Cobros
+                                    </a>
+                                    <a href="{{ url_for('descargar_contrato_pdf', contrato_id=c.id) }}" target="_blank" class="btn btn-sm btn-outline-danger rounded-3 px-3 d-inline-flex align-items-center" title="Descargar PDF">
+                                        <i class="bi bi-file-pdf me-1"></i> PDF
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

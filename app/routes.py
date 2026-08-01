@@ -854,15 +854,33 @@ def register_routes(app):
                     )
 
                 # Obtener facturas y cuotas (partidas) de pago del cliente
+                from types import SimpleNamespace
                 facturas_cli = FacturaHonorario.query.filter_by(cliente_id=cliente_db.id).all()
                 cuotas_pendientes = []
+                now_date = rd_now().date()
                 for f in facturas_cli:
-                    for p in f.partidas:
-                        if p.estado_pago in ["Pendiente", "Mora"]:
-                            cuotas_pendientes.append(p)
+                    if f.estado_pago not in ['Anulado', 'Cobrado'] and f.total_pendiente > 0:
+                        if f.cuota:
+                            desc = f.cuota.descripcion
+                        elif f.detalles:
+                            desc = f.detalles[0].descripcion
+                        else:
+                            desc = f"Factura {f.ncf}" if f.ncf else f"Factura #{f.id}"
+                        
+                        est_pago = 'Pendiente'
+                        if f.fecha_vencimiento and f.fecha_vencimiento < now_date:
+                            est_pago = 'Mora'
+                            
+                        cuotas_pendientes.append(SimpleNamespace(
+                            descripcion_partida=desc,
+                            monto=f.total_pendiente,
+                            fecha_vencimiento=f.fecha_vencimiento or f.fecha_emision.date(),
+                            estado_pago=est_pago,
+                            factura_id=f.id
+                        ))
                 
                 cuotas_pendientes.sort(key=lambda x: x.fecha_vencimiento)
-                total_pendiente_cliente = sum(float(f.total_pendiente) for f in facturas_cli if f.estado_pago != 'Anulado')
+                total_pendiente_cliente = sum(float(f.total_pendiente) for f in facturas_cli if f.estado_pago not in ['Anulado', 'Cobrado'])
 
                 estadisticas = {
                     "expedientes_activos_count": expedientes_activos_count,
@@ -6206,6 +6224,66 @@ def register_routes(app):
         response.headers["Content-Disposition"] = f"inline; filename=factura_{factura.ncf or factura.id}.pdf"
         return response
 
+    @app.route("/presupuestos/<int:presupuesto_id>/pdf", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado", "Cliente")
+    def descargar_presupuesto_pdf(presupuesto_id):
+        pres = Presupuesto.query.get_or_404(presupuesto_id)
+        
+        if current_user.rol == "Cliente":
+            if not current_user.cliente_profile or pres.cliente_id != current_user.cliente_profile.id:
+                flash("No tiene permisos para ver esta cotización.", "danger")
+                return redirect(url_for("dashboard"))
+                
+        from xhtml2pdf import pisa
+        from io import BytesIO
+        from flask import make_response
+        
+        html_content = render_template("presupuestos/presupuesto_pdf.html", presupuesto=pres, current_date=rd_now())
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(html_content, dest=pdf_buffer)
+        
+        if pisa_status.err:
+            flash("Error al generar el PDF de la cotización.", "danger")
+            return redirect(url_for("presupuestos_index"))
+            
+        pdf_data = pdf_buffer.getvalue()
+        
+        response = make_response(pdf_data)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=cotizacion_{pres.id}.pdf"
+        return response
+
+    @app.route("/contratos/<int:contrato_id>/pdf", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador", "Asociado", "Cliente")
+    def descargar_contrato_pdf(contrato_id):
+        contrato = ContratoHonorarios.query.get_or_404(contrato_id)
+        
+        if current_user.rol == "Cliente":
+            if not current_user.cliente_profile or contrato.cliente_id != current_user.cliente_profile.id:
+                flash("No tiene permisos para ver este contrato.", "danger")
+                return redirect(url_for("dashboard"))
+                
+        from xhtml2pdf import pisa
+        from io import BytesIO
+        from flask import make_response
+        
+        html_content = render_template("contratos/contrato_pdf.html", contrato=contrato, current_date=rd_now())
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(html_content, dest=pdf_buffer)
+        
+        if pisa_status.err:
+            flash("Error al generar el PDF del contrato.", "danger")
+            return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+            
+        pdf_data = pdf_buffer.getvalue()
+        
+        response = make_response(pdf_data)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=contrato_{contrato.id}.pdf"
+        return response
+
     @app.route("/api/clientes/<int:cliente_id>/expedientes", methods=["GET"])
     @login_required
     @roles_permitidos("Socio", "Asociado", "Paralegal", "Administrador")
@@ -6232,16 +6310,8 @@ def register_routes(app):
             
         return jsonify(result)
 
-    @app.route("/nomina", methods=["GET"])
-    @login_required
-    @roles_permitidos("Socio", "Administrador")
-    def ver_nomina():
-        # Get selected month and year
-        now = rd_now()
-        mes = request.args.get("mes", type=int, default=now.month)
-        anio = request.args.get("anio", type=int, default=now.year)
-        
-        # Load all staff members (Asociado, Paralegal, Socio, Administrador)
+    def calcular_datos_nomina(mes, anio):
+        # Load all staff members (Asociado, Paralegal, Socio)
         abogados = Usuario.query.filter(Usuario.rol.in_(["Asociado", "Paralegal", "Socio"])).all()
         
         # Query audit logs for payments in that month and year
@@ -6270,6 +6340,7 @@ def register_routes(app):
                 "id": abog.id,
                 "nombre": abog.nombre,
                 "rol": abog.rol,
+                "email": abog.email,
                 "salario_base": float(abog.salario_base or 0.0),
                 "porcentaje_comision": float(abog.porcentaje_comision or 0.0),
                 "cobros_realizados": [],
@@ -6301,13 +6372,124 @@ def register_routes(app):
                 pagos_abogados[resp_id]["total_comisiones"] += comision
                 pagos_abogados[resp_id]["total_liquidar"] += comision
                 
+        return list(pagos_abogados.values())
+
+    @app.route("/nomina", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def ver_nomina():
+        now = rd_now()
+        mes = request.args.get("mes", type=int, default=now.month)
+        anio = request.args.get("anio", type=int, default=now.year)
+        
+        pagos = calcular_datos_nomina(mes, anio)
+        
         return render_template(
             "nomina/index.html",
-            pagos_abogados=pagos_abogados.values(),
+            pagos_abogados=pagos,
             mes=mes,
             anio=anio,
             current_date=now
         )
+
+    @app.route("/nomina/pdf", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def descargar_nomina_pdf():
+        now = rd_now()
+        mes = request.args.get("mes", type=int, default=now.month)
+        anio = request.args.get("anio", type=int, default=now.year)
+        
+        pagos = calcular_datos_nomina(mes, anio)
+        
+        # Calculate summaries
+        tot_base = sum(p["salario_base"] for p in pagos)
+        tot_comisiones = sum(p["total_comisiones"] for p in pagos)
+        tot_liquidar = sum(p["total_liquidar"] for p in pagos)
+        
+        from xhtml2pdf import pisa
+        from io import BytesIO
+        from flask import make_response
+        
+        meses_nombres = {
+            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+            5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+            9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+        }
+        mes_nombre = meses_nombres.get(mes, "")
+        
+        html_content = render_template(
+            "nomina/nomina_pdf.html",
+            pagos_abogados=pagos,
+            mes=mes,
+            mes_nombre=mes_nombre,
+            anio=anio,
+            tot_base=tot_base,
+            tot_comisiones=tot_comisiones,
+            tot_liquidar=tot_liquidar,
+            current_date=now
+        )
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(html_content, dest=pdf_buffer)
+        
+        if pisa_status.err:
+            flash("Error al generar el PDF de la nómina.", "danger")
+            return redirect(url_for("ver_nomina", mes=mes, anio=anio))
+            
+        pdf_data = pdf_buffer.getvalue()
+        
+        response = make_response(pdf_data)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=nomina_{mes}_{anio}.pdf"
+        return response
+
+    @app.route("/nomina/usuario/<int:usuario_id>/pdf", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def descargar_volante_pdf(usuario_id):
+        now = rd_now()
+        mes = request.args.get("mes", type=int, default=now.month)
+        anio = request.args.get("anio", type=int, default=now.year)
+        
+        pagos = calcular_datos_nomina(mes, anio)
+        pago_usuario = next((p for p in pagos if p["id"] == usuario_id), None)
+        
+        if not pago_usuario:
+            flash("No se encontró información de nómina para el usuario seleccionado.", "danger")
+            return redirect(url_for("ver_nomina", mes=mes, anio=anio))
+            
+        from xhtml2pdf import pisa
+        from io import BytesIO
+        from flask import make_response
+        
+        meses_nombres = {
+            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+            5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+            9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+        }
+        mes_nombre = meses_nombres.get(mes, "")
+        
+        html_content = render_template(
+            "nomina/volante_pdf.html",
+            p=pago_usuario,
+            mes=mes,
+            mes_nombre=mes_nombre,
+            anio=anio,
+            current_date=now
+        )
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(html_content, dest=pdf_buffer)
+        
+        if pisa_status.err:
+            flash("Error al generar el volante de pago en PDF.", "danger")
+            return redirect(url_for("ver_nomina", mes=mes, anio=anio))
+            
+        pdf_data = pdf_buffer.getvalue()
+        
+        response = make_response(pdf_data)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"inline; filename=volante_{usuario_id}_{mes}_{anio}.pdf"
+        return response
 
     # ==========================================
     # REDISEÑO DE HONORARIOS, FACTURACIÓN Y COBROS (DOC 2)
@@ -6404,39 +6586,9 @@ def register_routes(app):
     def presupuestos_aceptar(presupuesto_id):
         pres = Presupuesto.query.get_or_404(presupuesto_id)
         pres.estado = 'Aceptado'
-        
-        # 1. Crear contrato de honorarios
-        contrato = ContratoHonorarios(
-            cliente_id=pres.cliente_id,
-            presupuesto_id=pres.id,
-            fecha_firma=rd_today(),
-            fecha_inicio=rd_today(),
-            estado='Vigente',
-            observaciones=f"Contrato firmado a partir de Presupuesto #{pres.id}: {pres.titulo}",
-            tipo_cobro='Fijo',
-            moneda='DOP',
-            aplica_itbis=True if pres.monto_itbis > 0 else False,
-            porcentaje_itbis=BillingService.get_itbis_percentage(),
-            subtotal=pres.monto_subtotal,
-            itbis=pres.monto_itbis,
-            total_contrato=pres.monto_total
-        )
-        db.session.add(contrato)
-        db.session.flush()
-        
-        # Generar cronograma del contrato
-        BillingService.generar_cronograma(contrato)
-        
-        # 2. Redireccionar a la pantalla de crear expediente pre-llenado
         db.session.commit()
-        flash(f"Presupuesto #{pres.id} aceptado. Por favor complete los detalles para registrar el nuevo expediente.", "success")
-        return redirect(url_for("nuevo_expediente",
-                                cliente_id=pres.cliente_id,
-                                nombre_caso=pres.titulo,
-                                materia=pres.materia,
-                                monto=pres.monto_total,
-                                contrato_id=contrato.id,
-                                presupuesto_id=pres.id))
+        flash(f"Presupuesto #{pres.id} aceptado. Por favor defina los términos del contrato de honorarios.", "success")
+        return redirect(url_for("contratos_nuevo", presupuesto_id=pres.id))
 
     @app.route("/presupuestos/<int:presupuesto_id>/rechazar", methods=["POST"])
     @login_required
@@ -6490,6 +6642,11 @@ def register_routes(app):
     def contratos_nuevo():
         clientes = Cliente.query.all()
         expedientes = Expediente.query.all()
+        preset_presupuesto_id = request.args.get("presupuesto_id", type=int)
+        preset_presupuesto = None
+        if preset_presupuesto_id:
+            preset_presupuesto = Presupuesto.query.get(preset_presupuesto_id)
+
         if request.method == "POST":
             cliente_id = request.form.get("cliente_id")
             expediente_id = request.form.get("expediente_id") or None
@@ -6503,10 +6660,16 @@ def register_routes(app):
             aplica_itbis = request.form.get("aplica_itbis") == "on"
             itbis, total = BillingService.calcular_itbis(subtotal, aplica_itbis)
             observaciones = request.form.get("observaciones")
+            presupuesto_id = request.form.get("presupuesto_id") or None
+            if presupuesto_id == '0' or presupuesto_id == '':
+                presupuesto_id = None
+            else:
+                presupuesto_id = int(presupuesto_id)
             
             contrato = ContratoHonorarios(
                 cliente_id=cliente_id,
                 expediente_id=expediente_id,
+                presupuesto_id=presupuesto_id,
                 fecha_firma=datetime.strptime(fecha_firma_str, '%Y-%m-%d').date() if fecha_firma_str else rd_today(),
                 fecha_inicio=datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else rd_today(),
                 estado='Vigente',
@@ -6537,11 +6700,30 @@ def register_routes(app):
                 })
                  
             BillingService.generar_cronograma(contrato, cuotas_data)
+            db.session.commit()
+
+            if presupuesto_id:
+                pres = Presupuesto.query.get(presupuesto_id)
+                if pres:
+                    flash("Contrato creado exitosamente con su cronograma de cobro. Ahora complete los detalles para registrar el nuevo expediente.", "success")
+                    return redirect(url_for("nuevo_expediente",
+                                            cliente_id=pres.cliente_id,
+                                            nombre_caso=pres.titulo,
+                                            materia=pres.materia,
+                                            monto=pres.monto_total,
+                                            contrato_id=contrato.id,
+                                            presupuesto_id=pres.id))
+            
             flash("Contrato creado exitosamente con su cronograma de cobro.", "success")
             return redirect(url_for("contratos_index"))
              
         itbis_porcentaje = BillingService.get_itbis_percentage()
-        return render_template("contratos/nuevo.html", clientes=clientes, expedientes=expedientes, itbis_porcentaje=itbis_porcentaje)
+        return render_template("contratos/nuevo.html", 
+                               clientes=clientes, 
+                               expedientes=expedientes, 
+                               itbis_porcentaje=itbis_porcentaje,
+                               presupuesto=preset_presupuesto,
+                               preset_presupuesto_id=preset_presupuesto_id)
 
     @app.route("/contratos/<int:contrato_id>")
     @login_required
@@ -6561,9 +6743,19 @@ def register_routes(app):
             return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
              
         # Crear FacturaHonorario
-        subtotal = cuota.monto
+        monto_cuota = cuota.monto
         aplica_itbis = contrato.aplica_itbis
-        itbis, total = BillingService.calcular_itbis(subtotal, aplica_itbis)
+        
+        if aplica_itbis:
+            # Back out the subtotal from the cuota.monto which already contains ITBIS
+            itbis_percentage = BillingService.get_itbis_percentage() / Decimal('100.00')
+            subtotal = (monto_cuota / (Decimal('1.00') + itbis_percentage)).quantize(Decimal('0.01'))
+            itbis = monto_cuota - subtotal
+            total = monto_cuota
+        else:
+            subtotal = monto_cuota
+            itbis = Decimal('0.00')
+            total = monto_cuota
         
         # Generar NCF Consumidor Final B02
         last_f = FacturaHonorario.query.filter(FacturaHonorario.ncf.like('B02%')).order_by(FacturaHonorario.id.desc()).first()
@@ -6607,6 +6799,78 @@ def register_routes(app):
         db.session.commit()
         flash(f"Factura NCF {ncf} generada exitosamente para la cuota '{cuota.descripcion}'", "success")
         return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+
+    @app.route("/contratos/<int:contrato_id>/editar-cronograma", methods=["GET", "POST"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def editar_cronograma(contrato_id):
+        contrato = ContratoHonorarios.query.get_or_404(contrato_id)
+        
+        if contrato.estado not in ['Vigente', 'Borrador']:
+            flash("No se puede editar el cronograma de un contrato que no esté Vigente o en Borrador.", "warning")
+            return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+            
+        if request.method == "POST":
+            c_ids = request.form.getlist("cuota_id[]")
+            c_desc = request.form.getlist("cuota_desc[]")
+            c_monto = request.form.getlist("cuota_monto[]")
+            c_venc = request.form.getlist("cuota_venc[]")
+            
+            cuotas_existentes = CronogramaCobro.query.filter_by(contrato_id=contrato.id).order_by(CronogramaCobro.orden.asc()).all()
+            cuotas_bloqueadas = [c for c in cuotas_existentes if c.estado in ['Facturado', 'Pagado']]
+            bloqueadas_dict = {c.id: c for c in cuotas_bloqueadas}
+            
+            total_sum = Decimal('0.00')
+            for i in range(len(c_desc)):
+                if not c_desc[i]:
+                    continue
+                total_sum += Decimal(c_monto[i]) if c_monto[i] else Decimal('0.00')
+                
+            diff = abs(total_sum - contrato.total_contrato)
+            if diff > Decimal('0.05'):
+                flash(f"La suma de las cuotas (RD$ {total_sum:,.2f}) no coincide con el total del contrato (RD$ {contrato.total_contrato:,.2f}).", "danger")
+                return render_template("contratos/editar_cronograma.html", contrato=contrato)
+                
+            # Eliminar cuotas pendientes anteriores
+            for c in cuotas_existentes:
+                if c.estado == 'Pendiente':
+                    db.session.delete(c)
+            db.session.flush()
+            
+            # Guardar cronograma actualizado
+            for idx, i in enumerate(range(len(c_desc))):
+                if not c_desc[i]:
+                    continue
+                
+                c_id_str = c_ids[i] if i < len(c_ids) else ""
+                c_id = int(c_id_str) if c_id_str and c_id_str != "0" else None
+                
+                fecha_v = c_venc[i]
+                if isinstance(fecha_v, str):
+                    fecha_v = datetime.strptime(fecha_v, '%Y-%m-%d').date()
+                
+                if c_id and c_id in bloqueadas_dict:
+                    # Conservar cuota bloqueada y actualizar su orden
+                    cuota_bloq = bloqueadas_dict[c_id]
+                    cuota_bloq.orden = idx + 1
+                else:
+                    # Crear nueva cuota pendiente
+                    nueva_cuota = CronogramaCobro(
+                        contrato_id=contrato.id,
+                        descripcion=c_desc[i],
+                        fecha_vencimiento=fecha_v or rd_today(),
+                        monto=Decimal(c_monto[i]) if c_monto[i] else Decimal('0.00'),
+                        estado='Pendiente',
+                        orden=idx + 1,
+                        tipo='Cuota'
+                    )
+                    db.session.add(nueva_cuota)
+                    
+            db.session.commit()
+            flash("Cronograma de cobro actualizado exitosamente.", "success")
+            return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+            
+        return render_template("contratos/editar_cronograma.html", contrato=contrato)
 
     @app.route("/facturas/<int:factura_id>/pagar-parcial", methods=["POST"])
     @login_required

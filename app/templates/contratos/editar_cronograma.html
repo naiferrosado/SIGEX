@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- INYECTAR EL MENÚ LATERAL REUTILIZABLE -->
+{% include 'components/sidebar.html' %}
+
+<main class="flex-grow-1 p-4 overflow-auto" style="background-color: #f4f6fa;">
+    <!-- Cabecera del Flujo Secuencial -->
+    {% include 'components/billing_flow_header.html' %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-event-fill text-primary me-2"></i>Reestructurar Cronograma de Cobros</h4>
+            <p class="text-muted small mb-0">Modifique los plazos de pago para el Contrato #CON-{{ contrato.id }}.</p>
+        </div>
+        <a href="{{ url_for('contratos_detalle', contrato_id=contrato.id) }}" class="btn btn-outline-secondary btn-sm rounded-3 px-3 py-2 fw-semibold">
+            <i class="bi bi-arrow-left me-1"></i> Volver al Detalle
+        </a>
+    </div>
+
+    <!-- Alertas Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show border-0 rounded-4 shadow-sm mb-4" role="alert">
+                    <i class="bi {{ 'bi-exclamation-triangle-fill' if category == 'error' else 'bi-check-circle-fill' }} me-2"></i>{{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-4">
+            <!-- Contract details summary -->
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                    <h6 class="text-primary fw-bold mb-3"><i class="bi bi-file-text me-2"></i>Resumen del Contrato</h6>
+                    
+                    <div class="mb-3 border-bottom pb-2">
+                        <span class="text-muted d-block small">Cliente:</span>
+                        <span class="fw-semibold text-dark">{{ contrato.cliente.nombre_completo if contrato.cliente else '—' }}</span>
+                    </div>
+                    
+                    <div class="mb-3 border-bottom pb-2">
+                        <span class="text-muted d-block small">Expediente Vinculado:</span>
+                        <span class="fw-semibold text-dark">{{ contrato.expediente.nombre_caso if contrato.expediente else 'Sin vincular' }}</span>
+                    </div>
+
+                    <div class="row g-2 mb-3 border-bottom pb-2">
+                        <div class="col-6">
+                            <span class="text-muted d-block small">Esquema Cobro:</span>
+                            <span class="badge bg-primary-light text-primary rounded-pill px-2 py-1 small fw-semibold">{{ contrato.tipo_cobro }}</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted d-block small">Moneda:</span>
+                            <span class="fw-bold text-dark">{{ contrato.moneda }}</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-light rounded-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Subtotal:</span>
+                            <span class="fw-bold text-dark">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.subtotal) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">ITBIS ({{ contrato.porcentaje_itbis }}%):</span>
+                            <span class="fw-bold text-dark">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.itbis) }}</span>
+                        </div>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-primary small fw-bold">Total Requerido:</span>
+                            <span class="fw-bold text-primary fs-6">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.total_contrato) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Installments schedule editor -->
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-primary fw-bold mb-0">
+                            <i class="bi bi-calendar-check me-2"></i>
+                            {% if contrato.tipo_cobro == 'Etapas' %}
+                                Estructura de Etapas / Hitos
+                            {% elif contrato.tipo_cobro == 'Iguala' %}
+                                Estructura de Igualas Mensuales
+                            {% elif contrato.tipo_cobro == 'Éxito' %}
+                                Estructura de Honorarios de Éxito
+                            {% elif contrato.tipo_cobro == 'Por Hora' %}
+                                Estructura de Cobro por Horas
+                            {% else %}
+                                Estructura de Cuotas Planificadas
+                            {% endif %}
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-3 px-3 fw-semibold" onclick="addCuotaRow()">
+                            <i class="bi bi-plus-lg me-1"></i>
+                            {% if contrato.tipo_cobro == 'Etapas' %}
+                                Agregar Etapa / Hito
+                            {% elif contrato.tipo_cobro == 'Iguala' %}
+                                Agregar Mes de Iguala
+                            {% elif contrato.tipo_cobro == 'Éxito' %}
+                                Agregar Cobro de Éxito
+                            {% elif contrato.tipo_cobro == 'Por Hora' %}
+                                Agregar Cobro de Hora
+                            {% else %}
+                                Agregar Cuota / Hito
+                            {% endif %}
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle" id="cronogramaTable">
+                            <thead class="table-light small fw-bold">
+                                <tr>
+                                    <th>
+                                        {% if contrato.tipo_cobro == 'Etapas' %}
+                                            Descripción de la Etapa / Vencimiento
+                                        {% elif contrato.tipo_cobro == 'Iguala' %}
+                                            Mes o Período / Vencimiento
+                                        {% elif contrato.tipo_cobro == 'Éxito' %}
+                                            Hito de Éxito / Vencimiento
+                                        {% elif contrato.tipo_cobro == 'Por Hora' %}
+                                            Hito de Cobro / Vencimiento
+                                        {% else %}
+                                            Descripción de la Cuota / Vencimiento
+                                        {% endif %}
+                                    </th>
+                                    <th style="width: 200px;">
+                                        {% if contrato.tipo_cobro == 'Etapas' %}
+                                            Monto de la Etapa ({{ contrato.moneda }})
+                                        {% elif contrato.tipo_cobro == 'Iguala' %}
+                                            Monto de la Iguala ({{ contrato.moneda }})
+                                        {% elif contrato.tipo_cobro == 'Éxito' %}
+                                            Monto Estimado ({{ contrato.moneda }})
+                                        {% elif contrato.tipo_cobro == 'Por Hora' %}
+                                            Monto Estimado ({{ contrato.moneda }})
+                                        {% else %}
+                                            Monto de la Cuota ({{ contrato.moneda }})
+                                        {% endif %}
+                                    </th>
+                                    <th style="width: 120px;" class="text-center">Estado</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if contrato.cronograma %}
+                                    {% for cuota in contrato.cronograma %}
+                                    <tr class="cuota-row {% if cuota.estado in ['Facturado', 'Pagado'] %}bg-light opacity-75{% endif %}" data-estado="{{ cuota.estado }}">
+                                        <td>
+                                            <input type="hidden" name="cuota_id[]" value="{{ cuota.id }}">
+                                            
+                                            {% if cuota.estado in ['Facturado', 'Pagado'] %}
+                                                <!-- Campos de lectura para cuotas bloqueadas -->
+                                                <input type="text" class="form-control form-control-sm rounded-2 mb-1 cuota-desc" name="cuota_desc[]" value="{{ cuota.descripcion }}" readonly style="background-color: #e9ecef;">
+                                                <input type="date" class="form-control form-control-sm rounded-2 cuota-venc" name="cuota_venc[]" value="{{ cuota.fecha_vencimiento }}" readonly style="background-color: #e9ecef;">
+                                            {% else %}
+                                                <!-- Campos editables para cuotas pendientes -->
+                                                <input type="text" class="form-control form-control-sm rounded-2 mb-1 cuota-desc" name="cuota_desc[]" value="{{ cuota.descripcion }}" required>
+                                                <input type="date" class="form-control form-control-sm rounded-2 cuota-venc" name="cuota_venc[]" value="{{ cuota.fecha_vencimiento }}" required>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if cuota.estado in ['Facturado', 'Pagado'] %}
+                                                <input type="number" step="0.01" class="form-control form-control-sm rounded-2 cuota-monto fw-bold" name="cuota_monto[]" value="{{ cuota.monto }}" readonly style="background-color: #e9ecef;">
+                                            {% else %}
+                                                <input type="number" step="0.01" class="form-control form-control-sm rounded-2 cuota-monto" name="cuota_monto[]" value="{{ cuota.monto }}" onchange="validateCronogramaSum()" required>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if cuota.estado == 'Pagado' %}
+                                                <span class="badge bg-success-light text-success px-2 py-1 rounded-pill small fw-semibold">Pagado</span>
+                                            {% elif cuota.estado == 'Facturado' %}
+                                                <span class="badge bg-info-light text-info px-2 py-1 rounded-pill small fw-semibold">Facturado</span>
+                                            {% else %}
+                                                <span class="badge bg-warning-light text-warning px-2 py-1 rounded-pill small fw-semibold">Pendiente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if cuota.estado not in ['Facturado', 'Pagado'] %}
+                                                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="removeCuotaRow(this)"><i class="bi bi-trash-fill"></i></button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr id="noCuotasRow">
+                                        <td colspan="4" class="text-center py-4 text-muted">No hay cuotas programadas. Haga clic en "Agregar Cuota" para empezar.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-4 mt-3 small mb-0">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-info-circle-fill me-2 fs-5 text-primary"></i>
+                            <div>
+                                <span class="fw-bold">Validación Financiera:</span> La suma de todas las cuotas del cronograma (tanto las ya cobradas/facturadas como las pendientes nuevas) debe sumar exactamente el **Total Requerido** del contrato.
+                                <div class="fw-bold mt-2 text-dark fs-6" style="letter-spacing: 0.2px;">
+                                    Suma Planificada: <span id="cronogramaSum" class="text-primary">RD$ 0.00</span> / Requerido: <span class="text-success">{{ contrato.moneda }} {{ "{:,.2f}".format(contrato.total_contrato) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('contratos_detalle', contrato_id=contrato.id) }}" class="btn btn-light fw-semibold rounded-3 px-4">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary fw-bold rounded-3 px-5" id="submitBtn">
+                            <i class="bi bi-check-circle-fill me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</main>
+
+<script>
+    const REQUIRED_TOTAL = {{ contrato.total_contrato | float }};
+    
+    function addCuotaRow(desc = '', monto = '', venc = '') {
+        const noRow = document.getElementById("noCuotasRow");
+        if (noRow) noRow.remove();
+
+        const tbody = document.querySelector("#cronogramaTable tbody");
+        const tr = document.createElement("tr");
+        tr.className = "cuota-row";
+        tr.setAttribute("data-estado", "Pendiente");
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+        const tipoCobro = "{{ contrato.tipo_cobro }}";
+        
+        let placeholderText = "Concepto de cobro...";
+        if (tipoCobro === 'Etapas') {
+            placeholderText = "Ej: Firma de contrato / Fase final";
+        } else if (tipoCobro === 'Iguala') {
+            placeholderText = "Ej: Iguala del mes de Enero";
+        } else if (tipoCobro === 'Éxito') {
+            placeholderText = "Ej: Comisión de éxito 20%";
+        } else if (tipoCobro === 'Por Hora') {
+            placeholderText = "Ej: Reporte de 10 horas estimadas";
+        }
+        
+        tr.innerHTML = `
+            <td>
+                <input type="hidden" name="cuota_id[]" value="0">
+                <input type="text" class="form-control form-control-sm rounded-2 mb-1 cuota-desc" name="cuota_desc[]" placeholder="${placeholderText}" value="${desc}" required>
+                <input type="date" class="form-control form-control-sm rounded-2 cuota-venc" name="cuota_venc[]" value="${venc || todayStr}" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" class="form-control form-control-sm rounded-2 cuota-monto" name="cuota_monto[]" placeholder="0.00" value="${monto}" onchange="validateCronogramaSum()" required>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-warning-light text-warning px-2 py-1 rounded-pill small fw-semibold">Pendiente</span>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="removeCuotaRow(this)"><i class="bi bi-trash-fill"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        validateCronogramaSum();
+    }
+
+    function removeCuotaRow(btn) {
+        const tr = btn.closest("tr");
+        if (tr.getAttribute("data-estado") !== "Pendiente") return; // Proteger cuotas bloqueadas
+        
+        tr.remove();
+        
+        const tbody = document.querySelector("#cronogramaTable tbody");
+        if (tbody.children.length === 0) {
+            const emptyTr = document.createElement("tr");
+            emptyTr.id = "noCuotasRow";
+            emptyTr.innerHTML = `<td colspan="4" class="text-center py-4 text-muted">No hay cuotas programadas. Haga clic en "Agregar Cuota" para empezar.</td>`;
+            tbody.appendChild(emptyTr);
+        }
+        
+        validateCronogramaSum();
+    }
+
+    function validateCronogramaSum() {
+        let sum = 0;
+        const montos = document.querySelectorAll(".cuota-monto");
+        montos.forEach(m => {
+            sum += parseFloat(m.value) || 0;
+        });
+
+        document.getElementById("cronogramaSum").innerText = "RD$ " + sum.toLocaleString('es-DO', {minimumFractionDigits: 2});
+
+        const diff = Math.abs(sum - REQUIRED_TOTAL);
+        const submitBtn = document.getElementById("submitBtn");
+
+        // Permitir un margen mínimo de error por redondeos de centavos (0.05)
+        if (diff > 0.05) {
+            submitBtn.disabled = true;
+            submitBtn.classList.remove("btn-primary");
+            submitBtn.classList.add("btn-secondary");
+            submitBtn.title = "La suma de las cuotas debe ser igual al total del contrato (" + REQUIRED_TOTAL.toLocaleString('es-DO', {minimumFractionDigits: 2}) + ").";
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove("btn-secondary");
+            submitBtn.classList.add("btn-primary");
+            submitBtn.title = "";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        validateCronogramaSum();
+    });
+</script>
+
+<style>
+    .bg-primary-light { background-color: rgba(0, 64, 154, 0.1); }
+    .bg-success-light { background-color: rgba(25, 135, 84, 0.1); }
+    .bg-info-light { background-color: rgba(13, 202, 240, 0.1); }
+    .bg-warning-light { background-color: rgba(255, 193, 7, 0.15); }
+</style>
+{% endblock %}

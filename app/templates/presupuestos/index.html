@@ -161,25 +161,28 @@
                                 {% endif %}
                             </td>
                             <td class="text-center pe-4">
-                                {% if p.estado == 'Pendiente Aceptación' %}
-                                <div class="d-flex gap-2 justify-content-center">
-                                    <form action="{{ url_for('presupuestos_aceptar', presupuesto_id=p.id) }}" method="POST" class="d-inline">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-sm btn-success fw-semibold rounded-3 px-3">
-                                            <i class="bi bi-check-circle me-1"></i> Aceptar y Crear Expediente
-                                        </button>
-                                    </form>
-                                    <form action="{{ url_for('presupuestos_rechazar', presupuesto_id=p.id) }}" method="POST" class="d-inline">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-sm btn-danger fw-semibold rounded-3 px-3">
-                                            <i class="bi bi-x-circle me-1"></i> Rechazar
-                                        </button>
-                                    </form>
-                                </div>
-                                {% else %}
-                                <span class="text-muted small"><i class="bi bi-lock-fill me-1"></i> Procesado</span>
-                                {% endif %}
-                            </td>
+                                 <div class="d-flex gap-2 justify-content-center align-items-center">
+                                     <a href="{{ url_for('descargar_presupuesto_pdf', presupuesto_id=p.id) }}" target="_blank" class="btn btn-sm btn-outline-danger fw-semibold rounded-3 px-3 d-inline-flex align-items-center" title="Descargar PDF">
+                                         <i class="bi bi-file-pdf me-1"></i> PDF
+                                     </a>
+                                     {% if p.estado == 'Pendiente Aceptación' %}
+                                         <form action="{{ url_for('presupuestos_aceptar', presupuesto_id=p.id) }}" method="POST" class="d-inline m-0">
+                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                             <button type="submit" class="btn btn-sm btn-success fw-semibold rounded-3 px-3">
+                                                 <i class="bi bi-check-circle me-1"></i> Aceptar y Definir Contrato
+                                             </button>
+                                         </form>
+                                         <form action="{{ url_for('presupuestos_rechazar', presupuesto_id=p.id) }}" method="POST" class="d-inline m-0">
+                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                             <button type="submit" class="btn btn-sm btn-danger fw-semibold rounded-3 px-3">
+                                                 <i class="bi bi-x-circle me-1"></i> Rechazar
+                                             </button>
+                                         </form>
+                                     {% else %}
+                                         <span class="text-muted small"><i class="bi bi-lock-fill me-1"></i> Procesado</span>
+                                     {% endif %}
+                                 </div>
+                             </td>
                         </tr>
                         {% endfor %}
                     {% else %}

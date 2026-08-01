@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato de Honorarios - #CON-{{ contrato.id }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 18mm 15mm 18mm 15mm;
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 10mm;
+                left: 15mm;
+                width: 180mm;
+                height: 10mm;
+            }
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            font-size: 10pt;
+            line-height: 1.6;
+        }
+        
+        /* Branding & Header */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .header-logo {
+            font-size: 22pt;
+            font-weight: bold;
+            color: #00409A;
+            line-height: 1;
+        }
+        .header-subtitle {
+            font-size: 9pt;
+            color: #718096;
+            margin-top: 5px;
+        }
+        .doc-title-box {
+            text-align: right;
+        }
+        .doc-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #00409A;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .doc-meta-table {
+            float: right;
+            border-collapse: collapse;
+            margin-top: 5px;
+            font-size: 9pt;
+        }
+        .doc-meta-table td {
+            padding: 2px 0 2px 10px;
+        }
+        .doc-meta-label {
+            font-weight: bold;
+            color: #718096;
+            text-align: right;
+        }
+        .doc-meta-value {
+            color: #2d3748;
+            text-align: left;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        /* Divider */
+        .divider {
+            border-top: 2px solid #00409A;
+            margin: 15px 0;
+        }
+
+        /* Preamble */
+        .preamble {
+            font-size: 9.5pt;
+            text-align: justify;
+            margin-bottom: 20px;
+            color: #4a5568;
+            background-color: #f8fafc;
+            border-left: 3px solid #00409A;
+            padding: 10px 15px;
+        }
+
+        /* Client & Case Details Box */
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .details-card {
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            vertical-align: top;
+            width: 48%;
+        }
+        .details-title {
+            font-size: 9pt;
+            font-weight: bold;
+            color: #00409A;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 4px;
+        }
+        .details-row {
+            margin-bottom: 4px;
+            font-size: 9pt;
+        }
+        .details-label {
+            color: #718096;
+            font-weight: bold;
+            display: inline-block;
+            width: 85px;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #00409A;
+            text-transform: uppercase;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1.5px solid #00409A;
+            padding-bottom: 3px;
+        }
+
+        /* Installments Table */
+        .content-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .content-table th {
+            background-color: #00409A;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 8.5pt;
+            padding: 8px 10px;
+            text-align: left;
+            border: 1px solid #00409A;
+        }
+        .content-table td {
+            padding: 9px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 9.5pt;
+        }
+        .text-right {
+            text-align: right !important;
+        }
+        .text-center {
+            text-align: center !important;
+        }
+
+        /* Summary Calculations */
+        .summary-wrapper {
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .summary-table {
+            width: 260px;
+            float: right;
+            border-collapse: collapse;
+        }
+        .summary-table td {
+            padding: 5px 10px;
+            font-size: 9.5pt;
+        }
+        .summary-label {
+            color: #718096;
+            font-weight: bold;
+            text-align: right;
+        }
+        .summary-value {
+            text-align: right;
+            font-weight: bold;
+        }
+        .total-row {
+            background-color: #edf2f7;
+            border-top: 1px solid #cbd5e0;
+            border-bottom: 1px solid #cbd5e0;
+        }
+        .total-label {
+            color: #00409A;
+            font-size: 11pt;
+        }
+        .total-value {
+            color: #00409A;
+            font-size: 11.5pt;
+        }
+
+        /* Clauses */
+        .clauses-container {
+            font-size: 9pt;
+            color: #4a5568;
+            text-align: justify;
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        .clause-item {
+            margin-bottom: 8px;
+        }
+
+        /* Signatures */
+        .signatures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 40px;
+            page-break-inside: avoid;
+        }
+        .signature-box {
+            width: 45%;
+            text-align: center;
+            vertical-align: bottom;
+        }
+        .signature-line {
+            border-top: 1px solid #a0aec0;
+            margin-top: 45px;
+            margin-bottom: 5px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .signature-name {
+            font-weight: bold;
+            font-size: 9.5pt;
+        }
+        .signature-title {
+            font-size: 8.5pt;
+            color: #718096;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header & Logo -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 50%;">
+                <div class="header-logo">SIGEX</div>
+                <div class="header-subtitle">
+                    Servicios Legales y Consultoría Jurídica Profesionales<br>
+                    Santo Domingo, República Dominicana
+                </div>
+            </td>
+            <td style="width: 50%;" class="doc-title-box">
+                <div class="doc-title">Contrato de Honorarios</div>
+                <table class="doc-meta-table">
+                    <tr>
+                        <td class="doc-meta-label">Contrato No:</td>
+                        <td class="doc-meta-value" style="font-weight: bold; color: #00409A;">#CON-{{ contrato.id }}</td>
+                    </tr>
+                    <tr>
+                        <td class="doc-meta-label">Fecha Firma:</td>
+                        <td class="doc-meta-value">{{ contrato.fecha_firma.strftime('%d/%m/%Y') if contrato.fecha_firma else '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="doc-meta-label">Fecha Inicio:</td>
+                        <td class="doc-meta-value">{{ contrato.fecha_inicio.strftime('%d/%m/%Y') if contrato.fecha_inicio else '—' }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- Preamble -->
+    <div class="preamble">
+        Reunidos, de una parte, la firma jurídica prestadora de servicios profesionales (en adelante, la "Firma"), y de la otra parte, el Cliente identificado en el presente documento, acuerdan formalizar los términos económicos y el cronograma de pago de honorarios especificados a continuación, bajo el amparo de la legislación civil de la República Dominicana.
+    </div>
+
+    <!-- Client & Case Information -->
+    <table class="details-table">
+        <tr>
+            <td class="details-card" style="margin-right: 4%;">
+                <div class="details-title">Datos del Cliente</div>
+                <div class="details-row">
+                    <span class="details-label">Cliente:</span>
+                    <strong>{{ contrato.cliente.nombre_completo }}</strong>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">RNC / Cédula:</span>
+                    {{ contrato.cliente.rnc_cedula or '—' }}
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Teléfono:</span>
+                    {{ contrato.cliente.telefono or '—' }}
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Correo:</span>
+                    {{ contrato.cliente.email or '—' }}
+                </div>
+            </td>
+            <td class="details-card">
+                <div class="details-title">Detalles del Expediente</div>
+                {% if contrato.expediente %}
+                <div class="details-row">
+                    <span class="details-label">Expediente:</span>
+                    <strong>{{ contrato.expediente.nombre_caso }}</strong>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Código Firma:</span>
+                    {{ contrato.expediente.codigo_firma }}
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Materia Legal:</span>
+                    {{ contrato.expediente.materia.nombre if contrato.expediente.materia else '—' }}
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Tipo Trámite:</span>
+                    {{ contrato.expediente.tipo_tramite }}
+                </div>
+                {% else %}
+                <div class="details-row" style="color: #718096; font-style: italic;">
+                    Ningún expediente judicial/administrativo asociado directamente en la firma de este documento.
+                </div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <!-- Billing Scheme Section -->
+    <div class="section-title">Esquema y Condiciones Económicas</div>
+    <table class="details-table" style="margin-bottom: 10px;">
+        <tr>
+            <td style="width: 50%; vertical-align: top; font-size: 9.5pt;">
+                <strong>Esquema de Cobro:</strong> {{ contrato.tipo_cobro or 'Fijo' }}<br>
+                <strong>Moneda:</strong> {{ contrato.moneda or 'DOP' }} (Pesos Dominicanos)<br>
+                {% if contrato.observaciones %}
+                <strong>Observaciones:</strong> {{ contrato.observaciones }}
+                {% endif %}
+            </td>
+            <td style="width: 50%; vertical-align: top;">
+                <!-- Totals Summary Table -->
+                <table class="summary-table" style="width: 100%; float: none;">
+                    <tr>
+                        <td class="summary-label">Subtotal:</td>
+                        <td class="summary-value">RD$ {{ "{:,.2f}".format(contrato.subtotal) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="summary-label">ITBIS ({{ '18%' if contrato.aplica_itbis else '0%' }}):</td>
+                        <td class="summary-value">RD$ {{ "{:,.2f}".format(contrato.itbis or 0.00) }}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td class="summary-label total-label">Total Contratado:</td>
+                        <td class="summary-value total-value">RD$ {{ "{:,.2f}".format(contrato.total_contrato) }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Installments / Cronograma Section -->
+    <div class="section-title">Cronograma de Cuotas y Vencimientos</div>
+    <table class="content-table">
+        <thead>
+            <tr>
+                <th style="width: 10%; text-align: center;">Orden</th>
+                <th style="width: 45%;">Descripción del Hito de Pago</th>
+                <th style="width: 25%; text-align: center;">Vencimiento</th>
+                <th style="width: 20%; text-align: right;">Monto Cuota</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cuota in contrato.cronograma %}
+            <tr>
+                <td class="text-center">{{ cuota.orden }}</td>
+                <td>{{ cuota.descripcion }}</td>
+                <td class="text-center">{{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') if cuota.fecha_vencimiento else '—' }}</td>
+                <td class="text-right" style="font-weight: bold;">RD$ {{ "{:,.2f}".format(cuota.monto) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center" style="color: #718096; font-style: italic;">No se definieron cuotas para este contrato.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Legal Clauses -->
+    <div class="clauses-container">
+        <div class="clause-item">
+            <strong>PRIMERA - Facturación y Comprobantes:</strong> Cada cuota del cronograma será facturada de manera formal al momento de su vencimiento o cumplimiento de hito. El monto de la cuota ya incluye el impuesto al ITBIS detallado en el desglose superior si el contrato aplica al mismo. Las facturas emitidas cumplirán con los estándares fiscales de la DGII.
+        </div>
+        <div class="clause-item">
+            <strong>SEGUNDA - Intereses y Retrasos:</strong> El cliente se compromete a realizar los pagos en un plazo no mayor a 30 días posteriores a la fecha de emisión de cada factura. Retrasos injustificados en el pago de cuotas autorizan a la Firma a suspender temporalmente la representación del caso en los tribunales o ante las instituciones del estado.
+        </div>
+    </div>
+
+    <!-- Signatures Block -->
+    <table class="signatures-table">
+        <tr>
+            <td class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">Por la Firma Legal</div>
+                <div class="signature-title">Abogado Apoderado</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">{{ contrato.cliente.nombre_completo }}</div>
+                <div class="signature-title">Cliente Firmante</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Page Numbering Footer -->
+    <div id="footerContent" style="text-align: right; font-size: 8pt; color: #718096; font-family: Arial, sans-serif;">
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+
+</body>
+</html>
