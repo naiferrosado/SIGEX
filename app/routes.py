@@ -2027,9 +2027,15 @@ def register_routes(app):
                 for t in tiempos_db
             ]
 
+        # Obtener contrato asociado (si tiene)
+        contrato_id = None
+        if exp.contratos_honorarios:
+            contrato_id = exp.contratos_honorarios[0].id
+
         # 3. Serializar expediente
         item = {
             "id": exp.id,
+            "contrato_id": contrato_id,
             "tiempos": tiempos_data,
             "codigo_firma": exp.codigo_firma,
             "cliente_id": exp.cliente_id,
@@ -2448,7 +2454,10 @@ def register_routes(app):
                         detalles=f"Creó el expediente judicial '{nuevo_caso.nombre_caso}' ({nuevo_caso.codigo_firma}).",
                         expediente_id=nuevo_caso.id,
                     )
-                    flash("Expediente judicial creado exitosamente.", "success")
+                    flash("Expediente judicial creado exitosamente y vinculado al contrato.", "success")
+                    contrato_id = request.args.get("contrato_id", type=int)
+                    if contrato_id:
+                        return redirect(url_for("contratos_detalle", contrato_id=contrato_id))
                     return redirect(url_for("expedientes"))
                 except Exception as e:
                     db.session.rollback()
@@ -2560,7 +2569,10 @@ def register_routes(app):
                         detalles=f"Creó el expediente administrativo '{nuevo_tramite.nombre_caso}' ({nuevo_tramite.codigo_firma}).",
                         expediente_id=nuevo_tramite.id,
                     )
-                    flash("Expediente administrativo creado exitosamente.", "success")
+                    flash("Expediente administrativo creado exitosamente y vinculado al contrato.", "success")
+                    contrato_id = request.args.get("contrato_id", type=int)
+                    if contrato_id:
+                        return redirect(url_for("contratos_detalle", contrato_id=contrato_id))
                     return redirect(url_for("expedientes"))
                 except Exception as e:
                     db.session.rollback()
@@ -6647,6 +6659,14 @@ def register_routes(app):
         if preset_presupuesto_id:
             preset_presupuesto = Presupuesto.query.get(preset_presupuesto_id)
 
+        contrato_id = request.args.get("contrato_id", type=int)
+        preset_contrato = None
+        if contrato_id:
+            preset_contrato = ContratoHonorarios.query.get(contrato_id)
+            # Limpiar mensajes flash acumulados del paso anterior (como el éxito de la creación)
+            from flask import session
+            session.pop('_flashes', None)
+
         if request.method == "POST":
             cliente_id = request.form.get("cliente_id")
             expediente_id = request.form.get("expediente_id") or None
@@ -6660,30 +6680,52 @@ def register_routes(app):
             aplica_itbis = request.form.get("aplica_itbis") == "on"
             itbis, total = BillingService.calcular_itbis(subtotal, aplica_itbis)
             observaciones = request.form.get("observaciones")
-            presupuesto_id = request.form.get("presupuesto_id") or None
-            if presupuesto_id == '0' or presupuesto_id == '':
+            presupuesto_id = request.form.get("presupuesto_id")
+            if not presupuesto_id or presupuesto_id == '0' or presupuesto_id == '':
                 presupuesto_id = None
             else:
                 presupuesto_id = int(presupuesto_id)
             
-            contrato = ContratoHonorarios(
-                cliente_id=cliente_id,
-                expediente_id=expediente_id,
-                presupuesto_id=presupuesto_id,
-                fecha_firma=datetime.strptime(fecha_firma_str, '%Y-%m-%d').date() if fecha_firma_str else rd_today(),
-                fecha_inicio=datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else rd_today(),
-                estado='Vigente',
-                tipo_cobro=tipo_cobro,
-                moneda=moneda,
-                aplica_itbis=aplica_itbis,
-                porcentaje_itbis=BillingService.get_itbis_percentage(),
-                subtotal=subtotal,
-                itbis=itbis,
-                total_contrato=total,
-                observaciones=observaciones
-            )
-            db.session.add(contrato)
-            db.session.flush()
+            post_contrato_id = request.form.get("contrato_id", type=int) or request.args.get("contrato_id", type=int)
+            contrato = None
+            if post_contrato_id:
+                contrato = ContratoHonorarios.query.get(post_contrato_id)
+
+            if contrato:
+                contrato.cliente_id = cliente_id
+                contrato.expediente_id = expediente_id
+                contrato.presupuesto_id = presupuesto_id
+                contrato.fecha_firma = datetime.strptime(fecha_firma_str, '%Y-%m-%d').date() if fecha_firma_str else rd_today()
+                contrato.fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else rd_today()
+                contrato.tipo_cobro = tipo_cobro
+                contrato.moneda = moneda
+                contrato.aplica_itbis = aplica_itbis
+                contrato.porcentaje_itbis = BillingService.get_itbis_percentage()
+                contrato.subtotal = subtotal
+                contrato.itbis = itbis
+                contrato.total_contrato = total
+                contrato.observaciones = observaciones
+                
+                CronogramaCobro.query.filter_by(contrato_id=contrato.id).delete()
+            else:
+                contrato = ContratoHonorarios(
+                    cliente_id=cliente_id,
+                    expediente_id=expediente_id,
+                    presupuesto_id=presupuesto_id,
+                    fecha_firma=datetime.strptime(fecha_firma_str, '%Y-%m-%d').date() if fecha_firma_str else rd_today(),
+                    fecha_inicio=datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else rd_today(),
+                    estado='Vigente',
+                    tipo_cobro=tipo_cobro,
+                    moneda=moneda,
+                    aplica_itbis=aplica_itbis,
+                    porcentaje_itbis=BillingService.get_itbis_percentage(),
+                    subtotal=subtotal,
+                    itbis=itbis,
+                    total_contrato=total,
+                    observaciones=observaciones
+                )
+                db.session.add(contrato)
+                db.session.flush()
             
             c_desc = request.form.getlist("cuota_desc[]")
             c_monto = request.form.getlist("cuota_monto[]")
@@ -6714,6 +6756,15 @@ def register_routes(app):
                                             contrato_id=contrato.id,
                                             presupuesto_id=pres.id))
             
+            if not expediente_id:
+                tiene_expedientes = Expediente.query.filter_by(cliente_id=cliente_id).first() is not None
+                if not tiene_expedientes:
+                    flash("Contrato creado exitosamente. Como el cliente no tiene expedientes registrados, complete los detalles para registrar uno nuevo.", "success")
+                    return redirect(url_for("nuevo_expediente",
+                                            cliente_id=cliente_id,
+                                            contrato_id=contrato.id,
+                                            monto=contrato.total_contrato))
+            
             flash("Contrato creado exitosamente con su cronograma de cobro.", "success")
             return redirect(url_for("contratos_index"))
              
@@ -6723,13 +6774,61 @@ def register_routes(app):
                                expedientes=expedientes, 
                                itbis_porcentaje=itbis_porcentaje,
                                presupuesto=preset_presupuesto,
-                               preset_presupuesto_id=preset_presupuesto_id)
+                               preset_presupuesto_id=preset_presupuesto_id,
+                               contrato=preset_contrato)
 
     @app.route("/contratos/<int:contrato_id>")
     @login_required
     def contratos_detalle(contrato_id):
         contrato = ContratoHonorarios.query.get_or_404(contrato_id)
         return render_template("contratos/detalle.html", contrato=contrato)
+
+    @app.route("/contratos/<int:contrato_id>/eliminar", methods=["POST"])
+    @login_required
+    @roles_permitidos("Socio", "Administrador")
+    def contratos_eliminar(contrato_id):
+        contrato = ContratoHonorarios.query.get_or_404(contrato_id)
+        
+        # Verificar si tiene facturas generadas
+        from app.models import FacturaHonorario
+        tiene_facturas = FacturaHonorario.query.filter_by(contrato_id=contrato.id).first() is not None
+        if tiene_facturas:
+            flash("No se puede eliminar el contrato porque ya tiene facturas emitidas asociadas.", "danger")
+            return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+            
+        # Eliminar las cuotas del cronograma
+        CronogramaCobro.query.filter_by(contrato_id=contrato.id).delete()
+        
+        db.session.delete(contrato)
+        db.session.commit()
+        flash("Contrato cancelado/eliminado exitosamente.", "success")
+        return redirect(url_for("contratos_index"))
+
+    @app.route("/contratos/<int:contrato_id>/deshacer-y-volver", methods=["GET"])
+    @login_required
+    @roles_permitidos("Socio", "Asociado", "Administrador")
+    def contratos_deshacer_y_volver(contrato_id):
+        # Limpiar mensajes flash acumulados
+        from flask import session
+        session.pop('_flashes', None)
+
+        contrato = ContratoHonorarios.query.get_or_404(contrato_id)
+        
+        # Verificar si tiene facturas generadas
+        from app.models import FacturaHonorario
+        tiene_facturas = FacturaHonorario.query.filter_by(contrato_id=contrato.id).first() is not None
+        if tiene_facturas:
+            flash("No se puede deshacer el contrato porque ya tiene facturas emitidas asociadas.", "danger")
+            return redirect(url_for("contratos_detalle", contrato_id=contrato.id))
+            
+        # Eliminar las cuotas del cronograma
+        CronogramaCobro.query.filter_by(contrato_id=contrato.id).delete()
+        
+        db.session.delete(contrato)
+        db.session.commit()
+        
+        flash("Creación del contrato cancelada.", "info")
+        return redirect(url_for("contratos_index"))
 
     @app.route("/contratos/<int:contrato_id>/facturar-cuota/<int:cuota_id>", methods=["POST"])
     @login_required

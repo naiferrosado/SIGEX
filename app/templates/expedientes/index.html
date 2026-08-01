@@ -109,8 +109,14 @@
                         <i class="bi bi-briefcase-fill"></i>
                     </div>
                     <h5 class="fw-bold mb-1 text-dark" id="detName">Seleccione un registro</h5>
-                    <div class="mb-3" id="detStatusBadgeContainer">
+                    <div class="mb-2" id="detStatusBadgeContainer">
                         <span class="badge bg-secondary">Ninguno</span>
+                    </div>
+                    
+                    <div class="mb-3 d-none" id="detContratoContainer">
+                        <a id="btnVerContrato" href="#" class="btn btn-xs btn-outline-success rounded-pill px-3 py-1 fw-bold small text-center" style="font-size: 0.75rem;">
+                            <i class="bi bi-file-earmark-lock-fill me-1"></i> Ver Contrato Vinculado
+                        </a>
                     </div>
                     
                     <ul class="nav nav-tabs justify-content-center mb-3 small" role="tablist">
@@ -683,6 +689,16 @@
                 document.getElementById('detName').innerText = e.nombre_caso;
                 document.getElementById('detStatusBadgeContainer').innerHTML = badgeEstado;
 
+                // Mostrar botón de contrato si tiene uno asociado
+                const contratoContainer = document.getElementById('detContratoContainer');
+                const btnVerContrato = document.getElementById('btnVerContrato');
+                if (e.contrato_id) {
+                    btnVerContrato.href = `/contratos/${e.contrato_id}`;
+                    contratoContainer.classList.remove('d-none');
+                } else {
+                    contratoContainer.classList.add('d-none');
+                }
+
                 // Llenar panel visual - General
                 document.getElementById('detCodigo').innerText = e.codigo_firma;
                 document.getElementById('detCliente').innerText = e.cliente_nombre;
@@ -979,6 +995,7 @@
         
         document.getElementById('detName').innerText = "Seleccione un registro";
         document.getElementById('detStatusBadgeContainer').innerHTML = '<span class="badge bg-secondary">Ninguno</span>';
+        document.getElementById('detContratoContainer').classList.add('d-none');
         
         // Reset campos General
         document.getElementById('detCodigo').innerText = "—";

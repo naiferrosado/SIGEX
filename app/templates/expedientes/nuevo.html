@@ -10,11 +10,7 @@
                 <h2 class="fw-bold text-primary mb-1">Registrar Nuevo Expediente</h2>
                 <p class="text-muted small mb-0">Complete la información para iniciar el proceso legal o administrativo.</p>
             </div>
-            {% if request.args.get('contrato_id') %}
-            <a href="{{ url_for('presupuestos_index') }}" class="btn btn-outline-secondary btn-sm rounded-3 fw-semibold px-3 py-2 shadow-sm">
-                <i class="bi bi-arrow-left me-1"></i> Volver a Presupuestos
-            </a>
-            {% else %}
+            {% if not request.args.get('contrato_id') %}
             <a href="{{ url_for('expedientes') }}" class="btn btn-outline-secondary btn-sm rounded-3 fw-semibold px-3 py-2 shadow-sm">
                 <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
             </a>
@@ -175,7 +171,12 @@
                             
 
 
-                            <div class="mt-4 text-end">
+                            <div class="mt-4 d-flex justify-content-end gap-2">
+                                {% if request.args.get('contrato_id') %}
+                                <a href="{{ url_for('contratos_nuevo', contrato_id=request.args.get('contrato_id')) }}" class="btn btn-outline-danger px-4 py-2 shadow-sm">
+                                    <i class="bi bi-arrow-left me-1"></i> Volver a Editar Contrato
+                                </a>
+                                {% endif %}
                                 {{ form_judicial.submit_judicial(class="btn btn-primary px-5 py-2 shadow-sm") }}
                             </div>
                         </form>
@@ -313,7 +314,12 @@
 
 
 
-                            <div class="mt-4 text-end">
+                            <div class="mt-4 d-flex justify-content-end gap-2">
+                                {% if request.args.get('contrato_id') %}
+                                <a href="{{ url_for('contratos_nuevo', contrato_id=request.args.get('contrato_id')) }}" class="btn btn-outline-danger px-4 py-2 shadow-sm">
+                                    <i class="bi bi-arrow-left me-1"></i> Volver a Editar Contrato
+                                </a>
+                                {% endif %}
                                 {{ form_admin.submit_admin(class="btn btn-primary px-5 py-2 shadow-sm") }}
                             </div>
                         </form>
