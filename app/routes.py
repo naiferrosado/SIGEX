@@ -6777,7 +6777,7 @@ def register_routes(app):
             BillingService.generar_cronograma(contrato, cuotas_data)
             db.session.commit()
 
-            if presupuesto_id:
+            if presupuesto_id and not expediente_id:
                 pres = Presupuesto.query.get(presupuesto_id)
                 if pres:
                     flash("Contrato creado exitosamente con su cronograma de cobro. Ahora complete los detalles para registrar el nuevo expediente.", "success")
