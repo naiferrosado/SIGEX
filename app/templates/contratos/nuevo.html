@@ -475,7 +475,13 @@
 
         expSelect.innerHTML = '<option value="0">Cargando expedientes...</option>';
 
-        fetch(`/expedientes/buscar?cliente_id=${clientId}`)
+        const contratoId = "{{ contrato.id if contrato else '' }}";
+        let url = `/expedientes/buscar?cliente_id=${clientId}&sin_contrato=1`;
+        if (contratoId) {
+            url += `&excluding_contrato_id=${contratoId}`;
+        }
+
+        fetch(url)
             .then(res => res.json())
             .then(data => {
                 expSelect.innerHTML = '';

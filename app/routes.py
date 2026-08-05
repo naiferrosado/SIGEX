@@ -1777,6 +1777,26 @@ def register_routes(app):
         if tipo != "Todos":
             query = query.filter_by(tipo_tramite=tipo)
 
+        sin_contrato = request.args.get("sin_contrato", type=int)
+        if sin_contrato:
+            excluding_contrato_id = request.args.get("excluding_contrato_id", type=int)
+            from app.models import ContratoHonorarios
+            if excluding_contrato_id:
+                query = query.filter(
+                    ~Expediente.id.in_(
+                        db.session.query(ContratoHonorarios.expediente_id)
+                        .filter(ContratoHonorarios.expediente_id.isnot(None))
+                        .filter(ContratoHonorarios.id != excluding_contrato_id)
+                    )
+                )
+            else:
+                query = query.filter(
+                    ~Expediente.id.in_(
+                        db.session.query(ContratoHonorarios.expediente_id)
+                        .filter(ContratoHonorarios.expediente_id.isnot(None))
+                    )
+                )
+
         lista_exp = query.order_by(Expediente.fecha_apertura.desc()).all()
 
         results = [
@@ -6705,6 +6725,29 @@ def register_routes(app):
             expediente_id = request.form.get("expediente_id") or None
             if expediente_id == '0' or expediente_id == '':
                 expediente_id = None
+
+            if expediente_id:
+                try:
+                    expediente_id_int = int(expediente_id)
+                except ValueError:
+                    expediente_id_int = None
+
+                if expediente_id_int:
+                    post_contrato_id = request.form.get("contrato_id", type=int) or request.args.get("contrato_id", type=int)
+                    query_conflict = ContratoHonorarios.query.filter_by(expediente_id=expediente_id_int)
+                    if post_contrato_id:
+                        query_conflict = query_conflict.filter(ContratoHonorarios.id != post_contrato_id)
+                    contrato_existente = query_conflict.first()
+                    if contrato_existente:
+                        flash("Error: El expediente seleccionado ya tiene un contrato de honorarios asociado.", "danger")
+                        itbis_porcentaje = BillingService.get_itbis_percentage()
+                        return render_template("contratos/nuevo.html", 
+                                               clientes=clientes, 
+                                               expedientes=expedientes, 
+                                               itbis_porcentaje=itbis_porcentaje,
+                                               presupuesto=preset_presupuesto,
+                                               preset_presupuesto_id=preset_presupuesto_id,
+                                               contrato=preset_contrato)
             fecha_firma_str = request.form.get("fecha_firma")
             fecha_inicio_str = request.form.get("fecha_inicio")
             tipo_cobro = request.form.get("tipo_cobro")
