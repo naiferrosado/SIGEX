@@ -7,8 +7,8 @@
     
     <header class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
-            <h2 class="fw-bold mb-1" style="color: #071c4d;">Mi Perfil</h2>
-            <p class="text-muted small mb-0">Gestiona tus datos personales y actualiza tu clave de acceso al sistema.</p>
+            <h2 class="fw-bold mb-1" style="color: #071c4d;">Configuración</h2>
+            <p class="text-muted small mb-0">Gestiona tus datos de perfil, seguridad y preferencias del sistema.</p>
         </div>
         <div class="bg-white border rounded px-3 py-2 small text-secondary shadow-sm">
             <i class="bi bi-calendar3 me-2"></i>{{ current_date.strftime('%d de %B, %Y') }}
@@ -37,144 +37,264 @@
             </script>
         {% endif %}
     {% endwith %}
+    <div class="row g-4">
+        <!-- Columna Izquierda: Menú de Opciones -->
+        <div class="col-lg-3">
+            <div class="list-group rounded-4 shadow-sm border-0 overflow-hidden">
+                <button type="button" class="list-group-item list-group-item-action px-4 py-3 fw-semibold d-flex align-items-center gap-3 border-0" id="tab-perfil-btn" onclick="showConfigTab('perfil')">
+                    <i class="bi bi-person-fill-gear fs-5 text-primary"></i> 
+                    <span>Mi Perfil</span>
+                </button>
+                <button type="button" class="list-group-item list-group-item-action px-4 py-3 fw-semibold d-flex align-items-center gap-3 border-0" id="tab-preferencias-btn" onclick="showConfigTab('preferencias')">
+                    <i class="bi bi-moon-stars-fill fs-5 text-primary"></i> 
+                    <span>Modo Oscuro</span>
+                </button>
+            </div>
+        </div>
 
-    <div class="row g-4">
-        <!-- Columna Izquierda: Tarjeta de Presentación del Usuario -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm rounded-4 text-center p-4 h-100">
-                <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold shadow mb-3" style="width: 100px; height: 100px; font-size: 2.5rem; background-color: #00409A !important;">
-                        {{ usuario.nombre[:2] | upper }}
-                    </div>
-                    <h4 class="fw-bold mb-1" style="color: #071c4d;">{{ usuario.nombre }}</h4>
-                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1.5 mb-4" style="font-size: 0.85rem;">
-                        <i class="bi bi-shield-fill-check me-1"></i>{{ usuario.rol }}
-                    </span>
-                    
-                    <hr class="w-100 border-light my-3">
-                    
-                    <div class="w-100 text-start">
-                        <div class="mb-3">
-                            <label class="text-muted small d-block mb-1">Correo Institucional</label>
-                            <span class="fw-semibold text-dark d-block text-break"><i class="bi bi-envelope me-2 text-primary"></i>{{ usuario.email }}</span>
+        <!-- Columna Derecha: Contenidos de las Pestañas -->
+        <div class="col-lg-9">
+            <!-- Pestaña Defecto: Bienvenida y Selección -->
+            <div id="content-welcome" class="config-tab-content">
+                <div class="card border-0 shadow-sm rounded-4 text-center p-5">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center mb-4 animate-gear" style="width: 80px; height: 80px;">
+                            <i class="bi bi-gear-fill fs-1"></i>
                         </div>
-                        <div class="mb-3">
-                            <label class="text-muted small d-block mb-1">Estado de Cuenta</label>
-                            {% if usuario.activo %}
-                                <span class="badge bg-success rounded-pill px-2.5 py-1 small"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Activo</span>
-                            {% else %}
-                                <span class="badge bg-danger rounded-pill px-2.5 py-1 small"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Inactivo</span>
-                            {% endif %}
+                        <h4 class="fw-bold mb-2 text-dark">Panel de Configuración</h4>
+                        <p class="text-muted mb-0 mx-auto" style="max-width: 420px;">
+                            Seleccione una opción del menú lateral para gestionar sus datos personales, configurar la seguridad de su cuenta o cambiar el tema visual del sistema.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 1: Mi Perfil -->
+            <div id="content-perfil" class="config-tab-content d-none">
+                <div class="row g-4">
+                    <!-- Subcolumna Izquierda: Ficha del Usuario -->
+                    <div class="col-lg-4">
+                        <div class="card border-0 shadow-sm rounded-4 text-center p-4">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center p-0">
+                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold shadow mb-3" style="width: 100px; height: 100px; font-size: 2.5rem; background-color: #00409A !important;">
+                                    {{ usuario.nombre[:2] | upper }}
+                                </div>
+                                <h4 class="fw-bold mb-1" style="color: #071c4d;">{{ usuario.nombre }}</h4>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1.5 mb-4" style="font-size: 0.85rem;">
+                                    <i class="bi bi-shield-fill-check me-1"></i>{{ usuario.rol }}
+                                </span>
+                                
+                                <hr class="w-100 border-light my-3">
+                                
+                                <div class="w-100 text-start">
+                                    <div class="mb-3">
+                                        <label class="text-muted small d-block mb-1">Correo Institucional</label>
+                                        <span class="fw-semibold text-dark d-block text-break"><i class="bi bi-envelope me-2 text-primary"></i>{{ usuario.email }}</span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="text-muted small d-block mb-1">Estado de Cuenta</label>
+                                        {% if usuario.activo %}
+                                            <span class="badge bg-success rounded-pill px-2.5 py-1 small"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-danger rounded-pill px-2.5 py-1 small"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Inactivo</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subcolumna Derecha: Formularios de Edición y Contraseña -->
+                    <div class="col-lg-8 d-flex flex-column gap-4">
+                        <!-- Tarjeta: Datos del Perfil -->
+                        <div class="card border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-white border-bottom p-3">
+                                <h5 class="card-title fw-bold mb-0 text-dark">
+                                    <i class="bi bi-person-fill text-primary me-2"></i>Datos Personales
+                                </h5>
+                            </div>
+                            <div class="card-body p-4">
+                                <form method="POST" action="{{ url_for('editar_perfil') }}" novalidate>
+                                    {{ profile_form.hidden_tag() }}
+                                    
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label for="nombre" class="form-label small fw-semibold">Nombre Completo</label>
+                                            {{ profile_form.nombre(class="form-control form-control-sm", id="nombre", placeholder="Nombre...", style="border-radius: 8px;") }}
+                                            {% if profile_form.nombre.errors %}
+                                                {% for error in profile_form.nombre.errors %}
+                                                    <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="email" class="form-label small fw-semibold">Correo Electrónico</label>
+                                            {{ profile_form.email(class="form-control form-control-sm", id="email", placeholder="Correo...", style="border-radius: 8px;") }}
+                                            {% if profile_form.email.errors %}
+                                                {% for error in profile_form.email.errors %}
+                                                    <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-end mt-4">
+                                        {{ profile_form.submit(class="btn btn-primary btn-sm px-4 fw-semibold", style="background-color: #00409A; border-color: #00409A; border-radius: 8px;") }}
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Tarjeta: Cambio de Contraseña -->
+                        <div class="card border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-white border-bottom p-3">
+                                <h5 class="card-title fw-bold mb-0 text-dark">
+                                    <i class="bi bi-key-fill text-primary me-2"></i>Seguridad de la Cuenta
+                                </h5>
+                            </div>
+                            <div class="card-body p-4">
+                                <form method="POST" action="{{ url_for('cambiar_password_perfil') }}" novalidate>
+                                    {{ password_form.hidden_tag() }}
+                                    
+                                    <div class="mb-3">
+                                        <label for="current_password" class="form-label small fw-semibold">Contraseña Actual</label>
+                                        <div class="position-relative">
+                                            {{ password_form.current_password(class="form-control form-control-sm pe-5", id="current_password", placeholder="Ingrese su contraseña actual...", style="border-radius: 8px;") }}
+                                            <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock"></i></span>
+                                        </div>
+                                        {% if password_form.current_password.errors %}
+                                            {% for error in password_form.current_password.errors %}
+                                                <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label for="new_password" class="form-label small fw-semibold">Nueva Contraseña</label>
+                                            <div class="position-relative">
+                                                {{ password_form.new_password(class="form-control form-control-sm pe-5", id="new_password", placeholder="Mínimo 6 caracteres...", style="border-radius: 8px;") }}
+                                                <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock-fill"></i></span>
+                                            </div>
+                                            {% if password_form.new_password.errors %}
+                                                {% for error in password_form.new_password.errors %}
+                                                    <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="confirm_password" class="form-label small fw-semibold">Confirmar Nueva Contraseña</label>
+                                            <div class="position-relative">
+                                                {{ password_form.confirm_password(class="form-control form-control-sm pe-5", id="confirm_password", placeholder="Repita la nueva contraseña...", style="border-radius: 8px;") }}
+                                                <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-shield-fill-check"></i></span>
+                                            </div>
+                                            {% if password_form.confirm_password.errors %}
+                                                {% for error in password_form.confirm_password.errors %}
+                                                    <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-end mt-4">
+                                        {{ password_form.submit(class="btn btn-primary btn-sm px-4 fw-semibold", style="background-color: #00409A; border-color: #00409A; border-radius: 8px;") }}
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Columna Derecha: Formularios de Edición y Cambio de Clave -->
-        <div class="col-lg-8">
-            <div class="d-flex flex-column gap-4">
-                
-                <!-- Tarjeta: Datos del Perfil -->
+            <!-- Pestaña 2: Preferencias -->
+            <div id="content-preferencias" class="config-tab-content d-none">
+                <!-- Tarjeta: Preferencias de la Aplicación -->
                 <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-header bg-white border-bottom p-3">
                         <h5 class="card-title fw-bold mb-0 text-dark">
-                            <i class="bi bi-person-fill text-primary me-2"></i>Datos Personales
+                            <i class="bi bi-sliders text-primary me-2"></i>Preferencias de la Aplicación
                         </h5>
                     </div>
                     <div class="card-body p-4">
-                        <form method="POST" action="{{ url_for('editar_perfil') }}" novalidate>
-                            {{ profile_form.hidden_tag() }}
-                            
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="nombre" class="form-label small fw-semibold">Nombre Completo</label>
-                                    {{ profile_form.nombre(class="form-control form-control-sm", id="nombre", placeholder="Nombre...", style="border-radius: 8px;") }}
-                                    {% if profile_form.nombre.errors %}
-                                        {% for error in profile_form.nombre.errors %}
-                                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="email" class="form-label small fw-semibold">Correo Electrónico</label>
-                                    {{ profile_form.email(class="form-control form-control-sm", id="email", placeholder="Correo...", style="border-radius: 8px;") }}
-                                    {% if profile_form.email.errors %}
-                                        {% for error in profile_form.email.errors %}
-                                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">Modo Oscuro</h6>
+                                <p class="text-muted small mb-0">Alterna la visualización del sistema entre el tema claro y oscuro.</p>
                             </div>
-                            
-                            <div class="text-end mt-4">
-                                {{ profile_form.submit(class="btn btn-primary btn-sm px-4 fw-semibold", style="background-color: #00409A; border-color: #00409A; border-radius: 8px;") }}
+                            <div class="form-check form-switch fs-4">
+                                <input class="form-check-input" type="checkbox" role="switch" id="toggleDarkModeSwitch" style="cursor: pointer;">
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Tarjeta: Cambio de Contraseña -->
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-header bg-white border-bottom p-3">
-                        <h5 class="card-title fw-bold mb-0 text-dark">
-                            <i class="bi bi-key-fill text-primary me-2"></i>Seguridad de la Cuenta
-                        </h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <form method="POST" action="{{ url_for('cambiar_password_perfil') }}" novalidate>
-                            {{ password_form.hidden_tag() }}
-                            
-                            <div class="mb-3">
-                                <label for="current_password" class="form-label small fw-semibold">Contraseña Actual</label>
-                                <div class="position-relative">
-                                    {{ password_form.current_password(class="form-control form-control-sm pe-5", id="current_password", placeholder="Ingrese su contraseña actual...", style="border-radius: 8px;") }}
-                                    <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock"></i></span>
-                                </div>
-                                {% if password_form.current_password.errors %}
-                                    {% for error in password_form.current_password.errors %}
-                                        <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                                    {% endfor %}
-                                {% endif %}
-                            </div>
-
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="new_password" class="form-label small fw-semibold">Nueva Contraseña</label>
-                                    <div class="position-relative">
-                                        {{ password_form.new_password(class="form-control form-control-sm pe-5", id="new_password", placeholder="Mínimo 6 caracteres...", style="border-radius: 8px;") }}
-                                        <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-lock-fill"></i></span>
-                                    </div>
-                                    {% if password_form.new_password.errors %}
-                                        {% for error in password_form.new_password.errors %}
-                                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="confirm_password" class="form-label small fw-semibold">Confirmar Nueva Contraseña</label>
-                                    <div class="position-relative">
-                                        {{ password_form.confirm_password(class="form-control form-control-sm pe-5", id="confirm_password", placeholder="Repita la nueva contraseña...", style="border-radius: 8px;") }}
-                                        <span class="position-absolute end-0 top-50 translate-middle-y me-3 text-muted" style="pointer-events: none;"><i class="bi bi-shield-fill-check"></i></span>
-                                    </div>
-                                    {% if password_form.confirm_password.errors %}
-                                        {% for error in password_form.confirm_password.errors %}
-                                            <div class="text-danger small mt-1"><i class="bi bi-info-circle me-1"></i>{{ error }}</div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            <div class="text-end mt-4">
-                                {{ password_form.submit(class="btn btn-primary btn-sm px-4 fw-semibold", style="background-color: #00409A; border-color: #00409A; border-radius: 8px;") }}
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
 
+    <style>
+        .animate-gear {
+            animation: spin-gear 4s linear infinite;
+        }
+        @keyframes spin-gear {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+
+    <script>
+        // Función global para cambiar entre pestañas de configuración
+        window.showConfigTab = function(tabName) {
+            // Ocultar todos los contenidos de pestaña
+            document.querySelectorAll('.config-tab-content').forEach(el => {
+                el.classList.add('d-none');
+            });
+            // Quitar clase activa de todos los botones
+            document.querySelectorAll('.list-group-item-action').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            if (tabName === 'welcome') {
+                document.getElementById('content-welcome').classList.remove('d-none');
+            } else {
+                // Mostrar el contenido seleccionado
+                document.getElementById(`content-${tabName}`).classList.remove('d-none');
+                // Activar el botón seleccionado
+                document.getElementById(`tab-${tabName}-btn`).classList.add('active');
+                // Guardar última pestaña activa en localStorage
+                localStorage.setItem('active-config-tab', tabName);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar si venimos desde el sidebar con ?clear=1 para limpiar pestaña activa
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('clear')) {
+                localStorage.removeItem('active-config-tab');
+            }
+
+            // Restaurar pestaña activa anterior o defecto 'welcome' (ninguna seleccionada)
+            const activeTab = localStorage.getItem('active-config-tab') || 'welcome';
+            window.showConfigTab(activeTab);
+
+            // Lógica de Modo Oscuro
+            const darkModeSwitch = document.getElementById('toggleDarkModeSwitch');
+            if (darkModeSwitch) {
+                // Estado inicial según preferencia guardada
+                const currentTheme = localStorage.getItem('theme') || 'light';
+                darkModeSwitch.checked = currentTheme === 'dark';
+
+                // Alternar el tema al hacer click
+                darkModeSwitch.addEventListener('change', function() {
+                    const newTheme = this.checked ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-bs-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                    
+                    // Mostrar notificación
+                    const msg = newTheme === 'dark' ? 'Modo oscuro activado.' : 'Modo claro activado.';
+                    showToast(msg, 'success');
+                });
+            }
+        });
+    </script>
 </main>
 {% endblock %}
